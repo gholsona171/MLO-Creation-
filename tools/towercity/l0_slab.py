@@ -75,6 +75,15 @@ for lot, raw in EDGE.items():
     c = Vector((float(np.mean([p[0] for p in pts])), float(np.mean([p[1] for p in pts])), float(np.mean([p[2] for p in pts]))))
     vis = slab_mesh(pts, conc, 0.6, HOLES.get(lot, [])); vis.data.transform(Matrix.Translation(-c))
     root, lo, hi = K.new_drawable(f'tc_lot_{lot}', [vis], uv=0.25)
+    LO = {'east': (71.0, -884.0), 'west': (-78.897, -827.328)}[lot]; hh = np.radians(69.5)   # the flags' joints run with the buildings
+    for o in root.children_recursive:                       # (the kit projects on world x / y: joints at 20.5 deg to every wall)
+        if o.type == 'MESH' and o.sollum_type == 'sollumz_drawable_model':
+            me = o.data; uvl = me.uv_layers[0]
+            for f in me.polygons:
+                if abs(f.normal.z) < 0.5: continue
+                for li in f.loop_indices:
+                    co = me.vertices[me.loops[li].vertex_index].co; x, y = co.x + c.x - LO[0], co.y + c.y - LO[1]
+                    uvl.data[li].uv = ((x * np.cos(hh) + y * np.sin(hh)) * 0.25, (-x * np.sin(hh) + y * np.cos(hh)) * 0.25)
     for o in root.children_recursive:                       # exterior model: vertex colour 1 (interior values crush outdoor light)
         if o.type == 'MESH' and o.sollum_type == 'sollumz_drawable_model':
             for a in o.data.color_attributes: cc = np.ones(len(a.data) * 4, np.float32); a.data.foreach_set('color', cc)

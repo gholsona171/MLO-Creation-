@@ -46,15 +46,15 @@ local PED_POINTS_OFF = {
 }
 
 -- the exterior clean-up's zones outside the lots (work/ext_plan.py, tower lot frame u / v, world z): the San Andreas Ave branch into
--- the old Maze Bank car park (deck level) and the old car-park drives off Power St (street level). roads: traffic lanes off;
--- peds: ped path points off; nav: a navmesh block (ambient peds never path there). The branch's road and kerbs are gone and the
--- deck ends at its barrier (u 73.0): only the part beyond the barrier is blocked to walkers, the new sidewalk stays walkable.
+-- the old Maze Bank car park (deck level) and the old car-park drives off Power St (street level, now plaza). roads: traffic lanes
+-- off; nav: a navmesh block (ambient peds never path there) - only beyond the deck's new edge (its barrier, u 73.0), so the new
+-- sidewalk stays walkable. NO per-tile SetPedPathsInArea: ~140 small ped-path switches in one go crashed the game on load
+-- (GTA5_b3258.exe+64323F, 2026-10-24 - bisected on the rig); the navmesh block does the job for walkers.
 local TOWER = vector2(-78.897, -827.328)
 local OFF_ZONES = {
     { u = { 66.0, 79.0 }, v = { -53.0, -35.85 }, z = { 41.0, 47.0 }, roads = true },                 -- the branch road (any lane on it)
-    { u = { 66.0, 73.0 }, v = { -53.0, -35.85 }, z = { 41.0, 47.0 }, peds = true, nav = true },      -- beyond the deck's new edge
+    { u = { 66.0, 73.0 }, v = { -53.0, -35.85 }, z = { 41.0, 47.0 }, nav = true },                   -- beyond the deck's new edge
     { u = { 3.0, 40.5 }, v = { -77.2, -61.0 }, z = { 28.5, 32.0 }, roads = true },                   -- the old drives (now plaza)
-    { u = { 1.5, 34.2 }, v = { -64.45, -58.0 }, z = { 28.0, 32.0 }, peds = true },                   -- the old car-park doors' approach
 }
 
 CreateThread(function()
@@ -63,12 +63,6 @@ CreateThread(function()
         local vm, um = (Z.v[1] + Z.v[2]) / 2, (Z.u[1] + Z.u[2]) / 2
         local a, b = W(TOWER, Z.u[1], vm), W(TOWER, Z.u[2], vm)
         if Z.roads then SetRoadsInAngledArea(a.x, a.y, Z.z[1], b.x, b.y, Z.z[2], Z.v[2] - Z.v[1], false, false, false) end
-        if Z.peds then                                                -- ped paths take world-axis boxes: the zone in 1.5 m tiles
-            for u = Z.u[1] + 0.75, Z.u[2], 1.5 do for v = Z.v[1] + 0.75, Z.v[2], 1.5 do
-                local p = W(TOWER, u, v)
-                SetPedPathsInArea(p.x - 0.75, p.y - 0.75, Z.z[1], p.x + 0.75, p.y + 0.75, Z.z[2], false, 0)
-            end end
-        end
         if Z.nav then local c = W(TOWER, um, vm); AddNavmeshBlockingObject(c.x, c.y, (Z.z[1] + Z.z[2]) / 2, Z.u[2] - Z.u[1], Z.v[2] - Z.v[1], Z.z[2] - Z.z[1], 69.5, true, 7) end
     end
     for _, L in ipairs(LOTS) do

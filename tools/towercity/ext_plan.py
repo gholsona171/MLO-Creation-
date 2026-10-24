@@ -45,6 +45,8 @@ KERB_U = 79.05                              # the San Andreas deck's west kerb f
 A_V = (-53.0, -35.85)                       # from the straight sidewalk stretch's north end to the planter island's kerb face
 A_ALL = rect(66.0, KERB_U, *A_V)            # everything of the branch west of the kerb line
 A_STRUCT = rect(66.0, 74.0, *A_V)           # the deck structure west of the deck edge (the barrier line u 73.0)
+A_UNDER = rect(66.0, 74.0, -36.0, -30.0)     # the old building's wall corner under the planter island north of the branch (u 72.3 .. 73.1,
+                                             # z 31.3 .. 42.9): with the branch gone it hung in the air as a thin slab and a 'pole'
 A_MARK = [rect(79.65, 84.75, -52.5, -35.85), rect(85.45, 92.5, -52.5, -35.85)]   # turn dashes /
                                             # arrows on the main deck (the edge line u 79.3 and the lane line u 85.1 stay)
 A_SRC = (-61.0, -53.0)                      # the clone source: the straight stretch south of the mouth (no dropped kerb, probed)
@@ -79,6 +81,7 @@ def rules():
     cut = [
         {'name': 'A branch: Maze Bank leftovers', 'models': DT1_11, 'poly': W_(A_ALL), 'z': [10.0, 60.0], 'col': True, 'col_files': 'dt1_11'},   # + the pit's walls
         # (collision: the Maze Bank block's files only - the street's sidewalk under the deck is in the road files and stays)
+        {'name': 'A island: old walls under it', 'models': DT1_11, 'poly': W_(A_UNDER), 'z': [10.0, 43.05], 'col': True, 'col_files': 'dt1_11'},
         {'name': 'A branch: road, kerbs, decals', 'models': r'^dt1_rd1_r1_(14|ovly_00)$', 'poly': W_(A_ALL), 'z': [38.5, 60.0], 'col': True},
         {'name': 'A branch: structure + barrier corner', 'models': r'^dt1_rd1_(fwy02|r2_fwy_ovly_02)$', 'poly': W_(A_STRUCT), 'z': [38.5, 60.0], 'col': True},
         {'name': 'A turn dashes / arrows on the deck', 'models': r'^dt1_rd1_r1_(14|ovly_00)$', 'polys': [W_(p) for p in A_MARK], 'z': [42.5, 44.0], 'mat': 'marking', 'col': False},
@@ -97,7 +100,7 @@ def rules():
              'shift': list(Wd(0.0, PIL_DV)) + [GROUND_DZ], 'top': [41.7 + GROUND_DZ, SOFFIT + 0.02],
              'col': True, 'col_z': [31.0, 40.8], 'col_nz_max': 0.5}]   # collision: the column's walls under the cap beam (40.87) only
     ents = [{'name': 'A ivy on the old walls', 'poly': W_(A_ALL), 'z': [32.0, 41.0]}, {'name': 'B ivy on the block', 'poly': W_(B_ENTS), 'z': [32.0, 41.0]}]
-    occl = [W_(A_ALL), W_(B_BLOCK), W_(B_DRIVE)]
+    occl = [W_(A_ALL), W_(A_UNDER), W_(B_BLOCK), W_(B_DRIVE)]
     return {'_note': 'written by work/ext_plan.py - do not edit by hand', 'cut': cut, 'clone': clone, 'move': move, 'ents': ents, 'occl': occl,
             'ext_only': ['dt1_rd1_fwy02', 'dt1_rd1_r2_fwy_ovly_02', 'dt1_rd1_r1_12', 'dt1_rd1_r1_ovly_23'],     # cut by these rules only (never by the lot)
             'b_tarmac': [[list(W(p[0], p[1])) for p in poly] for poly in b_tarmac()]}       # world (x, y): the 'over' test of the decal rule
