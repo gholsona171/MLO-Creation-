@@ -24,12 +24,8 @@ def seen(o, d, dist=250.0):
         p = loc + d * 1e-3; left -= t + 1e-3
     return None
 LV = {'L2': (36.4, 42.4), 'L3': (43.6, 49.6)}; BU, BV = 78.0, 54.0
-WIN = []                                                    # the street walls' window bays on levels 2 and 3 (l2_build.WIN's rule)
-for axis, at, a, b in (('v', -BV, -BU, -22.0), ('v', -BV, 22.0, BU), ('v', BV, -BU, BU), ('u', -BU, -BV, BV), ('u', BU, -BV, BV)):
-    for c in np.arange(a + 7.5, b - 3.0, 7.5):
-        if axis == 'v' and at == BV and abs(c) < 26.0 + 0.3 + 3.1: continue
-        if axis == 'u' and -4.0 - 3 < c < 4.0 + 3: continue
-        for z0 in (36.4, 43.6): WIN.append((axis, at, c - 2.6, c + 2.6, z0 + 1.0, z0 + 4.6))
+LAY = json.load(open(WK / 'l2/l2_layout.json'))
+WIN = [(ax, at, a0, a1, z0, z1) for ax, at, out, a0, a1, z0, z1 in LAY['windows'] if z0 > 35.0]   # the street walls' windows on levels 2 / 3 (l2_build.WIN, piers and all)
 def exit_kind(o, d):
     ts = [((math.copysign(BU, d[0]) - o[0]) / d[0], 'u') if abs(d[0]) > 1e-9 else (1e9, 'u'), ((math.copysign(BV, d[1]) - o[1]) / d[1], 'v') if abs(d[1]) > 1e-9 else (1e9, 'v')]
     t, ax = min(ts); p = o + d * t
@@ -42,7 +38,7 @@ def dirs(n=600):
 D = dirs()
 def grid(a, b):
     n = max(2, math.ceil((b - a - 0.8) / 1.5) + 1); return [a + 0.4 + (b - a - 0.8) * k / (n - 1) for k in range(n)]
-LAY = json.load(open(WK / 'l2/l2_layout.json')); pts = []
+pts = []
 for name, rs in LAY['upper_check']['rooms'].items():
     zf, zc = LV[name.split()[1]]
     for a, b, c, d in rs:

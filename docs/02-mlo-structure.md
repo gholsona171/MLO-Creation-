@@ -60,6 +60,16 @@
 ## Hiding vanilla buildings and LODs
 - Hide a vanilla LOD by swapping its archetype for our own empty model in our ytyp (not lodDist 1, not a .ydr stand-in).
 - Exterior lights of removed buildings fade at 60 m: remove their LOD lights too (`l0_lodlights.py` in Tower City).
+- **Swap a LOD whose every descendant is gone - in EVERY ymap, the road ymaps included** (Tower City, 2026-10-24: "dark props
+  floating in the air from far away, gone when you get close"). The removed roofs' AC units, masts and dishes were HD children of
+  the ROAD ymap's prop-combo LODs (`dt1_props_combo0412_06_lod` ...), which the level-0 rule never touched ("road LODs stay"): the
+  HD went, the LOD kept drawing them at distance. Rule (l0_maps.py): walk each LOD / SLOD1's descendants (parentIndex points into
+  the `<parent>` ymap; a LOD's SLOD1 sits in the same ymap); all removed -> swap it to the empty model. Leaves you have no copy of
+  count as kept (conservative). A LOD/SLOD1 with only SOME descendants removed keeps its entity; cut its MODEL by the lot outline
+  instead (l0_cut_lod.py on the district dictionary that holds it - find it with `arch_dict.ps1`, the archetype's
+  `drawableDictionary`). Tower City: 70 LODs swapped, 6 prop-combo SLOD1 / LOD models cut.
+- Find a floating thing's position from two or three screenshots: set a scripted camera, then `GetScreenCoordFromWorldCoord` on a
+  3 m grid of candidate points and keep those landing on the thing's pixel in every view (the rays cross at the thing).
 
 ## Stairs
 - 0.20 m rise / 0.27 m going, ramp collision under the treads. Size the stair first, then build the shaft around it.
@@ -188,6 +198,49 @@ Two ways vanilla collision survives a lot cut and blocks cars with nothing visib
 - Find such walls in game with horizontal rays per shape-test flag (only flag 1 hits = map), then
   `DisableInterior(GetInteriorAtCoords(...), true)` as a diagnostic: if the ray clears, it is the interior.
 
+## Clearing the EDGES of a cleared block (Tower City exterior review, 2026-10-24)
+A lot outline traced at the kerb keeps everything outside it - including the old building's pieces that stood outside it. The
+owner found them all from the street: a car-park entrance block (PARKING letters, mesh gates, a louvred vent wall) standing in
+front of the new portico, a road branch on a freeway deck running into the new facade, a deck pillar with no collision in the new
+garage's driveway. Rules (Tower City `work/ext_plan.py` -> `plan/ext_cuts.json`, applied by `ext_rules.py` inside l0_cut / l0_col):
+- **Walk the outline from the street before building.** Anything of the old block's own models (`dt1_11_*`) left outside the lot
+  is a leftover. Find which model draws a thing by hiding candidates one at a time (`CreateModelHide(x, y, z, r, hash, true)`,
+  screenshot, `RemoveModelHide`) - the PARKING block was the plaza model's part outside the lot, not a "parking" model.
+- **Zone rules, not a bigger lot**: per zone a polygon + height band (+ a material regex) and the models it applies to (regex).
+  A height band lets a deck-level zone leave the street under it alone; a material rule (`road|marking|damage`) takes a drive's
+  tarmac and paint and leaves its kerbs and planters. Models that only need zone rules (the freeway structure, the street model)
+  are flagged `ext_only` so the lot outline never cuts them.
+- **Close a cut road with Rockstar's own edge**: the deck's west edge across the removed branch mouth is the sidewalk + kerb +
+  barrier of the straight stretch beside it, CLONED (faces in a source box copied with a shift, clipped to the gap) - drawable and
+  collision by the same rule. Pick a source stretch with no dropped kerb (probe it). Cloned / moved faces are protected from every
+  later cut (a bmesh face layer), or the lot cut eats them again.
+- **Moving a vanilla piece** (a pillar in a driveway): split its faces (material regex: never the cap beam over it), shift, stretch
+  the top to the deck soffit if the new spot has no cap; its collision moves by the same rule (walls only: `col_nz_max`, below the
+  cap). Keep it on the same structural line (the deck edge) and well clear of the doors' turning paths.
+- **What a removed piece hid**: the branch deck covered the old car park's down-ramp pit (to z 15.9, drawn only by the removed
+  interior). Probe the ground under every piece you remove (rays down per 1 m, collision + material) BEFORE cutting it; close
+  pits with ground at the neighbours' height.
+- **New paving that meets kerbs exactly**: copy the removed tarmac's own BASE triangles (the material that tiles the drive; patches,
+  damage, dirt, blends and paint are overlays on top of it - copying them all clashed) 12 mm up as the paving. Then it meets every
+  kerb and planter with no gap and no overlap.
+- Paving over a drive mouth stays flush with the street: bollards on the mouth line make it plaza, not a driveway.
+- Switch the zones' AI off in script (`area_clear.lua` OFF_ZONES: roads in an angled area, ped paths in 1.5 m tiles - an axis box
+  around an angled zone switches off the neighbouring sidewalk too, a navmesh block only beyond the new edge).
+- Remove occluders over every zone too, and test triangles by overlap (21 points + corners), boxes by a 5 x 5 footprint grid:
+  centre-only tests miss big pieces that span an outline (`l0_occl.ps1`, every `*occl*` ymap near the lots, best-ranked copy).
+
+## The lot slab's edge (Tower City, item 6, 2026-10-24)
+- A slab draped from heights at its outline's CORNERS only is a straight line between corners up to 99 m apart; the sidewalk
+  beside it is not: on Alta St the slab stood up to 1.18 m proud of the sidewalk ("a tan ring hovering round the base").
+- Sample the edge every 0.5 m at the ground 0.25 m OUTSIDE it (`lot_ground.py`): your own exterior paving where it is there, else
+  Rockstar's unedited collision - the LOWEST up-facing surface from 2 m under to 0.8 m over the old line (a deck over the edge, a
+  planter or hedge top never lifts it, a pit never drops it). Drape the inside on a 2 m grid from those samples (inverse distance,
+  d^-3); never move an edge vertex; the skirt runs down the subdivided edge (extrude the boundary, not the original corners).
+- Give it the read of the sidewalk round it (light grey 1 m flags), not a contrasting colour: anything different reads as a ring.
+- Gate: `tools/slab_edge_check.py` (slab top 0.1 m inside vs the ground 0.25 m outside, every metre): proven on the old slab
+  (116 + 27 points over 6 cm, worst 1.18 m) -> new slab 0 + 1 (a kerb crossing). After a re-drape, run the cross-drawable
+  check: a building's ground-level ledge that sat 3 cm over a sagging slab is now coplanar with the true ground.
+
 ## Signs (Tower City signage audit, 2026-10-24)
 - A sign is a panel 5 cm off a wall. Every one must lie on a free surface: not across a pilaster, a ceiling, a soffit, a frame, an
   opening (a sign over a doorway's void "floats"), and not taller than the band of wall it sits in (0.4 m over a door: 0.34 m sign).
@@ -217,6 +270,8 @@ Two ways vanilla collision survives a lot cut and blocks cars with nothing visib
   room) instead of one per opening, and a mirror portal (flags 4) per mirror.
 - Put corridor / partition walls that meet a street wall in the gaps between its window bays (work the bay grid out from the
   numbers first): a wall ending in a pane looks wrong from outside and cuts the window portal.
+  Don't trust a plan to do it: Tower City's tenant floors claimed it and four walls still met the glass. Make the window layout
+  read the partitions and put a stone pier wherever one lands in a bay (split the bay, drop pieces under 1.2 m), and check it.
 - Partitions must TOUCH, never overlap: two boxes overlapping at a corner put two same-facing faces on one plane (a sweep clash).
   Give each corner square to one wall.
 - Floor slabs meet at the walls' centre lines (no gap under a doorway, no overlap); ceilings the same.

@@ -7,6 +7,7 @@
        its name goes to work/l0_mlo_gone.json and l0_col.py ships its collision file (same name) empty
      * any other entity inside a lot (buildings, props, decals, block LODs)     -> archetype swapped to tc_empty
        (indices, parents and child counts stay intact, so the LOD tree is not broken)
+     * an entity outside the lots inside an exterior clean-up zone (plan/ext_cuts.json 'ents', ext_plan.py) -> tc_empty
      * car generators inside a lot                                                -> removed
      * car generators a buyer's resource removes from a file we also ship        -> removed (plan/buyer_ymap_edits.json)
      * a LOD / SLOD1 entity (any ymap, the road ymaps included) whose every descendant was removed above   -> tc_empty
@@ -24,6 +25,8 @@ POLYS = list(json.load(open(T / 'plan/lot_polys.json')).values())
 CUT = set(json.load(open(T / 'work/l0_cut_result.json'))['cut'])
 SLAB = json.load(open(T / 'work/slab/slab_info.json'))
 SKIP = {'dt1_lod', 'hei_dt1_lod'}
+import sys; sys.path.insert(0, str(T / 'work')); import ext_rules as ER    # (pure json + geometry here: bmesh is only used inside its Blender calls)
+EXT_ENTS = ER.R.get('ents', [])
 BUYER_CG = [q for v in json.load(open(T / 'plan/buyer_ymap_edits.json'))['cargen_remove'].values() for q in v]
 def inside(x, y):
     for poly in POLYS:
@@ -39,11 +42,14 @@ TREES = {}                       # every edited-or-not source ymap: name -> (tre
 for f in sorted(glob.glob(str(T / 'src/ymap/*.ymap.xml'))):
     name = os.path.basename(f)[:-9]
     if name in SKIP: continue
-    tree = E.parse(f); root = tree.getroot(); ents = root.find('entities'); rep = {'swap': 0, 'remove': 0, 'keep_cut': 0, 'cargen': 0, 'lod_gone': 0}
+    tree = E.parse(f); root = tree.getroot(); ents = root.find('entities'); rep = {'swap': 0, 'remove': 0, 'keep_cut': 0, 'cargen': 0, 'lod_gone': 0, 'ext': 0}
     if ents is not None:
         for e in list(ents):
-            p = e.find('position'); x, y = float(p.get('x')), float(p.get('y'))
-            if not inside(x, y): continue
+            p = e.find('position'); x, y, z = float(p.get('x')), float(p.get('y')), float(p.get('z'))
+            if not inside(x, y):
+                if e.get('type') != 'CMloInstanceDef' and any(r['z'][0] <= z <= r['z'][1] and ER.inside(r['poly'], x, y) for r in EXT_ENTS):
+                    e.find('archetypeName').text = 'tc_empty'; rep['ext'] += 1          # plan/ext_cuts.json 'ents' (ext_plan.py)
+                continue
             a = (e.findtext('archetypeName') or '').lower()
             if e.get('type') == 'CMloInstanceDef': e.set('tc_removed', '1'); rep['remove'] += 1; mlo_gone.add(a) if ('dt1_11' in a or 'dt1_12' in a) else None; continue
             if 'dt1_rd1' in name and e.findtext('lodLevel') in ('LODTYPES_DEPTH_LOD', 'LODTYPES_DEPTH_SLOD1', 'LODTYPES_DEPTH_SLOD2'): continue   # by the LOD pass below
@@ -154,6 +160,6 @@ for x in sorted(OUT.glob('*.xml')):
     if not dst.exists(): bad.append((x.name, res.stdout[-300:] + res.stderr[-300:]))
 json.dump(report, open(T / 'work/l0_maps_report.json', 'w'), indent=1)
 json.dump(sorted(mlo_gone), open(T / 'work/l0_mlo_gone.json', 'w'), indent=1)
-tot = {k: sum(v[k] for v in report.values()) for k in ('swap', 'remove', 'keep_cut', 'cargen', 'lod_gone')}
+tot = {k: sum(v[k] for v in report.values()) for k in ('swap', 'remove', 'keep_cut', 'cargen', 'lod_gone', 'ext')}
 print('L0_MAPS', len(report), 'ymaps edited', tot, 'compile failures', bad)
 print('L0_MAPS_PARTIAL', sorted(set((p['archetype'], p['gone'], p['of']) for p in PARTIAL)))

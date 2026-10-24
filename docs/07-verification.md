@@ -120,3 +120,49 @@ Jenkins hash) and diff entities and car generators against vanilla. Fold his cha
 - Pass = 1 m past the door line, both directions. Tool: C9Test/tc_topdoors.lua (generated from the layout's door props).
 - Prop review shots: aim from the room's centre toward the prop, not along the prop's heading (wall-hung props face the wall's
   normal, but many props' heading points into the wall they stand against).
+
+## Portal-aware gap check, signs, anchors (Tower City mall, 2026-10-24)
+Antonio found an open strip in the promenade's ceiling, black patches in three mirrors, signs through walls and soffits, floating
+chandeliers and a slit where a wall ended behind a window pane - all in a build whose plain gap check had passed. Four offline
+checks now run on the built files (`tools/towercity/`), each proven first on the defect it was written for:
+- **`mall_gap_check.py` (Blender) - what the game really DRAWS.** A ray from a point in room R sees a face only if it faces the
+  ray, is not see-through glass / a decal (the build saves each triangle's kind: `mats_*.npy`) and belongs to a drawable drawn from
+  there: R's own, or one of a room the ray entered through a portal (a portal to limbo draws the exterior models). Faces of other
+  drawables are passed (that is the "sky strip": the face exists but is not drawn from this room). A ray that ends seeing nothing
+  is a gap unless it left through a limbo portal. Pass 1: rooms on a 3 m grid, 150 directions. Pass 2: the seam scan along every
+  outer wall (0.25 m x 11 heights, out / +-30 deg / down-and-out). Pass 0: no inner wall meets a street wall inside a window.
+  Pass 3: mirrors (reflected rays from eye points must meet the mirror's own room before any portal). Proven: it flagged the
+  promenade's clear-glass crown (1,621 gap cells) and 2,440 black reflected rays in the old mirrors.
+  Points are kept only where the first face straight up and straight down is drawn from the room (a point above a vault's soffit
+  or inside a soffit box is not in the room) - otherwise every check near a ceiling is noise.
+- **`sign_check.py` - every sign against every triangle and prop.** CLIP (anything inside the panel's +-2.5 cm slab), FRONT
+  (anything within 1.5 m in front), VIEW (straight-on 2.5 m view a third hidden, or two thirds of all directions), WALL (nothing
+  behind it within 25 cm: it floats over an opening), TEXT (letters under 12 cm on a sign 1.5 m+ wide). The build records every
+  panel (`signs.json`). First run: 64 of 500 signs failed - over door openings, through ceilings, across pilasters.
+- **`hang_check.py` - nothing floats.** Every lamp, pendant, chandelier, hanging-sign rod and flag wire records its support point
+  and direction (`anchors.json`); an 8 cm ray from each must meet a face turned toward it. Proven on the old chandeliers (rod tops
+  9 m under the glass) and the light bars hung 25 cm off the court walls.
+- A window bay must never straddle an inner wall: the build splits a bay with a stone pier where any wall (ground units,
+  corridors, the tenant floors' partitions) meets the street wall (`l2_build.street_partitions`). Seventeen bays did
+  (three on the ground floor, fourteen on the tenant floors, whose plan said it had avoided them).
+
+## Exterior review from the street (Tower City, 2026-10-24)
+- Before cutting a removed building's leftovers, photograph every viewpoint the owner named and keep the cameras in a script
+  (`C9Test/tc_ext_after.sh <tag>`): the same cameras after the deploy make the before / after pairs.
+- Hold the clock in a thread for a whole shot run (`NetworkOverrideClockTime` every frame): one call per shot drifted to night
+  within a few shots (a time-sync resource).
+- Probe collision you are about to change BEFORE the build and keep the output: the driveway pillar's rays (`C9Test/tc_pillar.lua`-style,
+  horizontal rays per height at the old and the new spot) read 'none' at every height on the defect (its collision had been cut
+  by the apron outline), so the same probe after the build proves the move.
+- Height grids with material per cell (`GetShapeTestResultIncludingMaterial`, rays down every 1 m) show what lies under a piece you
+  remove: the car-park pit under the San Andreas branch (z 15.9) only showed this way.
+- **Sills and plinths follow the street, not the floor.** The mall's ground-floor sills were a fixed floor + 1.0 m; the street rises
+  1.5 m round the block, so on the high side the sill sat at or under the sidewalk (from inside you looked down past it to the
+  paving, the "light strip"; the sill top lay on the lot slab and the cross-drawable check flagged it once the slab was draped).
+  Read the street's edge heights (Tower City `plan/lot_edge_dense.json`) and set sill = max(floor + 1.0, street + 0.45), plinth top
+  = max(floor + 1.2, street + 0.3), per bay.
+- **Close every front's ends.** A storefront row's pier rule skipped the two ENDS of the court's fronts (where they meet the hall's
+  glass and the Eatery's front): a 25 cm slit from the floor up, and at the hall a 15 x 40 cm shaft from a shop out to the plaza.
+  Found only by the portal-aware pass-1 rays; a jamb now closes each end back to the shop's skin and out to the outer wall.
+- A Sollumz RE-import of built drawables trips on the embedded sign textures' mip chains ("Mip 7 has invalid layer size") - checks
+  must read the build's own exports (`tris_*.npy`), not re-import the ydr (Tower City's old `zfight_check.py`).

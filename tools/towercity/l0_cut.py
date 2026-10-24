@@ -7,8 +7,13 @@ Models listed in plan/footprint_cuts.json (written by tower_garage.py) are cut b
 (the west lot's outline takes in the freeway off-ramp: the freeway road inside the podium is cut by the podium's outline).
 Dry run (no export, nothing written; prints each model's dead / kept faces and where the dead ones lie):  ... -- --dry name1 ...
 Input: src/native/<name>.ydr  (+ its entity position from src/ymap)  Output: work/cut/<name>.ydr (shaders put back after);
-the dead/kept face counts are recorded in work/l0_cut_result.json 'cut' (the list assemble.sh streams)."""
+the dead/kept face counts are recorded in work/l0_cut_result.json 'cut' (the list assemble.sh streams).
+Exterior clean-up rules (plan/ext_cuts.json from ext_plan.py, applied by ext_rules.py before the lot cut): model-specific cuts in a
+polygon + height band (+ material), clones of Rockstar's own geometry across a closed gap, moved faces (the driveway pillar).
+Faces a rule moved or cloned are protected from every later cut. Models in its 'ext_only' list are cut by these rules only."""
 import bpy, bmesh, sys, json, re, glob
+sys.path.insert(0, 'C:/Users/anton/Documents/Codex/TowerCity/work')
+import ext_rules as ER
 import xml.etree.ElementTree as E
 from pathlib import Path
 from mathutils import Vector
@@ -32,9 +37,9 @@ def entity_pos(name):
     raise SystemExit('no entity for ' + name)
 names = sys.argv[sys.argv.index('--') + 1:]
 DRY = '--dry' in names; names = [n for n in names if n != '--dry']
-rep = {}; DEAD = {}
+rep = {}; DEAD = {}; EXTREP = {}
 for name in names:
-    org = entity_pos(name); polys = (FOOT[name] if name in FOOT else POLYS) + CURB.get(name, [])
+    org = entity_pos(name); polys = (FOOT[name] if name in FOOT else ([] if name in ER.EXT_ONLY else POLYS)) + CURB.get(name, [])
     bpy.ops.wm.read_homefile(use_empty=True)
     assert 'FINISHED' in bpy.ops.sollumz.import_assets(directory=str(SRC), files=[{'name': name + '.ydr'}])
     root = bpy.data.objects[name]; meshes = set()
@@ -46,6 +51,12 @@ for name in names:
     for mn, me_name in meshes:
         me = bpy.data.meshes[me_name]; mw = bpy.data.objects[mn].matrix_world
         bm = bmesh.new(); bm.from_mesh(me)
+        if not bm.verts: bm.free(); continue
+        inv0 = mw.inverted(); inv03 = inv0.to_3x3()
+        mats = [m.name if m else '' for m in me.materials]
+        ER.apply(bm, lambda co: (mw @ co) + org, lambda p: inv0 @ (p - org), lambda d: (inv03 @ d).normalized(),
+                 lambda f: mats[f.material_index] if f.material_index < len(mats) else '', name=name, report=EXTREP.setdefault(name, {}))
+        keep = ER.keep_layer(bm)
         lo = Vector((min((mw @ v.co).x for v in bm.verts), min((mw @ v.co).y for v in bm.verts), 0)) + org
         hi = Vector((max((mw @ v.co).x for v in bm.verts), max((mw @ v.co).y for v in bm.verts), 0)) + org
         inv = mw.inverted(); inv3 = inv.to_3x3()
@@ -55,7 +66,7 @@ for name in names:
                 if max(a.x, b.x) < lo.x - 1 or min(a.x, b.x) > hi.x + 1 or max(a.y, b.y) < lo.y - 1 or min(a.y, b.y) > hi.y + 1: continue
                 d = (b - a).normalized(); nrm = Vector((-d.y, d.x, 0))
                 bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=inv @ (a - org), plane_no=(inv3 @ nrm).normalized())
-        dead = [f for f in bm.faces if any(inside(p, *((mw @ f.calc_center_median()) + org).xy) for p in polys)]
+        dead = [f for f in bm.faces if not f[keep] and any(inside(p, *((mw @ f.calc_center_median()) + org).xy) for p in polys)]
         dead_n += len(dead); kept_n += len(bm.faces) - len(dead)
         for f in dead:
             c = (mw @ f.calc_center_median()) + org
@@ -63,9 +74,11 @@ for name in names:
             DEAD.setdefault(name, []).append([round(c.x, 3), round(c.y, 3), round(c.z, 3)])
         bmesh.ops.delete(bm, geom=dead, context='FACES'); bm.to_mesh(me); bm.free()
     rep[name] = (dead_n, kept_n)
+    if DRY: print('L0_CUT_EXT', name, json.dumps(EXTREP.get(name, {})), flush=True)
     if DRY: print('L0_CUT_DRY', name, 'footprint' if name in FOOT else 'lot', 'dead', dead_n, 'kept', kept_n, 'dead centres', [round(x, 2) for x in dlo], [round(x, 2) for x in dhi], flush=True); continue
     bpy.ops.object.select_all(action='DESELECT'); root.select_set(True); bpy.context.view_layer.objects.active = root
     assert 'FINISHED' in bpy.ops.sollumz.export_assets(directory=str(OUT), use_custom_settings=True, target_formats={'NATIVE'}, target_versions={'GEN8'}, limit_to_selected=True)
 if DRY: json.dump(DEAD, open(T / 'work/l0_cut_dry.json', 'w')); raise SystemExit(0)   # the dead faces' centres, for checking
 R = T / 'work/l0_cut_result.json'; res = json.load(open(R)); res['cut'].update(rep); json.dump(res, open(R, 'w'), indent=1)
+print('L0_CUT_EXT', json.dumps({k: v for k, v in EXTREP.items() if v}), flush=True)
 print('L0_CUT_PASS', json.dumps(rep), flush=True)

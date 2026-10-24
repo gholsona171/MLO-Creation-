@@ -24,3 +24,29 @@ GTA V install and the CodeWalker folder — change them for another PC.
 | `tc_fly.sh` | Rig: fly-through video along waypoints | `bash tc_fly.sh out.mp4 1.6 "u v z" "u v z" ...` |
 
 The project-specific build (rooms, partitions, layout tables) lives in the Tower City workspace (`work/tower_crown.py`, `work/tc_kit.py`).
+
+### Clearing a block's edges and its ground (Tower City exterior review, 2026-10-24) - in `towercity/`
+| Tool | What it does | Example |
+|---|---|---|
+| `extract_by_name.ps1` | Extracts game files by FILE NAME (best-ranked copy: patchday > dlc_patch > dlcpacks > base), resources re-saved as standalone RSC7 (a raw ydr extract will not import) | `-Out src/native -Names dt1_rd1_r1_12.ydr,dt1_rd1_fwy02.ydr` |
+| `arch_dict.ps1` | The ytyp, drawableDictionary and txd of named archetypes (which .ydd holds a LOD / SLOD1 model) | `-Names dt1_props_combo0109_slod` |
+| `face_dump.py` / `tri_dump.py` | Blender: every face centre / triangle of vanilla drawables in world space (+ material) - plan cuts from Rockstar's own geometry | `blender -b --python tri_dump.py -- src/native out.json name ...` |
+| `col_near.py` | Blender: which collision objects of which ybn reach a lot-frame box (finds a pillar's / wall's collision) | `-- dir u0 u1 v0 v1 z0 z1 names...` |
+| `ybn_in_zones.ps1` | Every downtown ybn with triangles in the clean-up zones (the files the collision cut must process) | `powershell -File ybn_in_zones.ps1` |
+| `ext_plan.py` + `ext_rules.py` | Zone rules for vanilla models: cut (polygon + height band + material), clone (Rockstar's own edge across a gap), move (a pillar), entity removal, occluder zones; applied inside `l0_cut.py` / `l0_col.py` | `py -3 ext_plan.py` |
+| `ext_build.py` / `ext_meta.py` | Our paving over removed drives (copied base-tarmac triangles + 12 mm), a removed block's footprint, a pit closed; bollards / benches as map entities | `blender -b --python ext_build.py` |
+| `lot_ground.py` + `l0_slab.py` | The lot slab's edge sampled every 0.5 m on the ground outside it; the inside draped from it | `py -3 lot_ground.py` |
+| `slab_edge_check.py` | Gate: slab edge vs the ground outside it, every metre (proven on the 1.18 m Alta St defect) | `py -3 slab_edge_check.py [slab dir]` |
+| `l0_occl.ps1` | Every vanilla occluder over the lots / zones, by overlap (not centre), from every `*occl*` ymap | `-Report` to list |
+| `l0_maps.py` | + the LOD rule: a LOD / SLOD1 whose every descendant is gone is swapped (the floating rooftop props) | assemble runs it |
+| `build_l0.sh` | Rebuilds every level-0 output from source + gates, then assembles (`ASSEMBLE=0` level 0 only) | `bash build_l0.sh` |
+
+### Mall interior gates (Tower City mall review, 2026-10-24) - in `towercity/`
+Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' portals / `gap_regions` / `windows` / `street_partitions` /
+`mirrors`, `signs.json`, `anchors.json`, all written by `tc_kit.export_all`); each one was proven on the defect it was written for.
+| Tool | What it does | Example |
+|---|---|---|
+| `mall_gap_check.py` | Blender: portal-aware light-gap audit - a face counts only where the game DRAWS it (own room, or a room reached through a portal / seen through its portal's rectangle); seam scan of every outer wall; windows straddling a wall; mirror reflections that would show black | `blender -b --python mall_gap_check.py [-- only=prom,avenue pass=2 dirs=150]`, `-- probe=room,x,y,z,dx,dy,dz` traces one ray |
+| `sign_check.py` | Every sign vs every triangle and prop: CLIP / FRONT / VIEW / WALL / TEXT | `py -3 sign_check.py --list [--debug name]` |
+| `hang_check.py` | Every hung / mounted fitting meets its support within 8 cm (lamps, pendants, chandeliers, hanging-sign rods, flag wires) | `py -3 hang_check.py --list` |
+| `upper_gap_check.py` | Upper floors' light-gap audit; now reads the window list (piers and raised sills included) from the layout | `blender -b --python upper_gap_check.py` |

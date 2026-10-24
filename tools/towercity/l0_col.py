@@ -2,8 +2,13 @@
 Triangles are split along the lot edges first; every face / primitive whose centre is inside a lot is deleted (the roads and
 the kept perimeter sidewalk stay). Ground triangles left touching a lot lose their procedural id (no weeds through our slab:
 the Cloud 9 lesson). Run one file per Blender process:  blender -b --python l0_col.py -- <name without .ybn>
-Input src/game/<name>.ybn  Output work/col/<name>.ybn"""
+Input src/game/<name>.ybn  Output work/col/<name>.ybn
+Exterior clean-up rules (plan/ext_cuts.json, ext_rules.py, the rules marked 'col'): cut zones (the San Andreas branch, the PARKING
+block), the deck-edge clone across the branch mouth and the moved driveway pillar are applied to every file BEFORE the lot cut;
+a box primitive that reaches any rule area is turned into triangles first. Moved / cloned faces are protected from the lot cut."""
 import bpy, bmesh, sys, json
+sys.path.insert(0, 'C:/Users/anton/Documents/Codex/TowerCity/work')
+import ext_rules as ER
 from pathlib import Path
 from mathutils import Vector
 T = Path(r'C:\Users\anton\Documents\Codex\TowerCity'); SRC = T / 'src/game'; OUT = T / 'work/col'; OUT.mkdir(parents=True, exist_ok=True)
@@ -29,12 +34,16 @@ def in_any(p):                                                    # our building
     if GONE: return True
     if ROAD and p.z > ELEV: return any(inside(q, p.x, p.y) for q in FOOT)
     return any(inside(q, p.x, p.y) for q in POLYS + FOOT)
+_NAME = sys.argv[sys.argv.index('--') + 1]
+EXT_AREAS = [q for r in ER.rules_for('cut', _NAME, True) for q in ER._polys(r)] + [r['src'] for r in ER.rules_for('clone', _NAME, True)]
+EXT_CIRC = [(Vector((*r['centre'], 0.0)), r['r'] + 0.5) for r in ER.rules_for('move', _NAME, True)]
+def in_ext(p): return any(ER.inside(q, p.x, p.y) for q in EXT_AREAS) or any((p.xy - c.xy).length <= rr for c, rr in EXT_CIRC)
 def near_any(p, d=0.6): return any(in_any(p + Vector((dx, dy, 0))) for dx in (-d, 0, d) for dy in (-d, 0, d))
 name = sys.argv[sys.argv.index('--') + 1]
 bpy.ops.wm.read_homefile(use_empty=True)
 assert 'FINISHED' in bpy.ops.sollumz.import_assets(directory=str(SRC), files=[{'name': name + '.ybn'}])
 ybn = next(o for o in bpy.data.objects if o.sollum_type == 'sollumz_bound_composite' and o.parent is None)
-prim = tri = deproc = 0; boxcut = [0]
+prim = tri = deproc = 0; boxcut = [0]; EXTREP = {}
 # keeper: a copy of one box / triangle object pushed 80 m under ground, used only if the cut leaves the file empty
 src = next((o for o in ybn.children_recursive if o.type == 'MESH' and o.sollum_type.startswith('sollumz_bound_poly_') and o.data.vertices), None)
 keeper = src.copy(); keeper.data = src.data.copy(); bpy.context.scene.collection.objects.link(keeper); keeper.parent = src.parent
@@ -58,9 +67,10 @@ def footprint_samples(vs, n=12):
 for nm in [o.name for o in ybn.children_recursive if o.name != 'TC_KEEPER']:
     ob = bpy.data.objects.get(nm)
     if ob is None or ob.type != 'MESH' or ob.sollum_type != 'sollumz_bound_poly_box' or not ob.data.vertices: continue
-    vs = [ob.matrix_world @ v.co for v in ob.data.vertices]; hit = [in_any(p) for p in footprint_samples(vs)]
-    if all(hit): bpy.data.objects.remove(ob, do_unlink=True); prim += 1
-    elif any(hit):
+    vs = [ob.matrix_world @ v.co for v in ob.data.vertices]; smp = footprint_samples(vs); hit = [in_any(p) for p in smp]
+    ext = any(in_ext(p) for p in smp)
+    if all(hit) and not ext: bpy.data.objects.remove(ob, do_unlink=True); prim += 1
+    elif any(hit) or ext:
         bm = bmesh.new(); bm.from_mesh(ob.data); bmesh.ops.triangulate(bm, faces=bm.faces[:]); bm.to_mesh(ob.data); bm.free()
         ob.data.transform(ob.matrix_basis); ob.matrix_basis.identity()     # bake its size / turn in: the cut planes below assume no scale
         ob.sollum_type = 'sollumz_bound_poly_triangle'; boxcut[0] += 1
@@ -74,6 +84,11 @@ for nm in [o.name for o in ybn.children_recursive if o.name != 'TC_KEEPER']:
         if in_any(c): bpy.data.objects.remove(ob, do_unlink=True); prim += 1
     elif ob.sollum_type == 'sollumz_bound_poly_triangle':
         bm = bmesh.new(); bm.from_mesh(ob.data)
+        inv0 = mw.inverted(); inv03 = inv0.to_3x3(); cm = [m.name if m else '' for m in ob.data.materials]
+        ER.apply(bm, lambda co: mw @ co, lambda p: inv0 @ p, lambda d: (inv03 @ d).normalized(),
+                 lambda f: cm[f.material_index] if f.material_index < len(cm) else '', name=name, collision=True, report=EXTREP)
+        keep = ER.keep_layer(bm)
+        if not bm.verts: bm.to_mesh(ob.data); bm.free(); continue
         vs = [mw @ v.co for v in bm.verts]
         lo = Vector((min(v.x for v in vs), min(v.y for v in vs), 0)); hi = Vector((max(v.x for v in vs), max(v.y for v in vs), 0))
         inv = mw.inverted(); inv3 = inv.to_3x3()
@@ -84,7 +99,7 @@ for nm in [o.name for o in ybn.children_recursive if o.name != 'TC_KEEPER']:
                 d = (b - a).normalized(); nrm = Vector((-d.y, d.x, 0))
                 bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=inv @ a, plane_no=(inv3 @ nrm).normalized())
         bmesh.ops.triangulate(bm, faces=bm.faces[:])          # collision must stay all triangles after the bisects
-        dead = [f for f in bm.faces if in_any(mw @ f.calc_center_median())]
+        dead = [f for f in bm.faces if not f[keep] and in_any(mw @ f.calc_center_median())]
         tri += len(dead); bmesh.ops.delete(bm, geom=dead, context='FACES'); bm.to_mesh(ob.data); bm.free()
         me = ob.data; clean = {}
         for f in me.polygons:
@@ -106,4 +121,5 @@ for ob in [o for o in ybn.children_recursive if o.sollum_type in ('sollumz_bound
 ybn.name = name
 bpy.ops.object.select_all(action='DESELECT'); ybn.select_set(True); bpy.context.view_layer.objects.active = ybn
 assert 'FINISHED' in bpy.ops.sollumz.export_assets(directory=str(OUT), use_custom_settings=True, target_formats={'NATIVE'}, target_versions={'GEN8'}, limit_to_selected=True)
+print('L0_COL_EXT', name, json.dumps(EXTREP), flush=True)
 print('L0_COL_PASS', json.dumps({name: [prim, tri, deproc, 'boxes cut ' + str(boxcut[0]), 'kept' if alive else 'EMPTY->keeper']}), flush=True)
