@@ -56,3 +56,4 @@ Optional moving parts are off (escalators), every access check is off (all floor
 
 ## Package name
 Name the zip after the resource (`tower_city.zip`), never `_test`: what we hand over is the release (Antonio, 2026-10-24).
+- Zip with `tools/shipping/zip_package.py` (forward-slash paths), never `Compress-Archive`: it writes backslash paths that Linux unzip tools mishandle, and most FiveM hosts run Linux.
