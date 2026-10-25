@@ -258,7 +258,42 @@ garage's driveway. Rules (Tower City `work/ext_plan.py` -> `plan/ext_cuts.json`,
   Rockstar's unedited collision - the LOWEST up-facing surface from 2 m under to 0.8 m over the old line (a deck over the edge, a
   planter or hedge top never lifts it, a pit never drops it). Drape the inside on a 2 m grid from those samples (inverse distance,
   d^-3); never move an edge vertex; the skirt runs down the subdivided edge (extrude the boundary, not the original corners).
-- Give it the read of the sidewalk round it (light grey 1 m flags), not a contrasting colour: anything different reads as a ring.
+- ~~Give it the read of the sidewalk round it (light grey flags)~~ - not enough. Antonio, 2026-10-24: "either your sidewalk colour
+  takes over the entire sidewalk, or you leave it to the base sidewalk colour - two different colours look crazy and patchy".
+  Our ground outside the buildings IS Rockstar's sidewalk: copy his material from the road model beside the lot (shader
+  `normal_spec_detail.sps`, its parameters, its sampler texture NAMES, textures NOT embedded - bind his road txd through the
+  archetype's `textureDictionary`), his UV scale + direction (median metres-per-UV of his faces, aligned with the street grid) and
+  his vertex colour 0 (inverse-distance mean of his nearest sidewalk corners). Tower City: `sidewalk_mat.py`, survey
+  `tools/sidewalk_dump.py` (west lot dc_sidewalk001, east dc_sidewalk004, txd dt1_rd1_1). The only exception is a deliberately
+  different plaza surface ending at a clean kerbed / banded edge.
+
+## Inside a lot there is ONE ground, and what you see is what you stand on (Tower City, Antonio's shots 71-81, 2026-10-24)
+Waist-deep in the Power St sidewalk, knee-deep in a planter's lawn, dark jagged patches and a red kerb piece "floating" in our
+paving, a hole beside the steps. All the same family: the drawn ground and the collision were cut by DIFFERENT rules.
+- A drawable whose entity origin is OUTSIDE a lot is never swapped and only cut if it is in the cut list - but the lot cut takes
+  the collision of EVERY file inside the lot. So Rockstar's street models reaching into the lot (sidewalks, old dropped kerbs,
+  road overlays) stayed drawn on/under the slab with no collision (you sink into them, they poke through), and the planters / hedges
+  we meant to keep whole lost their collision inside the lot (knee-deep in the lawn). Rules:
+  * every vanilla STREET model reaching into a lot is cut by the lot (drawable) - find them all from the drawn set (below), not a
+    keyword list; models cut only by their own rules (footprint / ext_only) also lose their street-level faces inside the lots
+    (a z band, so decks over the lot stay)
+  * every feature kept whole (planters, hedges, the freeway / off-ramp structure) keeps its collision: survey its drawn triangles
+    inside the lots (`kept_features.py`) and protect the collision faces on them from every cut (`ext_rules.on_kept`, l0_col; a box
+    primitive reaching one is turned into triangles first). A height rule ("road collision above z 34.5 stays") is not enough: the
+    off-ramp's low end dips under it.
+  * where our paving owns an area the lot slab has a HOLE there, and the slab's hole edge takes the paving's height (no two
+    surfaces on one spot, no step between them).
+- Gate: `tools/ground_check.py` - on the BUILT files, a 0.5 m grid round both lots, two looks (to z 50 for decks, to z 38.5 for the
+  street under them): the TOP up-facing drawn face (every vanilla model round the lots placed like the game - `drawn_dump.py` from
+  `near_entities.tsv` + the cut models + our exteriors) against the TOP up-facing collision face (every shipped ybn + every vanilla
+  ybn round the lots the resource does not ship, `ybn_near_lots.ps1`). MISMATCH (> 5 cm, under 2.2 m - above that it is something
+  you walk under), NOCOL (drawn, no collision), HOLE (inside our area: nothing drawn). It names the model and the collision file
+  per cluster; `ground_probe.py u,v` lists every face at a point. Proven first on the deployed build: it found the waist-deep sidewalk
+  (the off-ramp model drawn 1.3-2.2 m over the slab's collision), the knee-deep planters and the hole by the steps.
+- A rule edge near a curved Rockstar kerb or a road whose kerb is at an angle: clone his kerb BENT onto the line you need (clone kind
+  'bend', `ext_rules._bend`: the source strip is cut every 0.5 m across its line, copied along the target polyline - offset kept,
+  heights shifted by the target's foot height). Used for the San Andreas deck's new west kerb (following the road's gutter line) and
+  Power St's kerb across the old car-park mouths.
 - Gate: `tools/slab_edge_check.py` (slab top 0.1 m inside vs the ground 0.25 m outside, every metre): proven on the old slab
   (116 + 27 points over 6 cm, worst 1.18 m) -> new slab 0 + 1 (a kerb crossing). After a re-drape, run the cross-drawable
   check: a building's ground-level ledge that sat 3 cm over a sagging slab is now coplanar with the true ground.
@@ -306,3 +341,6 @@ garage's driveway. Rules (Tower City `work/ext_plan.py` -> `plan/ext_cuts.json`,
 - Light-gap audit on floors that open onto a glazed court: a ray that leaves through a shopfront and out of the vault's glass is
   not a hole. Classify rays by where they cross the frontage (opening / window) before counting gaps (Tower City
   `upper_gap_check.py`: 10,602 raw "gaps", 47 left after that, all single rays grazing a bay edge).
+
+## Room timecycle names must be lower case (2026-10-25)
+CodeWalker hashes a room's `timecycleName` exactly as written; the game looks timecycle modifiers up by the **lower-case** hash. A name with any capital (`INT_mall`, `MP_casino_apartment_exec`, `int_GasStation`) silently gives the room NO timecycle. On Tower City every room except the all-lower-case `carpark_dt1_03` ran with none for weeks, so the night bloom fixes did nothing. Write `tc.lower()` in the meta writer and gate it with a test over the built ytyp XML. Check in game: `GetInteriorRoomTimecycle(interior, room)` must equal `GetHashKey(name)` (GetHashKey lower-cases). Try presets live with `SetTimecycleModifier` first; it uses the right hash, so a live test can pass while the built room still fails.
