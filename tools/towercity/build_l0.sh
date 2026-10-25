@@ -19,7 +19,9 @@ CUT="dt1_11_decal_01 dt1_11_dt1_details dt1_11_dt1_details2 dt1_11_dt1_details3 
  dt1_11_hedge_d2_a dt1_11_hedge_d2_b dt1_11_hedge_d3 dt1_11_hedge_d3_b dt1_11_hedge_d4 dt1_11_hedge_d4_b dt1_11_hedge_d_1 dt1_11_hedge_d_2
  dt1_12_ground1 dt1_rd1_r1_ovly_24 hei_dt1_11_dt1_plaza hei_dt1_11_dt1_plaza_gr hei_dt1_11_glue_e
  dt1_rd1_r1_08 dt1_rd1_r1_10 dt1_rd1_r1_ovly_15 dt1_rd1_r1_14 dt1_rd1_r1_ovly_00 dt1_rd1_fwy05
- dt1_rd1_fwy02 dt1_rd1_r2_fwy_ovly_02 dt1_rd1_r1_12 dt1_rd1_r1_ovly_23"
+ dt1_rd1_fwy02 dt1_rd1_r2_fwy_ovly_02 dt1_rd1_r1_12 dt1_rd1_r1_ovly_23
+ dt1_rd1_r1_19 dt1_rd1_r6_28 dt1_rd1_r1_13 dt1_rd1_r1_ovly_27 dt1_rd1_r1_09 dt1_rd1_r1_ovly_20 dt1_rd1_r1_27 dt1_rd1_fur6
+ dt1_10_build1 dt1_10_build1_rail2"   # (last line: street models reaching into the lots, tools/ground_check.py)
 py -3 -c "import json; p='l0_cut_result.json'; r=json.load(open(p)); r['cut']={}; json.dump(r, open(p, 'w'), indent=1)"   # rebuilt below
 : > logs/l0_cut_all.log
 for n in $CUT; do
@@ -37,7 +39,7 @@ for a in "dt1_lod_slod3_children.ydd" "dt1_lod_slod3.ydr" "dt1_lod_5_20_emissive
          "dt1_lod_03_04_05_11_children.ydd dt1_props_combo0107_slod dt1_props_combo0108_slod dt1_props_combo0109_slod" \
          "dt1_lod_12_13_22_23_children.ydd dt1_props_combo0407_slod dt1_props_combo0412_slod" \
          "dt1_props_combo0407_slod_children.ydd dt1_props_combo0407_21_lod" \
-         "dt1_rd1_r1f_slod1_children.ydd hash_d50b466a" "dt1_lod_rd_children.ydd dt1_rd1_r1f_slod1"; do   # (last two: the moved pillar's LOD + SLOD1)
+         "dt1_rd1_r1f_slod1_children.ydd hash_d50b466a" "dt1_lod_rd_children.ydd dt1_rd1_r1f_slod1"          "dt1_10_slod_children.ydd hash_1977f283" "dt1_lod_01_02_09_10_children.ydd hash_0c19b59c"; do   # (last two: the footbridge's LOD + SLOD)   # (last two: the moved pillar's LOD + SLOD1)
   set -- $a; "$B" -b --python l0_cut_lod.py -- $a > logs/l0_cut_lod.log 2>&1
   grep -o "L0_LODCUT_PASS.*" logs/l0_cut_lod.log | cut -c1-160 || { echo "L0_CUT_LOD FAILED $1"; grep -A12 Traceback logs/l0_cut_lod.log; exit 1; }
   grep -o "L0_LODCUT_EXT.*" logs/l0_cut_lod.log >> logs/l0_cut_lod_ext.log
@@ -45,8 +47,11 @@ done
 py -3 -c "
 import json, re; L = open('logs/l0_cut_lod_ext.log').read(); bad = []
 for f, want in (('dt1_rd1_r1f_slod1_children.ydd', 24), ('dt1_lod_rd_children.ydd', 12)):   # the pillar's faces in its LOD / SLOD1
-    m = re.search(re.escape(f) + r' (\{.*\})', L); n = sum(sum(v.values()) for v in json.loads(m.group(1)).values()) if m else 0
+    m = re.search(re.escape(f) + r' (\{.*\})', L); n = sum(v.get('P driveway pillar (LOD)', 0) for v in json.loads(m.group(1)).values()) if m else 0
     print('LOD_MOVE', f, n, 'faces moved'); bad += [f] if n != want else []
+for f in ('dt1_10_slod_children.ydd', 'dt1_lod_01_02_09_10_children.ydd'):                # the footbridge's faces cut from its LOD / SLOD
+    m = re.search(re.escape(f) + r' (\{.*\})', L); n = sum(v.get('F footbridge (LOD + SLOD)', 0) for v in json.loads(m.group(1)).values()) if m else 0
+    print('LOD_CUT', f, n, 'footbridge faces cut'); bad += [f] if n == 0 else []
 raise SystemExit(1 if bad else 0)" || { echo 'LOD MOVE FAILED: the moved pillar is not moved in its LOD / SLOD1 - nothing deployed'; exit 1; }
 py -3 -c "
 import json; P=json.load(open('l0_lod_partial.json'))
@@ -67,5 +72,8 @@ py -3 ext_meta.py | grep "compile failures: \[\]" || { echo 'EXT_META FAILED'; e
 py -3 tools/slab_edge_check.py || { echo 'SLAB EDGE FAILED: the lot slab stands off the ground outside it (above) - nothing deployed'; exit 1; }
 py -3 cross_check.py || { echo 'CROSS FAILED: two drawables share a visible surface (above) - nothing deployed'; exit 1; }
 if [ "${ASSEMBLE:-1}" = 0 ]; then echo 'BUILD_L0_PASS (ASSEMBLE=0: level 0 built, nothing assembled or deployed)'; exit 0; fi
-bash assemble.sh
+DEPLOY=0 bash assemble.sh                                                        # the resource first, nothing on the rig yet
+py -3 tools/ground_check.py > logs/ground_check.log 2>&1 || { grep "GROUND_CHECK\|^    " logs/ground_check.log | head -40; echo 'GROUND CHECK FAILED: drawn ground and collision disagree (above) - nothing deployed'; exit 1; }
+grep "GROUND_CHECK_PASS\|allowed" logs/ground_check.log
+if [ "${DEPLOY:-1}" != 0 ]; then bash assemble.sh; fi
 echo BUILD_L0_PASS

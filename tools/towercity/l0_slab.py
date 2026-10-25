@@ -6,7 +6,9 @@ edge had a height at the outline's corners only (up to 99 m apart): on Alta St i
 INSIDE: draped from the edge on a 2 m grid - each inner node takes the inverse-distance (d^-3) mean of the edge heights, so the
 strip between a building and the street is the street's own height, rising or falling with it (playbook: drape a lot on its
 own ground). The edge itself is never moved. A 0.6 m skirt runs down the drawn edge (no slit where a kerb dips).
-SURFACE: paving_mat.py (light grey 1 m flags, the read of the sidewalk round it - the old tan concrete read as a ring).
+SURFACE: Rockstar's own sidewalk (sidewalk_mat.py: his material, texture names, UV scale + direction and vertex colours copied from the
+sidewalk round each lot - west dc_sidewalk001, east dc_sidewalk004); his textures bind through the archetype's txd (l0_maps.py).
+(2026-10-24: our own grey flags beside his darker sidewalk read as patchwork.)
 Authored in world space, then moved so each drawable is centred on its own origin (entity origin = lot centre).
 Run: blender -b --python l0_slab.py"""
 import bpy, bmesh, sys, json, numpy as np
@@ -20,8 +22,8 @@ import v13_kit as K, v13_materials as M
 from bl_ext.user_default.sollumz.sollumz_properties import SollumType
 from bl_ext.user_default.sollumz.ybn.collision_materials import create_collision_material_from_index
 from bl_ext.user_default.sollumz.tools.boundhelper import convert_objs_to_single_composite
-sys.path.insert(0, str(T / 'work')); import paving_mat
-conc = paving_mat.make(M)
+sys.path.insert(0, str(T / 'work')); import sidewalk_mat as SW
+SWM = SW.load()                                            # Rockstar's sidewalk materials, copied from his road model
 EDGE = json.load(open(T / 'plan/lot_edge_dense.json'))
 def export(root):
     bpy.ops.object.select_all(action='DESELECT'); root.select_set(True); bpy.context.view_layer.objects.active = root
@@ -60,6 +62,12 @@ def slab_mesh(pts, mat, skirt, holes=()):
             bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=a, plane_no=Vector((-dd.y, dd.x, 0)))
         dead = [f for f in bm.faces if f.normal.z > 0.5 and in_poly(hp, f.calc_center_median())]
         bmesh.ops.delete(bm, geom=dead, context='FACES')
+    if holes:                                               # where a hole is OUR paving (the B plaza), the slab's hole edge takes the paving's
+        import lot_ground as LG                             # height there: the two meet without a step
+        for e in [e for e in bm.edges if e.is_boundary]:
+            for v in e.verts:
+                z = next((zz for dx, dy in ((0, 0), (.05, 0), (-.05, 0), (0, .05), (0, -.05)) for zz in [LG.ours(v.co.x + dx, v.co.y + dy)] if zz is not None), None)
+                if z is not None: v.co.z = z
     me = bpy.data.meshes.new('slab'); bm.to_mesh(me); bm.free(); me.materials.append(mat)
     o = bpy.data.objects.new('slab', me); bpy.context.scene.collection.objects.link(o); return o
 def in_poly(poly, p):
@@ -69,24 +77,19 @@ def in_poly(poly, p):
         if (a.y > p.y) != (b.y > p.y) and p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x: c = not c
     return c
 HOLES = json.load(open(T / 'plan/slab_holes.json')) if (T / 'plan/slab_holes.json').exists() else {}
+HOLES.setdefault('west', []).extend(json.load(open(T / 'plan/ext_build.json'))['slab_holes'])   # the B plaza + notch: our paving there, not the slab
 info = {}
 for lot, raw in EDGE.items():
     pts = [tuple(p) for p in raw]
     c = Vector((float(np.mean([p[0] for p in pts])), float(np.mean([p[1] for p in pts])), float(np.mean([p[2] for p in pts]))))
-    vis = slab_mesh(pts, conc, 0.6, HOLES.get(lot, [])); vis.data.transform(Matrix.Translation(-c))
+    vis = slab_mesh(pts, SWM[SW.LOT_MAT[lot]], 0.6, HOLES.get(lot, [])); vis.data.transform(Matrix.Translation(-c))
     root, lo, hi = K.new_drawable(f'tc_lot_{lot}', [vis], uv=0.25)
-    LO = {'east': (71.0, -884.0), 'west': (-78.897, -827.328)}[lot]; hh = np.radians(69.5)   # the flags' joints run with the buildings
-    for o in root.children_recursive:                       # (the kit projects on world x / y: joints at 20.5 deg to every wall)
+    n = 0
+    for o in root.children_recursive:                       # his UVs (scale + street-grid direction) and his vertex colours
         if o.type == 'MESH' and o.sollum_type == 'sollumz_drawable_model':
-            me = o.data; uvl = me.uv_layers[0]
-            for f in me.polygons:
-                if abs(f.normal.z) < 0.5: continue
-                for li in f.loop_indices:
-                    co = me.vertices[me.loops[li].vertex_index].co; x, y = co.x + c.x - LO[0], co.y + c.y - LO[1]
-                    uvl.data[li].uv = ((x * np.cos(hh) + y * np.sin(hh)) * 0.25, (-x * np.sin(hh) + y * np.cos(hh)) * 0.25)
-    for o in root.children_recursive:                       # exterior model: vertex colour 1 (interior values crush outdoor light)
-        if o.type == 'MESH' and o.sollum_type == 'sollumz_drawable_model':
-            for a in o.data.color_attributes: cc = np.ones(len(a.data) * 4, np.float32); a.data.foreach_set('color', cc)
+            if not o.data.uv_layers: o.data.uv_layers.new()
+            n += SW.paint(o, Matrix.Translation(c) @ o.matrix_world)
+    assert n, 'no sidewalk faces painted'
     export(root)
     tri = []                                                # its triangles (world space) for the sweep / fly checks (tc_kit exports the same)
     for o in root.children_recursive:

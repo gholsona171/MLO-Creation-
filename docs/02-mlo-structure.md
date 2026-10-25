@@ -266,6 +266,11 @@ garage's driveway. Rules (Tower City `work/ext_plan.py` -> `plan/ext_cuts.json`,
   his vertex colour 0 (inverse-distance mean of his nearest sidewalk corners). Tower City: `sidewalk_mat.py`, survey
   `tools/sidewalk_dump.py` (west lot dc_sidewalk001, east dc_sidewalk004, txd dt1_rd1_1). The only exception is a deliberately
   different plaza surface ending at a clean kerbed / banded edge.
+  Two traps found on the rig: (1) his sidewalk texture is a STRIP texture - dc_sidewalk001 is 4 x 4 flags over u 0..0.9 plus a
+  cobble / drain band at u 0.9..1 that he lays along the kerb; tiled over a wide area the band repeats every 5 m. Cut the paving
+  every 0.9 tile across u and give each face u 0..0.9 inside its tile (the seam falls on a flag joint). Look at the texture first
+  (extract it: CodeWalker DDSIO.GetDDSFile; a texture missing from the model's txd lives in a parent, e.g. globalroads.ytd).
+  (2) Vertex colours: read and write `color_srgb` (what Sollumz stores in the file); `.color` is linearised and came out dark.
 
 ## Inside a lot there is ONE ground, and what you see is what you stand on (Tower City, Antonio's shots 71-81, 2026-10-24)
 Waist-deep in the Power St sidewalk, knee-deep in a planter's lawn, dark jagged patches and a red kerb piece "floating" in our

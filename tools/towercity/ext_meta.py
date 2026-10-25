@@ -9,7 +9,8 @@ import mlo_meta as MM
 OUT = MM.T / 'work/extfix'
 L = json.load(open(OUT / 'ext_layout.json'))
 ORG = (*L['origin'], 0.0); HEAD = L['heading']; D = L['drawables']; EXT = L['ext']
-MM.plain_ytyp('tc_ext_fix', EXT, D, 600, 300, OUT)
+import sidewalk_mat as SW
+MM.plain_ytyp('tc_ext_fix', EXT, D, 600, 300, OUT, txd=SW.TXD)            # its paving is Rockstar's sidewalk: his textures, from his road txd
 MM.ymap('tc_ext_fix', 'ent', [(n, D[n]['bb_lo'], D[n]['bb_hi']) for n in EXT], ORG, HEAD, OUT, 2702000000, 600, 600)
 h = math.radians(HEAD)
 p = OUT / 'tc_ext_fix.ymap.xml'; ym = ET.parse(p); root = ym.getroot(); es = root.find('entities'); proto = es[0]

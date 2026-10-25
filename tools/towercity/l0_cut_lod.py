@@ -21,7 +21,7 @@ def joaat(t):
         h = (h + ch) & 0xFFFFFFFF; h = (h + (h << 10)) & 0xFFFFFFFF; h ^= h >> 6
     h = (h + (h << 3)) & 0xFFFFFFFF; h ^= h >> 11; h = (h + (h << 15)) & 0xFFFFFFFF; return h
 ORG = {}
-for ym in ('dt1_lod', 'dt1_rd1'):
+for ym in ('dt1_lod', 'dt1_rd1', 'dt1_10'):
     for e in E.parse(T / f'src/ymap/{ym}.ymap.xml').getroot().iter('Item'):
         a = (e.findtext('archetypeName') or '').lower(); p = e.find('position')
         if a and p is not None and a not in ORG:
@@ -59,8 +59,9 @@ for d in drawables:
         names = {dn} | {w for w in want if 'hash_%08x' % joaat(w) == dn}
         ER.apply_lod(bm, lambda co: (mw @ co) + org, lambda p: inv0 @ (p - org),
                      lambda f: mats[f.material_index] if f.material_index < len(mats) else '', names, report=EXTREP.setdefault(dn, {}))
+        ER.apply_lodcut(bm, lambda co: (mw @ co) + org, lambda p: inv0 @ (p - org), lambda d: (inv0.to_3x3() @ d).normalized(), names, report=EXTREP.setdefault(dn, {}))
         keep = ER.keep_layer(bm)
-        if names & LODN: bm.to_mesh(me); bm.free(); continue          # an exterior rule's LOD (its HD model is ext_only): moved, never lot-cut
+        if names & (LODN | ER.lodcut_names()): bm.to_mesh(me); bm.free(); continue          # an exterior rule's LOD (its HD model is ext_only): moved, never lot-cut
         vs = [(mw @ v.co) + org for v in bm.verts]
         lo = Vector((min(v.x for v in vs), min(v.y for v in vs), 0)); hi = Vector((max(v.x for v in vs), max(v.y for v in vs), 0))
         inv = mw.inverted(); inv3 = inv.to_3x3()

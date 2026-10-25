@@ -43,16 +43,12 @@ class Ground:
             a = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / d; b = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / d; c = 1 - a - b
             if min(a, b, c) >= -1e-9: out.append(a * z1 + b * z2 + c * z3)
         return out
-TAR = None
 def ours(x, y):
-    """our exterior paving's top at a world point (ext_build.py: drive_z / notch_z + 12 mm), None where it is not ours."""
-    global TAR
-    if TAR is None: TAR = EP.b_tarmac()
+    """our exterior paving's top at a world point (ext_build.py: the B plaza / notch, the branch pit patch), None where it is not ours."""
     u, v = EP.L(x, y)
-    z = EP.drive_z(u, v, TAR)
-    if z is None and EP.inside(EP.NOTCH, u, v): z = EP.notch_z(u, v, TAR)
-    if z is None and EP.inside(EP.A_PATCH, u, v): z = EP.patch_z(u, v)
-    return None if z is None else z + 0.012
+    z = EP.b_ground_z(u, v)
+    if z is None and EP.inside(EP.A_PATCH, u, v): z = EP.patch_z(u, v) - 0.004
+    return z
 def dense(raw, G):
     ref = smooth(raw); n = len(ref); out = []; kinds = {'ours': 0, 'vanilla': 0, 'kept': 0}
     ccw = area(ref) > 0

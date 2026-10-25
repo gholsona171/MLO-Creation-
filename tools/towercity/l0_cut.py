@@ -57,6 +57,7 @@ for name in names:
         ER.apply(bm, lambda co: (mw @ co) + org, lambda p: inv0 @ (p - org), lambda d: (inv03 @ d).normalized(),
                  lambda f: mats[f.material_index] if f.material_index < len(mats) else '', name=name, report=EXTREP.setdefault(name, {}))
         keep = ER.keep_layer(bm)
+        if not bm.verts: bm.to_mesh(me); bm.free(); continue          # the exterior rules took the whole mesh
         lo = Vector((min((mw @ v.co).x for v in bm.verts), min((mw @ v.co).y for v in bm.verts), 0)) + org
         hi = Vector((max((mw @ v.co).x for v in bm.verts), max((mw @ v.co).y for v in bm.verts), 0)) + org
         inv = mw.inverted(); inv3 = inv.to_3x3()

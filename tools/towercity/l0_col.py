@@ -37,7 +37,7 @@ def in_any(p):                                                    # our building
 _NAME = sys.argv[sys.argv.index('--') + 1]
 EXT_AREAS = [q for r in ER.rules_for('cut', _NAME, True) for q in ER._polys(r)] + [r['src'] for r in ER.rules_for('clone', _NAME, True)]
 EXT_CIRC = [(Vector((*r['centre'], 0.0)), r['r'] + 0.5) for r in ER.rules_for('move', _NAME, True)]
-def in_ext(p): return any(ER.inside(q, p.x, p.y) for q in EXT_AREAS) or any((p.xy - c.xy).length <= rr for c, rr in EXT_CIRC)
+def in_ext(p): return any(ER.inside(q, p.x, p.y) for q in EXT_AREAS) or ER.on_kept(p, 0.3, 2.0) or any((p.xy - c.xy).length <= rr for c, rr in EXT_CIRC)
 def near_any(p, d=0.6): return any(in_any(p + Vector((dx, dy, 0))) for dx in (-d, 0, d) for dy in (-d, 0, d))
 name = sys.argv[sys.argv.index('--') + 1]
 bpy.ops.wm.read_homefile(use_empty=True)
@@ -81,7 +81,7 @@ for nm in [o.name for o in ybn.children_recursive if o.name != 'TC_KEEPER']:
     mw = ob.matrix_world
     if ob.sollum_type.startswith('sollumz_bound_poly_') and ob.sollum_type != 'sollumz_bound_poly_triangle':
         vs = [mw @ v.co for v in ob.data.vertices]; c = sum(vs, Vector()) / len(vs)
-        if in_any(c): bpy.data.objects.remove(ob, do_unlink=True); prim += 1
+        if in_any(c) and not ER.on_kept(c, 0.6, 1.0): bpy.data.objects.remove(ob, do_unlink=True); prim += 1   # (a kept feature's sphere / capsule stays)
     elif ob.sollum_type == 'sollumz_bound_poly_triangle':
         bm = bmesh.new(); bm.from_mesh(ob.data)
         inv0 = mw.inverted(); inv03 = inv0.to_3x3(); cm = [m.name if m else '' for m in ob.data.materials]
@@ -118,6 +118,30 @@ for ob in [o for o in ybn.children_recursive if o.sollum_type in ('sollumz_bound
     if not any(c.type == 'MESH' and c.data.vertices for c in ob.children_recursive) and not (ob.type == 'MESH' and ob.data.vertices):
         for c in list(ob.children_recursive): bpy.data.objects.remove(c, do_unlink=True)
         bpy.data.objects.remove(ob, do_unlink=True)
+BVH_MAX = 32000                                                    # Sollumz refuses a BVH child over 32,767 primitives
+def split_bvh(bvh):
+    """the exterior rules' cuts and clones (the bent kerb: cut every 0.5 m) can push one of Rockstar's BVH children over the limit:
+    split it in two halves at the triangles' median x, as sibling children of the same composite (playbook 02, wow2easy site_col)."""
+    tris = [c for c in bvh.children if c.type == 'MESH' and c.sollum_type == 'sollumz_bound_poly_triangle']
+    if sum(len(c.data.polygons) for c in tris) <= BVH_MAX: return 0
+    xs = sorted((c.matrix_world @ p.center).x for c in tris for p in c.data.polygons); cut = xs[len(xs) // 2]
+    twin = bvh.copy()
+    if bvh.data is not None: twin.data = bvh.data.copy()
+    for col in bvh.users_collection: col.objects.link(twin)
+    twin.parent = bvh.parent; twin.matrix_world = bvh.matrix_world.copy()
+    for c in tris:
+        part = c.copy(); part.data = c.data.copy()
+        for col in c.users_collection: col.objects.link(part)
+        part.parent = twin; part.matrix_world = c.matrix_world.copy()
+        for ob_, keep_east in ((c, False), (part, True)):
+            bm = bmesh.new(); bm.from_mesh(ob_.data); mw_ = ob_.matrix_world
+            bmesh.ops.delete(bm, geom=[f for f in bm.faces if ((mw_ @ f.calc_center_median()).x >= cut) != keep_east], context='FACES')
+            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+            bm.to_mesh(ob_.data); bm.free()
+        if not part.data.polygons: bpy.data.objects.remove(part, do_unlink=True)
+    return 1 + split_bvh(bvh) + split_bvh(twin)
+splits = sum(split_bvh(o) for o in [o for o in ybn.children_recursive if o.sollum_type == 'sollumz_bound_geometrybvh'])
+if splits: print('L0_COL_BVH_SPLITS', name, splits, flush=True)
 ybn.name = name
 bpy.ops.object.select_all(action='DESELECT'); ybn.select_set(True); bpy.context.view_layer.objects.active = ybn
 assert 'FINISHED' in bpy.ops.sollumz.export_assets(directory=str(OUT), use_custom_settings=True, target_formats={'NATIVE'}, target_versions={'GEN8'}, limit_to_selected=True)

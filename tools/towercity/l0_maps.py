@@ -104,7 +104,7 @@ for name, (tree, rep) in TREES.items():
             if old.exists(): old.unlink()
 json.dump(PARTIAL, open(T / 'work/l0_lod_partial.json', 'w'), indent=1)
 # ---- tc_lot.ytyp ----
-def arch(name, lo, hi, lod, hd):
+def arch(name, lo, hi, lod, hd, txd=''):
     cx, cy, cz = [(a + b) / 2 for a, b in zip(lo, hi)]; r = sum((b - a) ** 2 for a, b in zip(lo, hi)) ** .5 / 2
     return f'''  <Item type="CBaseArchetypeDef">
    <lodDist value="{lod}" />
@@ -116,7 +116,7 @@ def arch(name, lo, hi, lod, hd):
    <bsRadius value="{r:.4f}" />
    <hdTextureDist value="{hd}" />
    <name>{name}</name>
-   <textureDictionary />
+   <textureDictionary>{txd}</textureDictionary>
    <clipDictionary />
    <drawableDictionary />
    <physicsDictionary />
@@ -125,7 +125,8 @@ def arch(name, lo, hi, lod, hd):
    <extensions />
   </Item>'''
 items = [arch('tc_empty', SLAB['tc_empty']['bb_lo'], SLAB['tc_empty']['bb_hi'], 3000, 5)]
-for lot in ('east', 'west'): items.append(arch(f'tc_lot_{lot}', SLAB[lot]['bb_lo'], SLAB[lot]['bb_hi'], 1500, 150))
+import sidewalk_mat as SW                                # the slabs are Rockstar's sidewalk: his textures, bound from his road txd
+for lot in ('east', 'west'): items.append(arch(f'tc_lot_{lot}', SLAB[lot]['bb_lo'], SLAB[lot]['bb_hi'], 1500, 150, SW.TXD))
 (OUT / 'tc_lot.ytyp.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<CMapTypes>\n <extensions />\n <archetypes>\n' + '\n'.join(items) +
     '\n </archetypes>\n <name>tc_lot</name>\n <dependencies />\n <compositeEntityTypes />\n</CMapTypes>\n', encoding='utf-8')
 # ---- tc_lot.ymap: template = an edited vanilla ymap, entities replaced ----
