@@ -30,12 +30,20 @@ def lot_of(x, y):
 _C = {}
 def _corners(mat):
     if mat not in _C:
-        a = np.array([c[1:8] for c in S['corners'] if c[0] == mat], np.float64); _C[mat] = (a[:, :2], a[:, 3:7])
+        a = np.array([c[1:8] for c in S['corners'] if c[0] == mat], np.float64)
+        _C[mat] = (a[:, :3], a[:, 3:7], np.median(a[:, 3:7], axis=0))
     return _C[mat]
-def vcol(x, y, mat, k=8):
-    P, Cc = _corners(mat); d = np.sqrt(((P - (x, y)) ** 2).sum(1)) + 0.05
-    i = np.argpartition(d, k)[:k]; w = d[i] ** -2
-    return tuple((Cc[i] * w[:, None]).sum(0) / w.sum())
+def vcol(x, y, z, mat, k=24):
+    """his vertex colour 0 near a point: the inverse-distance mean of his nearest sidewalk corners AT THIS LEVEL (|dz| < 1.5 m: the deck's
+    sidewalk never takes the dark, shaded colours of the street under it), easing to his median colour 1 - 5 m away from his sidewalk
+    (our wide paving keeps one even tone - his corner-to-corner shading spread over a plaza read as dark blotches)."""
+    P, Cc, med = _corners(mat)
+    lvl = np.abs(P[:, 2] - z) < 1.5
+    if lvl.sum() < k: return tuple(med)
+    P2, C2 = P[lvl], Cc[lvl]; d = np.sqrt(((P2[:, :2] - (x, y)) ** 2).sum(1)) + 0.05
+    i = np.argpartition(d, k)[:k]; w = d[i] ** -2; near = (C2[i] * w[:, None]).sum(0) / w.sum()
+    t = min(max((d.min() - 1.0) / 4.0, 0.0), 1.0)
+    return tuple(near * (1 - t) + med * t)
 def load():
     """Rockstar's sidewalk materials, copied into this Blender session: {name: material}. The imported road model is removed."""
     import bpy
@@ -81,6 +89,6 @@ def paint(o, M):
         for li in f.loop_indices:
             w = M @ me.vertices[me.loops[li].vertex_index].co; u, v = lot_of(w.x, w.y)
             uvl.data[li].uv = lot_uv(u, v, mat, tile)
-            if col is not None and col.domain == 'CORNER': col.data[li].color_srgb = vcol(w.x, w.y, mat)
+            if col is not None and col.domain == 'CORNER': col.data[li].color_srgb = vcol(w.x, w.y, w.z, mat)
         n += 1
     return n

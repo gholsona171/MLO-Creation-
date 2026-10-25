@@ -163,7 +163,6 @@ B_OVER = rect(1.0, 36.0, -65.6, NOTCH_SOUTH)  # the block's louvre wall ledge + 
 # dt1_10_slod_children.ydd) and SLOD (dt1_10_slod = hash_0c19b59c in dt1_lod_01_02_09_10_children.ydd) lose the same faces
 # (l0_cut_lod.py 'lodcut'). The Maze Bank plaza's landing remnant goes too.
 F_SPAN = rect(26.5, 33.5, 54.0, 98.65)
-F_MATS = r'rsn_ground_0001|walls_01\.001|windows_03|mc_wall|logo'      # the bridge's own materials (never the terrace's yk_wall / ground_0002)
 F_LAND = rect(25.0, 35.0, 55.0, 70.0)
 # ---------------- P: the pillar ----------------
 PIL_C = (75.91, -21.31); PIL_R = 1.6        # its faces: u 74.6 .. 77.2, v -22.6 .. -20.0, z 31.59 .. 41.8 (fwy02 + its decal model)
@@ -187,7 +186,7 @@ def rules():
         # through it (dark jagged patches, a red kerb piece floating). Their street-level faces inside the lots go; decks above stay.
         {'name': 'L lot ground: street models under the slab', 'models': r'^dt1_rd1_r1_(12|14|ovly_00|ovly_23)$',
          'polys': [[[round(c, 4) for c in p_] for p_ in q] for q in json.load(open(T / 'plan/lot_polys.json')).values()], 'z': [20.0, 38.5], 'col': False},
-        {'name': 'F footbridge: deck, panels, walls', 'models': r'^dt1_10_build1$', 'poly': W_(F_SPAN), 'z': [41.95, 48.0], 'mat': F_MATS, 'col': False},
+        {'name': 'F footbridge: deck, panels, walls, copings', 'models': r'^dt1_10_build1$', 'poly': W_(F_SPAN), 'z': [36.0, 48.0], 'col': False},   # (all of it: a material filter left its copings - Rockstar's yk_wall - as a floating frame)
         {'name': 'F footbridge: its collision', 'models': r'(?!)', 'poly': W_(F_SPAN), 'z': [41.0, 48.0], 'col': True, 'col_files': 'dt1_10'},   # (collision materials are not drawable ones)
         {'name': 'F footbridge: its walk-on over the planter row', 'models': r'(?!)', 'poly': W_(rect(26.5, 33.5, 98.65, 102.85)), 'z': [43.0, 48.0],
          'col': True, 'col_files': 'dt1_10'},          # (an invisible deck at 43.2 over the bank's planters, 0.3 m over their tops: it led onto the span)
