@@ -5,6 +5,7 @@ GTA V install and the CodeWalker folder — change them for another PC.
 
 | Tool | What it does | Example |
 |---|---|---|
+| `shipping/make_conflict_check.py` | **Required for every shipped MLO.** Writes `<res>/tools/check_conflicts.ps1` from the build's own stream files (+ area family regex, IPL refs); our folders skipped. Run in the assemble step; prove on a planted conflict (docs/10) | `py -3 shipping/make_conflict_check.py --stream res/stream --res my_mlo --name "My MLO" --area "Strawberry Ave, x 100 y -1500"` |
 | `prop_catalogue.ps1` | Catalogues every furniture / clutter / cash / fixture archetype in the game with exact bounds and ytyp → `prop_catalogue.json` | `powershell -File prop_catalogue.ps1` |
 | `find_arch_ytyp.ps1` | The ytyp + bounds of named props, merged into `arch_ytyp.json` (the MLO's dependency list comes from it) | `powershell -Command "& '.\find_arch_ytyp.ps1' -Names @('v_res_mbsink','prop_beach_fire')"` |
 | `ydr_xml.ps1` | Game drawable → CodeWalker XML + textures (read Rockstar's shaders); XML → ydr (import our own) | `-Mode export -Name prop_tv_flat_01 -Out tv` / `-Mode import -In x.ydr.xml -Out x.ydr` |

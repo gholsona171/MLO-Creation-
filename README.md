@@ -18,12 +18,14 @@ files or server credentials. Keep it that way.
 7. [Verification](docs/07-verification.md): screenshots, fly-through videos, frame review, what to check before saying done.
 8. [Working agreements](docs/08-working-agreements.md): how Antonio wants the work done.
 9. [Field notes](docs/09-field-notes.md): the short original lessons (LOD hiding, ymap gotchas, stairs, seating, doors, mirrors...).
+10. [Shipping](docs/10-shipping.md): **every MLO ships with a conflict checker + a buyer README telling how to use it** (rule), the package checklist.
 
 ## Tools at a glance
 See [tools/README.md](tools/README.md). The short list:
 
 | Job | Tool |
 |---|---|
+| **Conflict checker shipped inside every MLO** (built from the package's own files) | `shipping/make_conflict_check.py` + `check_conflicts.ps1.in` |
 | Every furniture / clutter / cash prop in the game, with sizes | `prop_catalogue.ps1` |
 | Which ytyp holds a prop, and its bounds | `find_arch_ytyp.ps1` |
 | Game drawable ↔ CodeWalker XML (read Rockstar's materials, import our own) | `ydr_xml.ps1` |
