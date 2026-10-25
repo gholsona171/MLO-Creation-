@@ -32,3 +32,8 @@
 - Two clients on one PC: `sv_lan 1` + `-cl2 +connect`.
 - Stopping a background job in the app can leave its child process running: check `Get-CimInstance Win32_Process` for leftovers
   before recording, or the old job will hijack the camera.
+
+## Shipping to a buyer (2026-10-24)
+- Ship a README in the resource: install order, full server restart, every config switch with its default, access lists with full identifier examples (`license:` / `discord:` / `fivem:`), the TV render target (model, target name, texture, the DUI pattern, `LocalPlayer.state.tcTvBusy`, one target per model = every copy shows the same picture), the water-map rule and the list of Rockstar files replaced. Example: `tools/towercity/buyer_README_example.md`.
+- Ship the conflict check inside the resource (`tools/check_conflicts.ps1`), generated from the build's own vanilla-named stream files (`tools/towercity/conflict_list.py` + `check_conflicts.ps1.in`), so it never goes stale. It skips our own folders, so it works after install too. Prove it on a planted conflict before shipping.
+- Ship safe defaults: optional moving parts off (escalators), every access check off (all floors open), and let the server owner turn them on.

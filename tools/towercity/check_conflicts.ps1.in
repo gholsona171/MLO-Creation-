@@ -1,0 +1,25 @@
+# Conflict check for Tower City (tower_city) - run in your server's resources folder, before or after installing the map
+# (the tower_city and tower_city_life folders themselves are skipped). The file list below is written by the build.
+# Lists every resource you already have that replaces the same Rockstar map files (they would fight with this map),
+# plus any script that loads the Rockstar interiors this map removes. Read-only: it changes nothing.
+# Usage (PowerShell), from your server resources folder:  powershell -ExecutionPolicy Bypass -File .\tower_city\tools\check_conflicts.ps1
+$names = @'
+@@FILES@@
+'@ -split "`r?`n" | Where-Object { $_ }
+$set = @{}; foreach ($n in $names) { $set[$n.ToLower()] = 1 }
+$family = '^(hei_|hi@|hi@hei_|ma@|ma@hei_)?(dt1_11|dt1_12|dt1_rd1|dt1_occl_0[246])'
+function Get-Res($path) { $d = Split-Path $path; while ($d -and -not (Test-Path (Join-Path $d 'fxmanifest.lua')) -and -not (Test-Path (Join-Path $d '__resource.lua'))) { $d = Split-Path $d }; if ($d) { Split-Path $d -Leaf } else { '(no manifest)' } }
+$files = Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '[\\/]tower_city(_life)?[\\/]' }
+$hits = foreach ($f in $files) {
+  $n = $f.Name.ToLower()
+  if ($set.ContainsKey($n)) { [pscustomobject]@{ Resource = Get-Res $f.FullName; File = $f.Name; Match = 'SAME FILE'; Path = $f.FullName } }
+  elseif ($n -match $family -and $n -match '\.(ydr|ydd|yft|ytd|ybn|ymap|ytyp)$') { [pscustomobject]@{ Resource = Get-Res $f.FullName; File = $f.Name; Match = 'same area (map file family)'; Path = $f.FullName } }
+}
+$refs = @('ex_dt1_11_office','imp_dt1_11_cargarage','imp_dt1_11_modgarage','dt1_11_carpark','FinanceOffice2','ImportCEOGarage2','Maze Bank Building','maze_bank_tower','MazeBankBuilding')
+$scripts = $files | Where-Object { $_.Extension -in '.lua','.cfg','.json','.js' }
+$refHits = foreach ($s in $scripts) { foreach ($r in $refs) { if (Select-String -Path $s.FullName -SimpleMatch $r -Quiet -ErrorAction SilentlyContinue) { [pscustomobject]@{ Resource = Get-Res $s.FullName; Mentions = $r; Path = $s.FullName } } } }
+"`n=== Tower City (tower_city) : file conflicts ==="
+if ($hits) { $hits | Sort-Object Resource, File | Format-Table Resource, File, Match, Path -AutoSize -Wrap; "{0} conflicting file(s) in: {1}" -f @($hits).Count, ((@($hits.Resource) | Sort-Object -Unique) -join ', ') } else { 'No file conflicts found.' }
+"`n=== scripts / configs that use the area or its interiors ==="
+if ($refHits) { $refHits | Sort-Object Resource | Format-Table -AutoSize -Wrap } else { 'None found.' }
+"`nAlso check by hand: any other MLO / map placed at the Maze Bank Tower block by Legion Square (Power St / San Andreas Ave), around x -80 y -830 (different file names would not show above)."
