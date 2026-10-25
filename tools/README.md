@@ -30,7 +30,7 @@ The project-specific build (rooms, partitions, layout tables) lives in the Tower
 | Tool | What it does | Example |
 |---|---|---|
 | `extract_by_name.ps1` | Extracts game files by FILE NAME (best-ranked copy: patchday > dlc_patch > dlcpacks > base), resources re-saved as standalone RSC7 (a raw ydr extract will not import) | `-Out src/native -Names dt1_rd1_r1_12.ydr,dt1_rd1_fwy02.ydr` |
-| `arch_dict.ps1` | The ytyp, drawableDictionary and txd of named archetypes (which .ydd holds a LOD / SLOD1 model) | `-Names dt1_props_combo0109_slod` |
+| `arch_dict.ps1` | The ytyp, drawableDictionary and txd of named archetypes (which .ydd holds a LOD / SLOD1 model); hash-only names (`hash_d50b466a`) match by Jenkins hash | `-Names dt1_props_combo0109_slod,hash_d50b466a` |
 | `face_dump.py` / `tri_dump.py` | Blender: every face centre / triangle of vanilla drawables in world space (+ material) - plan cuts from Rockstar's own geometry | `blender -b --python tri_dump.py -- src/native out.json name ...` |
 | `col_near.py` | Blender: which collision objects of which ybn reach a lot-frame box (finds a pillar's / wall's collision) | `-- dir u0 u1 v0 v1 z0 z1 names...` |
 | `ybn_in_zones.ps1` | Every downtown ybn with triangles in the clean-up zones (the files the collision cut must process) | `powershell -File ybn_in_zones.ps1` |
@@ -41,6 +41,9 @@ The project-specific build (rooms, partitions, layout tables) lives in the Tower
 | `l0_occl.ps1` | Every vanilla occluder over the lots / zones, by overlap (not centre), from every `*occl*` ymap | `-Report` to list |
 | `l0_maps.py` | + the LOD rule: a LOD / SLOD1 whose every descendant is gone is swapped (the floating rooftop props) | assemble runs it |
 | `build_l0.sh` | Rebuilds every level-0 output from source + gates, then assembles (`ASSEMBLE=0` level 0 only) | `bash build_l0.sh` |
+| `l0_cut_lod.py` | District LOD cut by the lot outline + the move rules' `lod` entries (a moved vanilla piece moved in its LOD / SLOD1 too; those are never lot-cut) | `blender -b --python l0_cut_lod.py -- file.ydd name ...` |
+| `pair_sheet.py` | Before / after pair sheet from two shot folders with the same camera names (fails on a missing frame) | `py -3 pair_sheet.py before/ after/ out.jpg i1_under i2_top` |
+| `tc_ext_final.sh` | Rig cameras for the last exterior items, incl. the forced-LOD trio (normal / `OverrideLodscaleThisFrame` 0.08 / 0.04) | `bash tc_ext_final.sh <tag> [i1..i4]` |
 
 ### Mall interior gates (Tower City mall review, 2026-10-24) - in `towercity/`
 Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' portals / `gap_regions` / `windows` / `street_partitions` /

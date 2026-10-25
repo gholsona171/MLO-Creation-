@@ -31,14 +31,23 @@ import json; p='l0_cut_result.json'; r=json.load(open(p)); gone=[k for k, v in r
 for k in gone: r['cut'].pop(k)                    # nothing left: its entities are swapped to tc_empty (l0_maps.py), the model is not shipped
 json.dump(r, open(p, 'w'), indent=1); print('L0_CUT', len(r['cut']), 'models shipped,', len(gone), 'fully removed')"
 py -3 l0_maps.py | tee logs/l0_maps.log                                       # (the partial LOD list for the LOD cut below)
+: > logs/l0_cut_lod_ext.log
 for a in "dt1_lod_slod3_children.ydd" "dt1_lod_slod3.ydr" "dt1_lod_5_20_emissive_proxy_children.ydd" "dt1_lod_5_20_emissive_proxy.ydr" \
          "dt1_lod_6_20_emissive_proxy_children.ydd" "dt1_lod_6_20_emissive_proxy.ydr" "dt1_lod_6_21_emissive_proxy_children.ydd" "dt1_lod_6_21_emissive_proxy.ydr" \
          "dt1_lod_03_04_05_11_children.ydd dt1_props_combo0107_slod dt1_props_combo0108_slod dt1_props_combo0109_slod" \
          "dt1_lod_12_13_22_23_children.ydd dt1_props_combo0407_slod dt1_props_combo0412_slod" \
-         "dt1_props_combo0407_slod_children.ydd dt1_props_combo0407_21_lod"; do
+         "dt1_props_combo0407_slod_children.ydd dt1_props_combo0407_21_lod" \
+         "dt1_rd1_r1f_slod1_children.ydd hash_d50b466a" "dt1_lod_rd_children.ydd dt1_rd1_r1f_slod1"; do   # (last two: the moved pillar's LOD + SLOD1)
   set -- $a; "$B" -b --python l0_cut_lod.py -- $a > logs/l0_cut_lod.log 2>&1
   grep -o "L0_LODCUT_PASS.*" logs/l0_cut_lod.log | cut -c1-160 || { echo "L0_CUT_LOD FAILED $1"; grep -A12 Traceback logs/l0_cut_lod.log; exit 1; }
+  grep -o "L0_LODCUT_EXT.*" logs/l0_cut_lod.log >> logs/l0_cut_lod_ext.log
 done
+py -3 -c "
+import json, re; L = open('logs/l0_cut_lod_ext.log').read(); bad = []
+for f, want in (('dt1_rd1_r1f_slod1_children.ydd', 24), ('dt1_lod_rd_children.ydd', 12)):   # the pillar's faces in its LOD / SLOD1
+    m = re.search(re.escape(f) + r' (\{.*\})', L); n = sum(sum(v.values()) for v in json.loads(m.group(1)).values()) if m else 0
+    print('LOD_MOVE', f, n, 'faces moved'); bad += [f] if n != want else []
+raise SystemExit(1 if bad else 0)" || { echo 'LOD MOVE FAILED: the moved pillar is not moved in its LOD / SLOD1 - nothing deployed'; exit 1; }
 py -3 -c "
 import json; P=json.load(open('l0_lod_partial.json'))
 cov={'dt1_props_combo0107_slod','dt1_props_combo0108_slod','dt1_props_combo0109_slod','dt1_props_combo0407_slod','dt1_props_combo0412_slod','dt1_props_combo0407_21_lod'}

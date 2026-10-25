@@ -164,5 +164,10 @@ checks now run on the built files (`tools/towercity/`), each proven first on the
 - **Close every front's ends.** A storefront row's pier rule skipped the two ENDS of the court's fronts (where they meet the hall's
   glass and the Eatery's front): a 25 cm slit from the floor up, and at the hall a 15 x 40 cm shaft from a shop out to the plaza.
   Found only by the portal-aware pass-1 rays; a jamb now closes each end back to the shop's skin and out to the outer wall.
+- **Before / after for a fix that only exists in a build**: shoot "before" on the deployed build first; if a defect needs the old
+  state back (a LOD you just replaced), take the new files OUT of the rig copy only, restart, shoot, then redeploy with assemble.sh
+  (never move them back by hand). Pair sheets: `tools/towercity/pair_sheet.py <before_dir> <after_dir> <out.jpg> names...` (fails on
+  a missing frame). Identify an unknown thing in a shot by casting a ray through its pixel from the scripted camera (camera
+  basis from position + target + fov) and reading the hit point - `GetEntityModel` on a map building handle throws.
 - A Sollumz RE-import of built drawables trips on the embedded sign textures' mip chains ("Mip 7 has invalid layer size") - checks
   must read the build's own exports (`tris_*.npy`), not re-import the ydr (Tower City's old `zfight_check.py`).

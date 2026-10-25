@@ -40,24 +40,40 @@ def _bisect(bm, geom, poly, toloc, tonrm):
         res = bmesh.ops.bisect_plane(bm, geom=g, plane_co=toloc(a), plane_no=tonrm(Vector((-d.y, d.x, 0.0))))
         if geom is not None: geom = list(set(geom) | set(res['geom']))
     return geom
+def _move(bm, world, toloc, matname, r, zb, mat, nzm, top):
+    """split off the faces of a move rule (centre + radius, height band, material, |normal z| <= nzm), shift them, lift vertices over
+    top[0] to top[1]; they are protected from later cuts. Returns the face count."""
+    keep = keep_layer(bm); c = Vector((*r['centre'], 0.0)); z0, z1 = zb
+    cen = lambda f: world(f.calc_center_median())
+    sel = [f for f in bm.faces if not f[keep] and (lambda p: (p.xy - c.xy).length <= r['r'] and z0 <= p.z <= z1)(cen(f))
+           and (not mat or re.search(mat, matname(f).lower())) and abs(_wnz(f, world)) <= nzm]
+    if not sel: return 0
+    res = bmesh.ops.split(bm, geom=sel); faces = [g for g in res['geom'] if isinstance(g, bmesh.types.BMFace)]
+    sh = Vector(r['shift']); ztop, zto = top
+    for v in {v for f in faces for v in f.verts}:
+        p = world(v.co) + sh
+        if p.z > ztop: p.z = zto
+        v.co = toloc(p)
+    for f in faces: f[keep] = 1
+    return len(faces)
+def apply_lod(bm, world, toloc, matname, names, report=None):
+    """the move rules' LOD entries ('lod': names / mat / nz_max / top) on a LOD or SLOD drawable known by any of `names` (its name or
+    hash_xxxxxxxx): the LOD draws the moved piece where the HD model now has it. Used by l0_cut_lod.py."""
+    rep = report if report is not None else {}
+    for r in R.get('move', []):
+        for l in r.get('lod', []):
+            if not set(l['names']) & set(names): continue
+            n = _move(bm, world, toloc, matname, r, r['z'], l.get('mat'), l.get('nz_max', 1.0), l['top'])
+            if n: rep[r['name'] + ' (LOD)'] = rep.get(r['name'] + ' (LOD)', 0) + n
+    return rep
 def apply(bm, world, toloc, tonrm, matname, name=None, collision=False, report=None):
     """world(co) -> world Vector; toloc(world point) -> local co; tonrm(world dir) -> local dir; matname(face) -> material name."""
     keep = keep_layer(bm); rep = report if report is not None else {}
     cen = lambda f: world(f.calc_center_median())
     for r in rules_for('move', name, collision):                       # ---- move
-        c = Vector((*r['centre'], 0.0)); z0, z1 = r['col_z'] if collision else r['z']; mat = None if collision else r.get('mat')
-        nzm = r.get('col_nz_max', 1.0) if collision else 1.0
-        sel = [f for f in bm.faces if not f[keep] and (lambda p: (p.xy - c.xy).length <= r['r'] and z0 <= p.z <= z1)(cen(f))
-               and (not mat or re.search(mat, matname(f).lower())) and abs(_wnz(f, world)) <= nzm]
-        if not sel: continue
-        res = bmesh.ops.split(bm, geom=sel); faces = [g for g in res['geom'] if isinstance(g, bmesh.types.BMFace)]
-        sh = Vector(r['shift']); ztop, zto = r['top']
-        for v in {v for f in faces for v in f.verts}:
-            p = world(v.co) + sh
-            if p.z > ztop: p.z = zto
-            v.co = toloc(p)
-        for f in faces: f[keep] = 1
-        rep[r['name']] = rep.get(r['name'], 0) + len(faces)
+        if collision: n = _move(bm, world, toloc, matname, r, r['col_z'], None, r.get('col_nz_max', 1.0), r['top'])
+        else: n = _move(bm, world, toloc, matname, r, r['z'], r.get('mat'), 1.0, r['top'])
+        if n: rep[r['name']] = rep.get(r['name'], 0) + n
     for r in rules_for('cut', name, collision):                        # ---- cut
         z0, z1 = r['z']; mat = r.get('mat'); over = R.get('b_tarmac') if r.get('over') else None
         for poly in _polys(r):

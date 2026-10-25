@@ -68,6 +68,19 @@
   count as kept (conservative). A LOD/SLOD1 with only SOME descendants removed keeps its entity; cut its MODEL by the lot outline
   instead (l0_cut_lod.py on the district dictionary that holds it - find it with `arch_dict.ps1`, the archetype's
   `drawableDictionary`). Tower City: 70 LODs swapped, 6 prop-combo SLOD1 / LOD models cut.
+- **A vanilla piece you MOVE must move in its LOD and SLOD models too** (Tower City driveway pillar, 2026-10-24: moved 12.3 m in
+  the HD deck model, but from a distance the deck's LOD and the SLOD1 over it still drew the column at its old spot). Swapping the
+  LOD to an empty model would drop the whole deck at distance, so apply the same move rule to the LOD models: find the LOD entity
+  (the HD entity's parentIndex into the `<parent>` ymap; its archetype is often only a hash, e.g. `hash_D50B466A`), find its
+  drawable dictionary with `arch_dict.ps1` (matches hash names too: here `dt1_rd1_r1f_slod1_children.ydd`, not yet in our LOD
+  folder - extract it with `extract_by_name.ps1`), and move the same faces there (LOD materials are the HD names + `_lod`; an SLOD
+  has one material, so select by position + |normal z| <= 0.5). A LOD whose HD model is exempt from the lot cut must not be lot-cut
+  either. Tower City: the move rule's `lod` entries in `ext_plan.py`, applied by `l0_cut_lod.py` (`ext_rules.apply_lod`); the build
+  fails unless the expected face counts moved.
+- **See a LOD up close: `OverrideLodscaleThisFrame(s)` every frame** (a thread) makes the game pick lower LODs near the camera - far
+  views of a spot under a deck are always blocked by something. Distances scale by s: with 0.08 a 145 m HD fades at 12 m and its
+  400 m LOD draws to 32 m; with 0.04 the SLOD1 shows. Same camera, three shots (normal / 0.08 / 0.04), before and after
+  (`tc_ext_final.sh` i4). The before showed the ghost column fading in at 0.07-0.09.
 - Find a floating thing's position from two or three screenshots: set a scripted camera, then `GetScreenCoordFromWorldCoord` on a
   3 m grid of candidate points and keep those landing on the thing's pixel in every view (the rays cross at the thing).
 
@@ -217,6 +230,15 @@ garage's driveway. Rules (Tower City `work/ext_plan.py` -> `plan/ext_cuts.json`,
 - **Moving a vanilla piece** (a pillar in a driveway): split its faces (material regex: never the cap beam over it), shift, stretch
   the top to the deck soffit if the new spot has no cap; its collision moves by the same rule (walls only: `col_nz_max`, below the
   cap). Keep it on the same structural line (the deck edge) and well clear of the doors' turning paths.
+- **A zone rule's edge leaves whatever overhangs it.** The PARKING block's cut stopped at its south wall face; its louvre ledge and
+  roof-planter lip stuck out 0.95 m past that and stayed, floating, as "dark wedges" in front of the new facade (reported as the
+  portico entablature's end - it was not; ray the pixel before blaming the nearest new model). Dump the triangles 0-2 m beyond every
+  zone edge (`tri_dump.py`, per material) and add an overhang zone with a height band that spares what sits under it (planters).
+- **A kept vanilla piece next to a cut must end on structure.** The planter island beside the removed branch had been carried by the
+  old building; with it gone the island hung 2.5 m past the deck fascia. Cut it at the deck-edge barrier's inner face, run the
+  cloned barrier + fascia (and the barrier's collision) on beside it, and fill a curved gap (a rounded kerb leaving asphalt beside
+  the new straight kerb) with the cloned sidewalk clipped to a polygon along the kerb's foot line (Rockstar's own gutter vertices).
+  Clone clips may be any simple polygon: bisect along every edge, keep faces whose centre is inside.
 - **What a removed piece hid**: the branch deck covered the old car park's down-ramp pit (to z 15.9, drawn only by the removed
   interior). Probe the ground under every piece you remove (rays down per 1 m, collision + material) BEFORE cutting it; close
   pits with ground at the neighbours' height.
