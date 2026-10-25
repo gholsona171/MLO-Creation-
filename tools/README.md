@@ -54,3 +54,16 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `sign_check.py` | Every sign vs every triangle and prop: CLIP / FRONT / VIEW / WALL / TEXT | `py -3 sign_check.py --list [--debug name]` |
 | `hang_check.py` | Every hung / mounted fitting meets its support within 8 cm (lamps, pendants, chandeliers, hanging-sign rods, flag wires) | `py -3 hang_check.py --list` |
 | `upper_gap_check.py` | Upper floors' light-gap audit; now reads the window list (piers and raised sills included) from the layout | `blender -b --python upper_gap_check.py` |
+
+### Counter kit: Rockstar props cut into modules (C9 DJ, 2026-10-25) - in `counter_kit/` (doc 11)
+| Tool | What it does | Example |
+|---|---|---|
+| `../counters_scan.ps1` | Every counter / desk / bar / till archetype with counter-like bounds: ytyp, interior or prop, txd, size | `powershell -File counters_scan.ps1 -Out C:	mp\counters.tsv` |
+| `../arch_info.ps1` | Texture dictionary, flags, lodDist, physics dictionary of named archetypes | `-Names bkr_bar_bar01,ba_trad_lower_bar` |
+| `rsx.py` | Rockstar ydr XML as arrays: plane cuts with every attribute interpolated, turn / mirror / merge, write back with box collision or the source's own bounds moved; outline sections + gap check | library |
+| `rsxview.py` | numpy textured rasteriser for previews and seam checks (no game needed) | library |
+| `counters.py` + `counters_sets.py` + `counters_out.py` | The module recipes (straight, mitred corners, band / pedestal / native / composed ends, copied legs), welded joint faces, collision through the same recipe, auto collision for interior pieces, joint check gate, ytd per style, shop rows, joint table | `py -3 counters_out.py --check` / `py -3 counters_out.py` |
+| `cw.ps1` | CodeWalker on Windows: ydr / ytyp / ytd (from a folder of .dds) import, `tex` finds named textures anywhere in the game | `cw.ps1 tex a,b out_dir preferred_txd` |
+| `tints.ps1` | The tint values Rockstar gives an archetype's MLO entities (palette rows) | `-Names bkr_int_02_bar_wood` |
+| `assemble_preview.py` | Chains modules by their joints (the placer's maths) and renders the result | `py -3 assemble_preview.py bkrw out.png el,s200,oc,s100,er` |
+| `rig/placeat.sh`, `aimplace.sh`, `tab.sh`, `buy.sh`, `store.sh`, `cam.sh` | Rig: buy / place / store furniture through the real tablet and laser, aiming the laser at an exact floor point | `FP=1 bash placeat.sh <id> <x> <y> <standx> <standy> <tag>` |

@@ -19,6 +19,7 @@ files or server credentials. Keep it that way.
 8. [Working agreements](docs/08-working-agreements.md): how Antonio wants the work done.
 9. [Field notes](docs/09-field-notes.md): the short original lessons (LOD hiding, ymap gotchas, stairs, seating, doors, mirrors...).
 10. [Shipping](docs/10-shipping.md): **every MLO ships with a conflict checker + a buyer README telling how to use it** (rule), the package checklist.
+11. [Modular props](docs/11-modular-props.md): cutting Rockstar props (bars, counters) into modules that snap edge to edge, full-size copies of interior-only props, collision / tint traps found in game.
 
 ## Tools at a glance
 See [tools/README.md](tools/README.md). The short list:
@@ -37,6 +38,8 @@ See [tools/README.md](tools/README.md). The short list:
 | Swimmable pool (water map cells on the 2 m grid + loader) | `pool_water.py`, `water.lua` |
 | Check the city for stray water after shipping a water map | `water_diff.lua` |
 | Prop footprint check: walls, doorways, overlaps (pivot-aware) | `footprint_check.py` |
+| Every counter-like archetype in the game (size, interior or spawnable) | `counters_scan.ps1`, `arch_info.ps1` |
+| Rockstar drawables cut / turned / mitred into snapping modules, own collision, preview renders | `counter_kit/` (doc 11) |
 | Collision as one BVH child per room (physics-pool crash) | `merge_cols.py` |
 | Video → frame contact sheets for review | `video_review.py` |
 | Ground holes / steps and drawn-vs-collision, offline on the built files (before deploying) | `wow2easy_move/tools/hole_grid_offline.py`, `seen_vs_solid.py` (see 07) |
