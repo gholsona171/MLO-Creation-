@@ -53,3 +53,6 @@ It can't see another MLO placed at the same spot under different file names. Che
 
 ## Shipping defaults
 Optional moving parts are off (escalators), every access check is off (all floors open), and the owner turns on what they want.
+
+## Package name
+Name the zip after the resource (`tower_city.zip`), never `_test`: what we hand over is the release (Antonio, 2026-10-24).
