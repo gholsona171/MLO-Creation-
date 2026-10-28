@@ -67,3 +67,16 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `tints.ps1` | The tint values Rockstar gives an archetype's MLO entities (palette rows) | `-Names bkr_int_02_bar_wood` |
 | `assemble_preview.py` | Chains modules by their joints (the placer's maths) and renders the result | `py -3 assemble_preview.py bkrw out.png el,s200,oc,s100,er` |
 | `rig/placeat.sh`, `aimplace.sh`, `tab.sh`, `buy.sh`, `store.sh`, `cam.sh` | Rig: buy / place / store furniture through the real tablet and laser, aiming the laser at an exact floor point | `FP=1 bash placeat.sh <id> <x> <y> <standx> <standy> <tag>` |
+
+### Site survey (Justice Center, 2026-10-28) - in `survey/` (doc 12; paths at the top of each script point at the JusticeCenter workspace)
+| Tool | What it does | Example |
+|---|---|---|
+| `find_names.ps1` | Archetypes + files whose names match a regex, with ytyp and bounds | `-Rx 'cityhall|court'` |
+| `block_files.ps1` | Every file of a block family (any prefix: `lr_`, `hei_`, `hi@`, `ma@`) + every entity of its ymaps | `-Rx '^(hei_|lr_|ma@|hi@)*sc1_19'` |
+| `site_scan.ps1` | Entities within R (+ bounds), occluders, LOD / distant lights, car gens, ybns by bounds, path nodes, scenarios in a box | `-X 330 -Y -1615 -R 170` |
+| `scenarios.ps1` | Scenario points of named regions in a box, with type names | `-BX0 .. -BY1 ..` |
+| `ybn_heightmap.py` | Top-surface height map of ybn XML (triangles + boxes), 0.5 m | `py -3 ybn_heightmap.py` |
+| `site_measure.py` / `lot_frame_map.py` | Min-area rectangles (grid heading, footprints) / the map in the lot frame with a 10 m grid | `py -3 site_measure.py` |
+| `site_json.py` / `plan_v0.py` | site.json from the scans / the fit proposal drawn on the calibrated top-down | `py -3 plan_v0.py` |
+| `survey_shots.sh` | Rig cameras; saves and restores the player's position, `tc_release.sh` on exit | `bash survey_shots.sh out "front x y z tx ty tz 50"` |
+| `topdown_calib.sh` | Top-down shot + world -> screen calibration grid | `bash topdown_calib.sh plan.png 335 -1620 900 18 29` |

@@ -20,6 +20,8 @@ files or server credentials. Keep it that way.
 9. [Field notes](docs/09-field-notes.md): the short original lessons (LOD hiding, ymap gotchas, stairs, seating, doors, mirrors...).
 10. [Shipping](docs/10-shipping.md): **every MLO ships with a conflict checker + a buyer README telling how to use it** (rule), the package checklist.
 11. [Modular props](docs/11-modular-props.md): cutting Rockstar props (bars, counters) into modules that snap edge to edge, full-size copies of interior-only props, collision / tint traps found in game.
+12. [Site survey](docs/12-site-survey.md): finding a vanilla block, its live (`lr_` / `hei_`) files, occluders, lights, AI, measuring it
+    from its collision, rig shots that put the player back, and the fit proposal (Justice Center, Davis).
 
 ## Tools at a glance
 See [tools/README.md](tools/README.md). The short list:
@@ -41,6 +43,7 @@ See [tools/README.md](tools/README.md). The short list:
 | Every counter-like archetype in the game (size, interior or spawnable) | `counters_scan.ps1`, `arch_info.ps1` |
 | Rockstar drawables cut / turned / mitred into snapping modules, own collision, preview renders | `counter_kit/` (doc 11) |
 | Collision as one BVH child per room (physics-pool crash) | `merge_cols.py` |
+| Survey a new lot: block files, live variant, occluders, lights, AI, collision height map, calibrated top-down (doc 12) | `survey/` |
 | Video → frame contact sheets for review | `video_review.py` |
 | Ground holes / steps and drawn-vs-collision, offline on the built files (before deploying) | `wow2easy_move/tools/hole_grid_offline.py`, `seen_vs_solid.py` (see 07) |
 
@@ -53,4 +56,5 @@ See [tools/README.md](tools/README.md). The short list:
 
 ## Where the live projects are
 - Tower City workspace: `C:\Users\anton\Documents\Codex\TowerCity` (build scripts in `work/`, surveys in `survey/`).
+- Justice Center workspace (survey 2026-10-28): `C:\Users\anton\Documents\Codex\JusticeCenter` (`survey/`, `shots/survey/`).
 - Local test server (rig): `C:\C9Test` (rig scripts `t.sh`, `tc_restart.sh`, `tc_tviews.sh`, `tc_fly.sh`).
