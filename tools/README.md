@@ -80,3 +80,9 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `site_json.py` / `plan_v0.py` | site.json from the scans / the fit proposal drawn on the calibrated top-down | `py -3 plan_v0.py` |
 | `survey_shots.sh` | Rig cameras; saves and restores the player's position, `tc_release.sh` on exit | `bash survey_shots.sh out "front x y z tx ty tz 50"` |
 | `topdown_calib.sh` | Top-down shot + world -> screen calibration grid | `bash topdown_calib.sh plan.png 335 -1620 900 18 29` |
+| `real_osm.py` | OpenStreetMap Overpass JSON -> cleaned GeoJSON + local metres; prints every building's levels / height | `py -3 real_osm.py` |
+| `fit_v1.py` | The real layout on a GTA block at ONE scale (rotation + translation, LP per rotation, largest feasible scale) | `py -3 fit_v1.py` |
+| `design_v1.py` | Floors (real height x scale, real floor counts), interiors vs shell, entrances, sally port on the fitted outlines | `py -3 design_v1.py` |
+| `real_layout.py` / `plan_v1.py` / `section_v1.py` | Real footprint plan (north up) / plan on the calibrated top-down / elevation + every floor | `py -3 plan_v1.py` |
+| `removal_v1.py` / `lights_dump.ps1` | Everything inside the kerb to remove (entities, LODs, ybns, occluders, LOD lights, AI) / distant-light positions | `py -3 removal_v1.py` |
+| `map_data_sheet.py` | Four panels: collision heights, traffic, scenarios, entities, with the plan outlines | `py -3 map_data_sheet.py` |

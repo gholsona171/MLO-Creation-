@@ -40,3 +40,20 @@ populates it, measure it, photograph it, and propose the fit. Worked example: `D
   match against hashed known names (`scenarios.ps1`); unknown ones stay hex.
 - CodeWalker's ymap `LODLights` comes back empty when the lodlights ymap is loaded alone (its positions live in the distant-lights
   parent). Count the `distlodlights` ymap; the `lodlights` twin has the same lights.
+
+## Fitting a real building's layout (Justice Center plan v1, 2026-10-28)
+Antonio wants the real top-down layout, not an approximation. The chain (`tools/survey/`):
+1. **Real footprints from OpenStreetMap** (Google Maps can't be scraped): Overpass query for `building`, `building:part`,
+   `highway=pedestrian`, `tourism=artwork` and the streets in a bbox. overpass-api.de answered "502 at capacity"; the
+   `overpass.kumi.systems` mirror worked. Send a User-Agent. `real_osm.py` keeps the raw JSON, writes a cleaned GeoJSON and local
+   metres (equirectangular round the main building), and prints every building with its levels / height tags.
+   Things OSM does not have (a sculpture, skybridges) come from Wikipedia text: mark them "estimated" in every drawing.
+2. **One uniform scale, rotation + translation only** (`fit_v1.py`): for each rotation, bisect the largest scale for which a
+   translation keeps every building vertex N m inside the GTA kerb (kerb convex -> half-planes -> a linear programme, scipy
+   linprog). Then place it along the spare axis to keep the real setbacks (e.g. against the street the real complex hugs).
+   Check that the compass sides still match (no mirroring): Justice Center -> Davis needed only -34.5 deg in the lot frame.
+3. **Heights = real height x the plan scale, floor counts as the real building**; floor-to-floor falls out (3.59 m tower). Very
+   tall rooms (courtrooms) take two floor bands so the facade keeps the real window rhythm.
+4. One outline file (`v1_outlines.json`) feeds the plan, the section, the data sheet and the removal list: the drawings can't drift.
+5. Check whether the vanilla building you replace is a popular paid MLO site (Davis sheriff: Gabz Davis PD and others): a
+   conflict risk for the shipped checker and the buyer README.
