@@ -2,8 +2,9 @@
 # touches them (2026-10-24 sweep, Antonio: things vanish behind invisible occluders of the removed buildings).
 #  * occlude-model triangle: removed when it overlaps a lot - any corner, its centre, or any of 21 points spread over it lies in a
 #    lot (a big triangle can cover a lot with all three corners outside); a model left with no triangles is removed.
-#  * box occluder: removed when its footprint overlaps a lot - its centre, four corners or a 5 x 5 grid over it (the old rule
-#    tested the centre only).
+#  * box occluder: removed when its footprint overlaps a lot - a 5 x 5 grid over it in WORLD space. FIXED 2026-10-28 (Justice Center):
+#    CodeWalker's BBMin / BBMax are LOCAL to the box's Position and turned by its Orientation; read as world corners no box ever matched
+#    (Tower City's working copy still has the old test: re-run its occluder step to see whether boxes over its lots were missed).
 # Which ymaps: every *occl* ymap (best-ranked copy: patchday > dlc_patch > dlcpacks > base) whose occluders reach within 30 m of a
 # lot. Writes the edited copies to -Out and prints one line per ymap; -Report lists every occluder near the lots without writing.
 # Our own maps carry no occluders (checked 2026-10-24).
@@ -31,9 +32,11 @@ function TriHits($t) { $a = $t.Corner1; $b = $t.Corner2; $c = $t.Corner3
       $x = ($a.X * $i + $b.X * $j + $c.X * $k) / 5; $y = ($a.Y * $i + $b.Y * $j + $c.Y * $k) / 5
       if (InLot $x $y) { return $true } } }
   return (InLot (($a.X + $b.X + $c.X) / 3) (($a.Y + $b.Y + $c.Y) / 3)) }
-function BoxHits($bx) { $mn = $bx.BBMin; $mx = $bx.BBMax
+function BoxHits($bx) { $mn = $bx.BBMin; $mx = $bx.BBMax; $o = $bx.Orientation; $c = $bx.Position   # BBMin / BBMax are LOCAL (about
+  $a = 2 * [math]::Atan2($o.Z, $o.W); $ca = [math]::Cos($a); $sa = [math]::Sin($a)                   # Position), turned by Orientation about z
   for ($i = 0; $i -le 4; $i++) { for ($j = 0; $j -le 4; $j++) {
-      if (InLot ($mn.X + ($mx.X - $mn.X) * $i / 4) ($mn.Y + ($mx.Y - $mn.Y) * $j / 4)) { return $true } } }
+      $lx = $mn.X + ($mx.X - $mn.X) * $i / 4; $ly = $mn.Y + ($mx.Y - $mn.Y) * $j / 4
+      if (InLot ($c.X + $lx * $ca - $ly * $sa) ($c.Y + $lx * $sa + $ly * $ca)) { return $true } } }
   return $false }
 $best = @{}
 foreach ($f in $rpf.AllRpfs) { if (-not $f.AllEntries) { continue }
@@ -43,7 +46,7 @@ foreach ($k in ($best.Keys | Sort-Object)) { $e = $best[$k]
   $y = New-Object CodeWalker.GameFiles.YmapFile; try { $y.Load($e.File.ExtractFile($e), $e) } catch { continue }
   $near = $false
   foreach ($m in @($y.OccludeModels)) { if ($m) { foreach ($t in @($m.Triangles)) { foreach ($q in @($t.Corner1, $t.Corner2, $t.Corner3)) { if ($q.X -gt $X0 - 30 -and $q.X -lt $X1 + 30 -and $q.Y -gt $Y0 - 30 -and $q.Y -lt $Y1 + 30) { $near = $true } } } } }
-  foreach ($b in @($y.BoxOccluders)) { if ($b -and $b.BBMax.X -gt $X0 - 30 -and $b.BBMin.X -lt $X1 + 30 -and $b.BBMax.Y -gt $Y0 - 30 -and $b.BBMin.Y -lt $Y1 + 30) { $near = $true } }
+  foreach ($b in @($y.BoxOccluders)) { if ($b -and $b.Position.X -gt $X0 - 60 -and $b.Position.X -lt $X1 + 60 -and $b.Position.Y -gt $Y0 - 60 -and $b.Position.Y -lt $Y1 + 60) { $near = $true } }
   if (-not $near) { continue }
   $rt = 0; $rm = 0; $rb = 0; $kt = 0; $kb = 0
   foreach ($m in @($y.OccludeModels)) { if (-not $m) { continue }

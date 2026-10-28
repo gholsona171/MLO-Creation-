@@ -349,3 +349,40 @@ paving, a hole beside the steps. All the same family: the drawn ground and the c
 
 ## Room timecycle names must be lower case (2026-10-25)
 CodeWalker hashes a room's `timecycleName` exactly as written; the game looks timecycle modifiers up by the **lower-case** hash. A name with any capital (`INT_mall`, `MP_casino_apartment_exec`, `int_GasStation`) silently gives the room NO timecycle. On Tower City every room except the all-lower-case `carpark_dt1_03` ran with none for weeks, so the night bloom fixes did nothing. Write `tc.lower()` in the meta writer and gate it with a test over the built ytyp XML. Check in game: `GetInteriorRoomTimecycle(interior, room)` must equal `GetHashKey(name)` (GetHashKey lower-cases). Try presets live with `SetTimecycleModifier` first; it uses the right hash, so a live test can pass while the built room still fails.
+
+## Clearing a whole block to one flat lot (Justice Center phase 1, Davis sc1_19, 2026-10-28)
+Tools: `tools/justice/` (build `build_p1.sh`; every step wipes its output and rebuilds from the game files).
+- **Take the lot outline from Rockstar's own back-of-sidewalk line, not a hand-drawn kerb.** The sidewalks round a GTA block are the
+  ROAD models (`sc1_rd_r*`); the block's own ground starts where their surface ends. `lot_outline.py`: union (shapely) of the base road
+  models' up-facing triangles near the block, closed by +-1 cm, the inner ring round the block centre = the outline; every vertex keeps
+  his z; a vertex is dropped only where the edge runs straight through it in plan AND height. The slab's edge then lies on his
+  sidewalk edge vertex for vertex: no step, no slit, no overlap (the survey's rounded kerb polygon was up to 4 m off).
+- With that outline the road drawables reach into the lot by slivers only (< 0.02 m2): nothing of the street is cut.
+- **Road collision files hold the old block's collision** (Rockstar packs collision by area): the vehicle files `hi@sc1_rd_0/1/7/8`
+  held the car-park ramps, sunken beds and walls; `sc1_rd_1/4/10/14` held the trees' trunk and crown CAPSULES (an olive's crown at
+  z 39 and huge palms' crowns at z 48 stood over the empty lot). Find every collision file with ANYTHING inside the lot - triangles,
+  boxes AND primitives - and cut it; primitives inside go at any height. Keep the trunks of props you keep (KEEP_R round them).
+- **Kept props in the edge band stood on the old raised beds**: set them down onto the slab (`jc_frame.slab_z`), never let them float.
+- **A wire set whose bounds centre is inside the lot is not necessarily the block's.** Trace every span (`tools/justice/wire_spans.py`):
+  here all 50 spans hung between street telegraph poles on the sidewalks -> kept.
+- **Cutting SLOD2 / SLOD3 by the lot leaves a hole at distance** - cut them (they drew the old tower) AND give the lot slab a
+  lodDist as far as the SLOD3's (15000 m here) until the new buildings bring their own LOD chain. Road SLOD2s (`sc1_lod_04_rd`) also
+  carried the block's ground inside the lot: cut them too. Prop-combo LODs with kept band props are cut by the lot shrunk by the band.
+- LOD pass (Tower City rule) needs EVERY child ymap of the LOD ymaps you edit (`ymap_parents.ps1`), or a LOD whose children live in an
+  unread ymap looks childless and is wrongly swapped.
+- **Box occluders: CodeWalker's BBMin / BBMax are LOCAL** to the box's Position and turned by its Orientation (quaternion about z).
+  Tower City's `l0_occl.ps1` read them as world corners, so no box occluder ever matched (fixed in the repo copy; Tower City's working
+  copy still has the old test). Davis: 8 boxes (3 tower, 5 sheriff) found only with the world-space test.
+- **The scenario-blocking pool is ~45 areas per client, shared by EVERY resource** (proven on the rig 2026-10-28 with
+  `DoesScenarioBlockingAreaExist` on every box: Tower City's 75 strips loading first held 45, every later add - Tower City's last 30 and
+  all of Justice Center's - failed silently; Justice Center loading first held 15 / 15). A 0 return is a valid first handle, not a
+  failure. Rule: ONE `AddScenarioBlockingArea` box per lot (the lot's world bounding box; its corners over the sidewalk only stop
+  loiterers there). Proof on a fresh join with every map loaded: `tools/justice/joint_proof.py` (boxes held, 0 AMBIENT peds - population
+  types 1-5 - in every lot after 3 min, sidewalk walkers still present; script peds such as a venue cashier, type 7, listed apart).
+  Result 2026-10-28: 3 boxes held (Tower City 2, Justice Center 1), 0 ambient peds in all three lots, 6 walkers on the Davis sidewalks.
+- **Walkers are not stopped by navmesh blocking objects**: they kept wandering the old plaza navmesh, floating at its old height
+  (z 30.5 over the z 28.3 slab). `SetPedPathsInArea(..., false, 0)` over a FEW boxes inside the lot (14 here: the 4 m strips merged)
+  held 0 walkers over 3 min. Keep the calls few (Tower City: ~140 small ones crashed the game on load). No permanent clean-up loop.
+- Scan EVERY scenario region for the lot's points (`scenarios_all.ps1`): the survey's davis / rancho scan missed strawberry and
+  south_los_santos and the lot's west end.
+- PowerShell variable names ignore case: `$p` in a loop overwrote the polygon `$P` (every point test was false).

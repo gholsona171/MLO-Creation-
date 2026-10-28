@@ -45,6 +45,7 @@ See [tools/README.md](tools/README.md). The short list:
 | Collision as one BVH child per room (physics-pool crash) | `merge_cols.py` |
 | Survey a new lot: block files, live variant, occluders, lights, AI, collision height map, calibrated top-down (doc 12) | `survey/` |
 | Video → frame contact sheets for review | `video_review.py` |
+| Clear a whole vanilla block to one flat lot: outline from Rockstar's sidewalk edge, removals, LOD / SLOD cuts, collision, occluders, LOD lights, AI off, gates + rig probes (doc 02 / 07) | `justice/` (`build_p1.sh`) |
 | Ground holes / steps and drawn-vs-collision, offline on the built files (before deploying) | `wow2easy_move/tools/hole_grid_offline.py`, `seen_vs_solid.py` (see 07) |
 
 ## Project tools (copies; the projects stay where they run from)
@@ -56,5 +57,5 @@ See [tools/README.md](tools/README.md). The short list:
 
 ## Where the live projects are
 - Tower City workspace: `C:\Users\anton\Documents\Codex\TowerCity` (build scripts in `work/`, surveys in `survey/`).
-- Justice Center workspace (survey 2026-10-28): `C:\Users\anton\Documents\Codex\JusticeCenter` (`survey/`, `shots/survey/`).
+- Justice Center workspace (survey + phase 1 block clearing, 2026-10-28): `C:\Users\anton\Documents\Codex\JusticeCenter` (`survey/`, `work/`, `shots/`).
 - Local test server (rig): `C:\C9Test` (rig scripts `t.sh`, `tc_restart.sh`, `tc_tviews.sh`, `tc_fly.sh`).

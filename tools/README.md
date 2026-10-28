@@ -86,3 +86,18 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `real_layout.py` / `plan_v1.py` / `section_v1.py` | Real footprint plan (north up) / plan on the calibrated top-down / elevation + every floor | `py -3 plan_v1.py` |
 | `removal_v1.py` / `lights_dump.ps1` | Everything inside the kerb to remove (entities, LODs, ybns, occluders, LOD lights, AI) / distant-light positions | `py -3 removal_v1.py` |
 | `map_data_sheet.py` | Four panels: collision heights, traffic, scenarios, entities, with the plan outlines | `py -3 map_data_sheet.py` |
+
+### Clearing a whole block to one flat lot (Justice Center phase 1, 2026-10-28) - in `justice/` (doc 02 / 07)
+| Tool | What it does |
+|---|---|
+| `lot_outline.py` | The lot outline = Rockstar's back-of-sidewalk line (union of the road models' surfaces, inner ring), every vertex with his height |
+| `p1_slab.py` + `sidewalk_mat.py` | The lot slab: edge on his sidewalk edge vertex for vertex, draped inside, his sidewalk material; collision + 0.5 m apron |
+| `p1_maps.py` | Block ymaps (every prefix) swapped to the empty model, road props inside the lot past the edge band, posters, car gens, LOD pass |
+| `p1_col.py` | Block collision emptied; street collision files cut by the lot (triangles under z 37, primitives at any height, kept trunks protected) |
+| `p1_cut_lod.py` | SLOD2 / SLOD3 / emissive / road SLOD2 cut by the lot; prop-combo LODs by the lot minus the band |
+| `p1_occl.ps1` | Occluders over the lot (box occluders tested in WORLD space - local BBMin / BBMax) |
+| `p1_lodlights.py` + `lodlights_find.ps1` | Distant LOD lights inside the lot -> z -1000, every DLC set |
+| `p1_area.py` | Generates area_clear.lua: roads off, ONE scenario box, a few SetPedPathsInArea boxes, car-gen strips, one-time clear |
+| `ground_check.py` (+ `ybnx.py`, `drawn_dump.py`) | Offline gate, drawn vs walked; `--plant` proves it |
+| `jc_probe.py`, `joint_proof.py`, `scen_pool.py`, `jc_pair.sh` | Rig probes (grid, walk, ai, drive), the multi-map scenario proof, the blocking pool count, before / after shots |
+| `near_ents.ps1`, `ymap_parents.ps1`, `scenarios_all.ps1`, `wire_spans.py`, `ybn_at.ps1` | Survey helpers: entities by bounds, child ymaps of LOD ymaps, every scenario region, wire spans to poles, files covering a point |

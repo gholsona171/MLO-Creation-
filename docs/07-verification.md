@@ -171,3 +171,19 @@ checks now run on the built files (`tools/towercity/`), each proven first on the
   basis from position + target + fov) and reading the hit point - `GetEntityModel` on a map building handle throws.
 - A Sollumz RE-import of built drawables trips on the embedded sign textures' mip chains ("Mip 7 has invalid layer size") - checks
   must read the build's own exports (`tris_*.npy`), not re-import the ydr (Tower City's old `zfight_check.py`).
+
+## Clearing a block: offline + in-game gates (Justice Center phase 1, 2026-10-28)
+- `tools/justice/ground_check.py` (from Tower City's): the BUILT resource's collision + the live vanilla ybns round the lot vs the drawn
+  vanilla models (minus everything the build swaps) + the slab, 0.5 m grid. Collision primitives count (as boxes): a ray down must see a
+  trunk. Cells outside the lot whose collision equals Rockstar's untouched cast are `vanilla_ref` (his drawn and walked differ up to
+  9 cm); a NOCOL cell whose 4 rays 5 cm off it hit is an edge crack; collision 0.15 m+ over the ground within 1.2 m of a STANDING prop
+  is an obstacle (only props still standing - removed props' leftover collision is a defect). `--plant` proves it first (a 3 x 3 m hole
+  and a 0.2 m lift in the slab's collision must be found).
+- `jc_probe.py` (rig): `grid` (rays every 2 m over the lot, controls: open sea must miss, his sidewalk must hit 28.3), `walk` (three
+  lines across the lot, ragdoll / climb / fall states logged), `ai` (75 s parked: peds / vehicles in the lot must be 0, the sidewalk ring
+  must keep people, no vehicle node in the lot), `drive` (an AI police car round the block, every corner reached, never in the lot).
+  Run `ai` after a FRESH client join, not on peds that existed before the blocks.
+- **A downed test ped fails every walk.** Unfreezing a probe ped parked in the air (camera / ray parking) drops it: Qbox last stand,
+  health 0, ragdoll on every step - three walk "failures" here were that, not the ground. Put the ped back on the ground BEFORE
+  `tc_release.sh`, and revive + heal before each walk (`jc_probe.revive`, the tc_connect.sh sequence; the console revive is not enough).
+- `jc_pair.sh <dir> lod night`: every survey camera at 13:00, forced LOD 0.08 / 0.04, and 23:00; `pair_sheet.py` before / after.
