@@ -1,5 +1,6 @@
 #!/bin/bash
-# Justice Center phase 1: rebuilds EVERY output of the block clearing from source + runs the gates, then assembles (+ deploys, DEPLOY=1).
+# Justice Center phases 1 + 2: rebuilds EVERY output (the block clearing, then the new complex's shells + LOD chain) from source, runs the
+# gates, then assembles (+ deploys, DEPLOY=1).
 # No patchwork: every step wipes its own output folder and rebuilds it from the game's files and the rules in these scripts.
 #   lot_outline.py -> plan/lot_poly.json   (Rockstar's back-of-sidewalk line round the block, from his road models)
 #   p1_slab.py     -> work/slab            (the lot slab: his sidewalk im_sidewalk012; collision; jc_empty)
@@ -9,11 +10,23 @@
 #   p1_occl.ps1    -> work/occl            (occluders over the lot)
 #   p1_lodlights.py-> work/lodlights       (distant LOD lights inside the lot -> z -1000)
 #   p1_area.py     -> work/scripts         (area_clear.lua: AI off inside the lot)
-#   gates: the LOD partial list covered; tools/ground_check.py --plant must PROVE itself, then tools/ground_check.py must PASS
+#   PHASE 2 (p2/):
+#   p2_tex.ps1     -> p2/tex_rs          (Rockstar's textures for the p2 recipes, read from the game)
+#   p2_site.py     -> plan/p2_site.json  (podium, steps, lawn + sloped walk, bollards, walls, Portal line, props)
+#   p2_build.py    -> p2/out             (every HD shell + _emi models, jc_site, jc_core, jc_ext_col.ybn, the sweep)
+#   p2_lod.py      -> p2/out_lod         (per-building LODs, jc_slod1, jc_emi_lod, jc_emi_slod, the SLOD2/3 massing + ground plates)
+#   p1_maps.py hooks the complex into the block's LOD tree (p2/p2_maps.py); p1_cut_lod.py --add puts the massing into SLOD2 / SLOD3
+#   gates: the LOD partial list covered; p2/p2_gates.py (sweep + cross: no visible coplanar overlap anywhere); tools/ground_check.py
+#   --plant must PROVE itself, then tools/ground_check.py must PASS (drawn vs collision, the new site included)
 set -e -o pipefail; cd /c/Users/anton/Documents/Codex/JusticeCenter/work
 B="/c/Users/anton/Documents/Codex/2026-10-10/our-goal-is-to-build-machine/outputs/MLO-Workshop/tools/blender-4.5.14-windows-x64/blender.exe"
 mkdir -p logs
 py -3 lot_outline.py
+powershell -NoProfile -ExecutionPolicy Bypass -File p2/p2_tex.ps1 | tee logs/p2_tex.log; ! grep -q MISSING logs/p2_tex.log || { echo 'P2_TEX: a recipe texture is missing'; exit 1; }
+py -3 p2/p2_site.py
+"$B" -b --python p2/p2_build.py > logs/p2_build.log 2>&1; grep -o "P2_BUILD_PASS.\{0,300\}" logs/p2_build.log || { grep -A12 Traceback logs/p2_build.log; exit 1; }
+"$B" -b --python p2/p2_lod.py > logs/p2_lod.log 2>&1; grep -o "P2_LOD_PASS.\{0,400\}" logs/p2_lod.log || { grep -A12 Traceback logs/p2_lod.log; exit 1; }
+py -3 p2/p2_gates.py sweep cross --plant || { echo 'P2 SWEEP / CROSS FAILED - nothing deployed'; exit 1; }
 "$B" -b --python p1_slab.py > logs/p1_slab.log 2>&1; grep -o "P1_SLAB_PASS.\{0,80\}" logs/p1_slab.log || { grep -A12 Traceback logs/p1_slab.log; exit 1; }
 py -3 p1_maps.py | tee logs/p1_maps.log
 rm -rf col; : > logs/p1_col_all.log
@@ -23,7 +36,7 @@ for f in ../src/game/*.ybn; do n=$(basename $f .ybn)
 done
 echo "P1_COL $(grep -c P1_COL_PASS logs/p1_col_all.log) files"
 rm -rf lodcut; : > logs/p1_cut_lod_all.log
-for a in "sc1_lod_slod4_children.ydd sc1_lod_19 sc1_lod_04_rd sc1_lod_05_rd" "sc1_lod_slod4.ydr" "sc1_lod_emi_a_slod3.ydr" "sc1_lod_emi_a_slod3_children.ydd sc1_lod_emissive" \
+for a in "sc1_lod_slod4_children.ydd --add=sc1_lod_19 sc1_lod_19 sc1_lod_04_rd sc1_lod_05_rd" "sc1_lod_slod4.ydr --add=sc1_lod_slod4" "sc1_lod_emi_a_slod3.ydr" "sc1_lod_emi_a_slod3_children.ydd sc1_lod_emissive" \
          "sc1_lod_19_children.ydd --inner sc1_props_combo0504_slod sc1_props_combo0505_slod sc1_props_combo0506_slod" \
          "sc1_props_combo0504_slod_children.ydd --inner sc1_props_combo0504_01_lod sc1_props_combo0504_06_lod" \
          "sc1_props_combo0506_slod_children.ydd --inner sc1_props_combo0506_02_lod"; do

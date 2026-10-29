@@ -90,3 +90,21 @@ visit the vanilla interior (e.g. `RequestIpl('apa_v_mp_h_01_a')`, Eclipse Towers
   `prop_phone_ing*` / `prop_player_phone_01` (stand upright on a table), glass office fronts `v_corp_go_glass2` (scale XY to fit).
 - Tool: Tower City `work/upper_check.py` runs `tools/footprint_check.py` on a build's layout (unit rects + doorways exported by the
   build); `work/upper_gap_check.py` is the light-gap audit for those floors.
+
+## Courthouse / police security set (Justice Center, 2026-10-28)
+Found with `tools/justice/p3/mlo_scan.ps1` (every MLO whose name or entities match a regex, with rooms and entity counts, plus
+matching archetypes). Reference interiors: Mission Row `v_policehub` (v_int_20), the heist police `hei_heist_police_dlc`, Sandy
+`v_sheriff`, the bail office `m24_1_dlc_int_bounty` (cells), IAA facility lobby, FIB `v_fib01`, Pacific Standard `hei_heist_ornate_bank`.
+- X-ray belt `ch_prop_baggage_scanner_01a` (1.02 x 3.01 x 1.52, pivot centred on the floor) and walk-through detector
+  `ch_prop_ch_metal_detector_01a` (1.24 x 1.03 x 2.58): casino security, ytyp `ch_prop_ch_casino_security`. Trays `ch_prop_ch_tray_01a`.
+- Rope stanchion `v_corp_bk_rope` (Pacific Standard: post at the origin, 1.72 m rope along +x; chain them post to post), int_corporate.
+- Entrance doors `v_ilev_ph_door01` / `v_ilev_ph_door002` (Mission Row front doors: dark-green glass in a painted metal frame, 1.30 x
+  2.30, hinge pivot, mid-height; attr 7, flags 604110848).
+- Waiting seats `v_ilev_ph_bench` (3.29 m row of blue moulded seats, front -y): 4 seats at x -0.96 / -0.32 / 0.31 / 0.94, pans at
+  z 0.42-0.435, backrest front at y +0.30 (`seat_probe.py`). Flags on stands `v_20_flag01..03` (interior-only: v_int_20 in the deps).
+- Cells / gates for later: `v_ilev_ph_cellgate`, `v_ilev_ph_cellgate02`, `prop_ld_jail_door`, `v_ilev_ph_gendoor00x`.
+- Rockstar's shells often EMBED their textures: `ydr_xml.ps1 -Mode export` writes them beside the XML (the bank shell's floor
+  marbles). Look there before `cw.ps1 tex`, whose all-ytd pass ran for 30+ minutes without finding them. Props that live in a
+  `.ydd`: `tools/justice/p3/vanilla_xml.ps1` looks in ydr files first, then in ydds.
+- His strip textures: `gz_dlc_bfloormrble2` is a strip atlas (travertine strips and a green marble band at rows 288-456). A
+  border band samples only that band's v range (Tower City's sidewalk-strip lesson again).

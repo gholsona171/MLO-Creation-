@@ -14,8 +14,13 @@ edge_crack: a NOCOL cell whose 4 rays 5 cm off it hit (the ray slipped down a sh
 obstacle: collision 0.15 m+ over the drawn ground within 1.2 m of a kept prop (a palm / birch trunk, a pole) - listed, not ground.
 A cell outside the lot whose collision is exactly what Rockstar's untouched files give there (the same cast on the game's own files, no
 file of ours) is printed apart as vanilla_ref (his drawn and walked meshes differ up to ~9 cm, and his collision has single-cell cracks).
---plant: the proof run (doc 07: prove a check on a known defect first): the slab's collision loses a 3 x 3 m square at lot (0, 20) and a
-2 x 2 m patch at lot (20, 0) is lifted 0.2 m; the run must report NOCOL there and MISMATCH there, or the gate itself is broken.
+--plant: the proof run (doc 07: prove a check on a known defect first): the slab's collision loses a 3 x 3 m square at lot (-20, -15) (the
+secure yard: open slab) and a 2 x 2 m patch at lot (0, -65) (the south strip) is lifted 0.2 m; the run must report NOCOL there and
+MISMATCH there, or the gate itself is broken.
+PHASE 2: the drawn set adds every exported model of the complex (work/p2/out/tris_jc_*.npy, not the night _emi overlays); cells inside a
+building's mass (p2_plan: the hull minus the colonnades and vehicle bays) are walls, not ground - counted apart, not tested; on a flight
+of steps the drawn treads and the Rockstar-style collision ramp may differ by up to one riser (+2 cm); the site's new props (bollards,
+benches, flag poles, trees) count as standing props.
 Run: py -3 tools/ground_check.py [--no-dump] [--plant]  -> GROUND_CHECK_PASS / _FAIL, work/ground_check.json; exit 1 on any defect."""
 import json, math, re, subprocess, sys, csv, numpy as np
 from pathlib import Path
@@ -27,6 +32,24 @@ STREAM = J / 'resource/justice_center/stream'; XD = W / 'xml_ground'; XD.mkdir(e
 B = r'C:\Users\anton\Documents\Codex\2026-10-10\our-goal-is-to-build-machine\outputs\MLO-Workshop\tools\blender-4.5.14-windows-x64\blender.exe'
 TOL = 0.05; HEADROOM = 2.2; STEP = 0.5; JX, JY = 0.0137, 0.0171; ZLO, ZHI = 22.0, 50.0; MARGIN = 18.0
 PLANT = '--plant' in sys.argv
+PH, PLF = (-20.0, -15.0), (0.0, -65.0)                                        # the planted hole / lift (open slab, no model of ours over it)
+P2 = (W / 'p2/out/p2_layout.json').exists()
+if P2:
+    sys.path.insert(0, str(W / 'p2')); import p2_plan as PL, p2_site_plan as SPL
+    MASS = []                                                                 # lot rects (u0, u1, v0, v1) of every building's solid mass
+    for _k in PL.B:
+        _voids = PL.arcade_voids(_k) + [(g['room'][0] - 0.6, g['room'][1] + 0.6, g['room'][2], g['room'][3], -1e9, 1e9) for g in PL.GARAGES.values() if g['face'][0] == _k]
+        for _r in PL.rects(_k): MASS += [c[:4] for c in PL.box_minus((_r[0], _r[1], _r[2], _r[3], 0.0, 1.0), [(a, b, c, d, 0.0, 1.0) for a, b, c, d, *_ in _voids])]
+    STEPS = []
+    for ax, at, s0, s1, o, zl, zt in SPL.S['steps']:
+        d1 = SPL.S['step'][0] * SPL.S['step'][1] + 0.5; a, b = sorted((at - o * 0.3, at + o * d1))
+        STEPS.append((a, b, s0, s1) if ax == 'u' else (s0, s1, a, b))
+    RISER = (PL.G - PL.SLAB) / SPL.S['step'][0]
+    LOW = [v_[:4] for _k in PL.B for v_ in PL.arcade_voids(_k)] + [g['room'] for g in PL.GARAGES.values()]
+    LOWZ = 33.9                                                               # under every colonnade soffit (34.3+) and bay ceiling (34.3+)
+def in_mass(u, v): return P2 and any(a <= u <= b and c <= v <= d for a, b, c, d in MASS)
+def in_low(u, v): return P2 and any(a <= u <= b and c <= v <= d for a, b, c, d in LOW)
+def on_steps(u, v): return P2 and any(a <= u <= b and c <= v <= d for a, b, c, d in STEPS)
 LOT = Polygon([p[:2] for p in F.lot_w()]); LOTP = prepared.prep(LOT)
 def live_names(names):
     out = []
@@ -50,10 +73,10 @@ def walked(vanilla=False):
         t, m, kd, pr = ybnx.read(XD / (f.name + '.xml'))
         if PLANT and not vanilla and f.stem.lower() == 'jc_lot_col':
             c = t.mean(1); uv = np.array([F.L(x, y) for x, y in c[:, :2]])
-            hole = (np.abs(uv[:, 0] - 0) < 1.5) & (np.abs(uv[:, 1] - 20) < 1.5)
-            lift = (np.abs(uv[:, 0] - 20) < 1.0) & (np.abs(uv[:, 1] - 0) < 1.0)
+            hole = (np.abs(uv[:, 0] - PH[0]) < 1.5) & (np.abs(uv[:, 1] - PH[1]) < 1.5)
+            lift = (np.abs(uv[:, 0] - PLF[0]) < 1.6) & (np.abs(uv[:, 1] - PLF[1]) < 1.6)
             t = t.copy(); t[lift, :, 2] += 0.2; t = t[~hole]
-            print('GROUND_CHECK --plant: slab collision', int(hole.sum()), 'triangles removed at lot (0, 20),', int(lift.sum()), 'lifted 0.2 m at lot (20, 0)')
+            print('GROUND_CHECK --plant: slab collision', int(hole.sum()), 'triangles removed at lot', PH, ',', int(lift.sum()), 'lifted 0.2 m at lot', PLF)
         T_.append(t); src += [k] * len(t)
     return np.concatenate([t for t in T_ if len(t)]), np.array(src), [f.name for f in files]
 def drawn(dump=True):
@@ -74,7 +97,12 @@ def drawn(dump=True):
         if 'DRAWN_DUMP' not in r.stdout: raise SystemExit('GROUND_CHECK: drawn_dump failed - nothing was tested: ' + r.stdout[-800:] + r.stderr[-800:])
     Z = np.load(out); V = Z['tris'].astype(np.float64); nm = list(Z['names'])
     S = np.load(W / 'slab/tris_jc_lot.npy').astype(np.float64)
-    return np.concatenate([V, S]), np.concatenate([Z['mid'], np.full(len(S), len(nm))]), nm + ['jc_lot'], len(nm)
+    parts, mids, names2 = [V, S], [Z['mid'], np.full(len(S), len(nm))], nm + ['jc_lot']
+    if P2:
+        for f in sorted((W / 'p2/out').glob('tris_jc_*.npy')):
+            if f.stem.endswith('_emi'): continue
+            T = np.load(f).astype(np.float64); parts.append(T); mids.append(np.full(len(T), len(names2))); names2.append(f.stem[5:])
+    return np.concatenate(parts), np.concatenate(mids), names2, len(nm)
 def cast(Tr, X0, Y0, NX, NY):
     Z = np.full((NY, NX), np.nan); SRC = np.full((NY, NX), -1, np.int64)
     up = np.cross(Tr[:, 1] - Tr[:, 0], Tr[:, 2] - Tr[:, 0])[:, 2] > 0
@@ -111,11 +139,14 @@ def main():
     X0, Y0 = min(xs) - MARGIN, min(ys) - MARGIN; NX, NY = int((max(xs) - min(xs) + 2 * MARGIN) / STEP), int((max(ys) - min(ys) + 2 * MARGIN) / STEP)
     near = prepared.prep(LOT.buffer(MARGIN))
     Zd, Sd = cast(Dw, X0, Y0, NX, NY); Zc, Sc = cast(Cw, X0, Y0, NX, NY)
+    if P2:                                                                   # the low look: under the colonnades' soffits and the vehicle bays' ceilings
+        global ZHI
+        _z = ZHI; ZHI = LOWZ; Zd2, Sd2 = cast(Dw, X0, Y0, NX, NY); Zc2, Sc2 = cast(Cw, X0, Y0, NX, NY); ZHI = _z
     Vw, _, _ = walked(vanilla=True); Zv, _ = cast(Vw, X0, Y0, NX, NY)          # Rockstar's own collision, untouched
     def same_as_vanilla(j, i):                                               # outside the lot: the cell walks exactly as it did before the build
         a, b = Zc[j, i], Zv[j, i]
         return (np.isnan(a) and np.isnan(b)) or (not np.isnan(a) and not np.isnan(b) and abs(a - b) < 0.002)
-    rows = {'MISMATCH': [], 'NOCOL': [], 'HOLE': [], 'vanilla_ref': [], 'edge_crack': [], 'obstacle': []}; cells = 0
+    rows = {'MISMATCH': [], 'NOCOL': [], 'HOLE': [], 'vanilla_ref': [], 'edge_crack': [], 'obstacle': [], 'building': [], 'stairs': []}; cells = 0
     lo3 = Cw.min(1); hi3 = Cw.max(1); upc = np.cross(Cw[:, 1] - Cw[:, 0], Cw[:, 2] - Cw[:, 0])[:, 2] > 0
     def zat(x, y):
         best = None
@@ -134,17 +165,21 @@ def main():
     KEPT = [(k[1], k[2]) for k in json.load(open(W / 'p1_maps_report.json'))['kept_band_lr']]       # props still standing: outside the lot + the band's
     PROPS = np.array([(float(r['x']), float(r['y'])) for r in rows_ if F.live_ymap(r['ymap'], ym) and r['archetype'].startswith('prop_')
                       and 'sc1_19' not in r['ymap'] and r['lodLevel'] in ('LODTYPES_DEPTH_HD', 'LODTYPES_DEPTH_ORPHANHD')
-                      and not LOTP.contains(Point(float(r['x']), float(r['y'])))] + KEPT)
+                      and not LOTP.contains(Point(float(r['x']), float(r['y'])))] + KEPT
+                     + ([tuple(p['pos'][:2]) for p in json.load(open(W / 'p2/out/p2_layout.json'))['props']] if P2 else []))
     def near_prop(x, y): return bool(len(PROPS)) and float(np.min(np.hypot(PROPS[:, 0] - x, PROPS[:, 1] - y))) < 1.2
     for j in range(NY):
         for i in range(NX):
             x, y = X0 + JX + i * STEP, Y0 + JY + j * STEP; zd, zc = Zd[j, i], Zc[j, i]
             if not near.contains(Point(x, y)): continue
             cells += 1; ins = LOTP.contains(Point(x, y)); u, v = F.L(x, y)
+            if in_mass(u, v): rows['building'].append((round(u, 2), round(v, 2), None, "a building's mass")); continue
+            if in_low(u, v): zd, zc, Sd_, Sc_ = Zd2[j, i], Zc2[j, i], Sd2, Sc2
+            else: Sd_, Sc_ = Sd, Sc
             if np.isnan(zd):
                 if ins: rows['HOLE'].append((round(u, 2), round(v, 2), None if np.isnan(zc) else round(float(zc), 2), 'nothing drawn'))
                 continue
-            dn = dnames[Dmid[Sd[j, i]]]; cn = files[Csrc[Sc[j, i]]] if Sc[j, i] >= 0 else '-'
+            dn = dnames[Dmid[Sd_[j, i]]]; cn = files[Csrc[Sc_[j, i]]] if Sc_[j, i] >= 0 else '-'
             if not ins and same_as_vanilla(j, i):                                # Rockstar's own drawn-vs-walked, unchanged by us
                 if np.isnan(zc) or abs(float(zd - zc)) > TOL and float(zd - zc) <= HEADROOM: rows['vanilla_ref'].append((round(u, 2), round(v, 2), round(float(zd), 2), None if np.isnan(zc) else round(float(zd - zc), 3), dn + ' / ' + cn))
                 continue
@@ -157,6 +192,7 @@ def main():
             dz = float(zd - zc)
             if dz > HEADROOM: continue
             if abs(dz) <= TOL: continue
+            if on_steps(u, v) and abs(dz) <= RISER + 0.02: rows['stairs'].append((round(u, 2), round(v, 2), round(float(zd), 2), round(dz, 3), dn + ' / ' + cn)); continue
             ours = True                                                      # inside the lot, or a cell outside it that the build changed
             if _edge(Zd, Zc, j, i) and not ins: continue
             (rows['MISMATCH'] if ours else rows['vanilla_ref']).append((round(u, 2), round(v, 2), round(float(zd), 2), round(dz, 3), dn + ' / ' + cn))
@@ -169,16 +205,17 @@ def main():
         return sorted(cl, key=len, reverse=True)
     rep = {'cells': cells}
     for k, r in rows.items():
+        if k == 'building': rep[k] = len(r); print(f'GROUND_CHECK {k:11s} cells {len(r):5d} (inside a building mass: not ground, not tested)', flush=True); continue
         cl = clusters(r); rep[k] = [{'n': len(c), 'u': [min(p[0] for p in c), max(p[0] for p in c)], 'v': [min(p[1] for p in c), max(p[1] for p in c)],
-                                      'z': c[0][2], 'd': (max((p[3] for p in c if p[3] is not None), key=abs, default=None) if k in ('MISMATCH', 'vanilla_ref') else None), 'what': c[0][-1]} for c in cl]
+                                      'z': c[0][2], 'd': (max((p[3] for p in c if p[3] is not None), key=abs, default=None) if k in ('MISMATCH', 'vanilla_ref', 'stairs') else None), 'what': c[0][-1]} for c in cl]
         print(f'GROUND_CHECK {k:11s} cells {len(r):5d} clusters {len(cl):4d}', flush=True)
         for c in rep[k][:14]: print(f"    n {c['n']:4d}  u {c['u'][0]:7.1f} .. {c['u'][1]:7.1f}  v {c['v'][0]:7.1f} .. {c['v'][1]:7.1f}  z {c['z']}  {c['d']}  {c['what']}")
     json.dump(rep, open(W / ('ground_check_plant.json' if PLANT else 'ground_check.json'), 'w'), indent=1)
     bad = len(rows['MISMATCH']) + len(rows['NOCOL']) + len(rows['HOLE'])
     print('GROUND_CHECK cells tested', cells)
     if PLANT:
-        hit_hole = any(abs(r[0]) < 1.6 and abs(r[1] - 20) < 1.6 for r in rows['NOCOL'])
-        hit_lift = any(abs(r[0] - 20) < 1.1 and abs(r[1]) < 1.1 for r in rows['MISMATCH'])
+        hit_hole = any(abs(r[0] - PH[0]) < 1.6 and abs(r[1] - PH[1]) < 1.6 for r in rows['NOCOL'])
+        hit_lift = any(abs(r[0] - PLF[0]) < 1.7 and abs(r[1] - PLF[1]) < 1.7 for r in rows['MISMATCH'])
         print('GROUND_CHECK_PLANT', 'PROVEN' if hit_hole and hit_lift else 'NOT PROVEN', '(planted hole found: %s, planted lift found: %s)' % (hit_hole, hit_lift))
         sys.exit(0 if hit_hole and hit_lift else 1)
     print('GROUND_CHECK_FAIL' if bad else 'GROUND_CHECK_PASS', bad); sys.exit(1 if bad else 0)

@@ -386,3 +386,31 @@ Tools: `tools/justice/` (build `build_p1.sh`; every step wipes its output and re
 - Scan EVERY scenario region for the lot's points (`scenarios_all.ps1`): the survey's davis / rancho scan missed strawberry and
   south_los_santos and the lot's west end.
 - PowerShell variable names ignore case: `$p` in a loop overwrote the polygon `$P` (every point test was false).
+
+## An MLO inside a glazed exterior shell: the atrium galleria (Justice Center phase 3, 2026-10-28)
+Tools: `tools/justice/p3/` (copies; the project runs from `JusticeCenter/work/p3`, `build_p3.sh`).
+- **One room for a full-height galleria**, MLO-local = the lot frame (the exteriors' frame), so plan numbers carry over unchanged.
+- **Exit portals on the stone / mullion BACK plane**, not on the glass: the curtain's mullions stand 0.15 m behind the pane, and
+  exterior geometry on the room side of a portal is never drawn from inside. Make the portal span the whole opening between the
+  room's linings, the end piers included, or the piers' inner faces become full-height sky strips.
+- **Glass roof: the portal goes UNDER the beams** (roof - 0.55). The beams are exterior and are drawn only through the portal. The
+  room's linings run up to the glass (the room's own drawable is always drawn), inset by exactly the distance the exterior insets
+  its roof glass (`atrium_pieces`), so linings and roof meet with no gap and no overlap.
+- **The hull band goes to the MLO** (`SEE_OUT` -> `mlo_voids`), so the MLO must bring the perimeter's collision itself: each
+  curtain wall's full stone depth minus its door openings, and the roof glass as a walkable slab (or people on the roof fall in).
+- Doors in a curtain wall: the leaves are MLO entities attached to that wall's exit portal, in the glass plane. The exterior cuts
+  the opening (door top + 10 cm) and keeps the bays above as glass.
+- Gate `jc3_gap_check.py`: portal-aware rays (one-sided faces, glass passed, a ray crossing an exit portal is fine), a grid pass
+  plus a seam scan along every lining. Proven on a planted 0.6 m floor slit along the north glass (189 gap rays) before the clean run (0).
+
+## Interior vertex colours: measure Rockstar's, per surface (2026-10-28)
+tc_kit writes every interior Colour0 as (0, 0.2, 0) through `.color` (linear: G ends up 123/255), and exteriors as 1.0. Rockstar's
+interiors, measured with `tools/justice/p3/vcol_stats.py` on CodeWalker XML (median per floor / wall / ceiling and shader):
+| Room kind | R (natural ambient) | G (artificial ambient) | B |
+|---|---|---|---|
+| enclosed (Mission Row `v_20_policedlc_shell`, IAA reception, bounty office) | 0 | 0.55-0.95 | 0 or 255 |
+| small windows (Sandy sheriff `v_47_sheriff_shell`) | 0.12-0.30 | 0.17-0.44 | 0 |
+| glazed (high-life apartment `apa_mp_h_01_shell` floor 154/107, walls 114/115; Pacific Standard shell 47-146 / 106-196) | 0.2-0.6 | 0.4-0.75 | 255 |
+Write per room and surface class with `color_srgb` (what Sollumz stores) after `new_drawable` (wrap `TK.K.new_drawable` in the
+build; never edit tc_kit). Emissive-shader faces keep 1.0. Check the BUILT file: `local_xml.ps1` turns a local ydr / ybn into XML,
+then `vcol_stats.py` reads it (the galleria came out 153/107/255 floor, 115/115/255 walls, as written).
