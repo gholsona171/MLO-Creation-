@@ -78,17 +78,125 @@ def walk():
         good = ok and zmin > JP.G - 0.1 and states == 0
         legs.append({'to': [u, v], 'arrived': ok, 'zmin': round(zmin, 3), 'bad_states': states}); ok_all &= good
     return legs, ok_all
-def sit():
+def sit(rooms=None):
+    """every seat (or those of `rooms`): the ped is stood 1 m off and told to take the seat's scenario at its sit point (snapped); after
+    6 s it must be in the scenario at the point. The visual check (on the seat, not in it) is the clone photos."""
     out = []; ok_all = True
     for s in L['seats']:
-        u, v, z, h = s; x, y = W(u, v); revive(); stand(u + 1.2 * math.sin(math.radians(h)) * 0, v - 1.0, JP.G); time.sleep(0.5)
-        r = lua('local p=PlayerPedId() TaskStartScenarioAtPosition(p,"PROP_HUMAN_SEAT_BENCH",%.3f,%.3f,%.3f,%.1f,0,true,true) Wait(6000) local c=GetEntityCoords(p) '
-                'local u=IsPedUsingScenario(p,"PROP_HUMAN_SEAT_BENCH") or IsPedActiveInScenario(p) return string.format("%%s:%%.3f:%%.3f:%%.3f",tostring(u),c.x,c.y,c.z)' % (x, y, z, (h + F.HDEG) % 360), 40).split(':')
+        u, v, z, h = s[:4]; room = s[4] if len(s) > 4 else 'galleria'; sc = s[5] if len(s) > 5 else 'PROP_HUMAN_SEAT_BENCH'
+        if rooms and room not in rooms: continue
+        x, y = W(u, v); fz = z - 0.6; revive(); stand(u, v, fz); time.sleep(0.5)
+        r = lua('local p=PlayerPedId() TaskStartScenarioAtPosition(p,"%s",%.3f,%.3f,%.3f,%.1f,0,true,true) Wait(6000) local c=GetEntityCoords(p) '
+                'local u=IsPedUsingScenario(p,"%s") or IsPedActiveInScenario(p) return string.format("%%s:%%.3f:%%.3f:%%.3f",tostring(u),c.x,c.y,c.z)' % (sc, x, y, z, (h + F.HDEG) % 360, sc), 40).split(':')
         using = r[0] in ('true', '1'); dx = math.hypot(float(r[1]) - x, float(r[2]) - y); dz = float(r[3]) - z
         good = using and dx < 0.25 and abs(dz) < 0.15; ok_all &= good
-        out.append({'seat': [round(u, 2), round(v, 2)], 'using': using, 'dxy': round(dx, 3), 'dz_root_minus_seat': round(dz, 3), 'ok': good})
+        out.append({'seat': [round(u, 2), round(v, 2), round(z, 2)], 'room': room, 'scenario': sc, 'using': using, 'dxy': round(dx, 3), 'dz_root_minus_seat': round(dz, 3), 'ok': good})
         lua('ClearPedTasksImmediately(PlayerPedId()) return "c"')
     return out, ok_all
+def sit2(): return sit(rooms=set(L['zones']) - {'galleria'})
+def sit_sec(): return sit(rooms={'secA', 'secB'})
+def rooms():
+    """the ped stood in each room (the middle of its first region rect, on its floor) must report the jc_courts interior and the room's
+    own key (GetRoomKeyFromEntity = the hash of the room's name). Control: the plaza is no interior."""
+    out = []; ok_all = True
+    stand(50.0, 4.0, JP.G); time.sleep(2)
+    o = int(lua('Wait(1200) return tostring(GetInteriorFromEntity(PlayerPedId()))'))
+    for r in L['rooms']:
+        z = L['zones'][r['key']][0]; u, v = (z[0] + z[1]) / 2, (z[2] + z[3]) / 2
+        if r['key'] == 'stair': u, v = 41.1, 33.9
+        revive(); stand(u, v, z[4]); time.sleep(2.5)
+        res = lua('local p=PlayerPedId() Wait(1000) return string.format("%%d:%%d:%%d",GetInteriorFromEntity(p),GetRoomKeyFromEntity(p),GetHashKey("%s"))' % r['name']).split(':')
+        good = int(res[0]) != 0 and int(res[1]) == int(res[2]); ok_all &= good
+        out.append({'room': r['key'], 'interior': int(res[0]), 'room_key': int(res[1]), 'want': int(res[2]), 'ok': good})
+    return {'plaza_control': o, 'rooms': out}, ok_all and o == 0
+def doors2():
+    """every area-2 door (and the galleria -> lobby pair): through the middle of each LEAF both ways, 1.5 m either side."""
+    out = []; ok_all = True
+    for d in L['doors']:
+        if d['name'].startswith(('entry', 'exit')): continue
+        u, v, z = d['pos']; t = math.radians(d['heading']); sgn = 1.0 if d['model'] in ('v_ilev_ph_door01',) else -1.0
+        lu, lv = sgn * math.cos(t), sgn * math.sin(t); mu, mv = u + lu * 0.65, v + lv * 0.65; nu, nv = -lv, lu
+        fz = z - 1.15; res = {'door': d['name']}
+        D = 1.0 if d['model'] == 'v_ilev_ph_cellgate' else 1.5      # the secure corridor west of the cells is 1.3 m: start 1.0 m out, not in its wall
+        for name, k in (('a', 1), ('b', -1)):
+            revive(); stand(mu + nu * D * k, mv + nv * D * k, fz); time.sleep(0.8)
+            ok, log = walk_to(mu - nu * D * k, mv - nv * D * k, 12.0)
+            far = max(((F.L(e[0], e[1])[0] - mu) * nu + (F.L(e[0], e[1])[1] - mv) * nv) * -k for e in log) if log else -9
+            res[name] = {'arrived': ok, 'past_line': round(far, 2)}; ok_all &= ok and far > D - 0.65    # arrival radius 0.6: through by D - 0.6
+        found = lua('local o=GetClosestObjectOfType(%.3f,%.3f,%.3f,1.6,GetHashKey("%s"),false,false,false) return tostring(o~=0)' % (*W(u, v), z, d['model']))
+        res['object'] = found; ok_all &= found in ('true', '1'); out.append(res)
+    return out, ok_all
+def models():
+    """every room drawable the layout exports is registered in the game (IsModelInCdimage) - control: a planted name that is not
+    streamed must read false (2026-10-29: case-hashed names left every L3 / L5 room unregistered and undrawn; no offline gate saw it)."""
+    names = sorted(L['drawables']) + ['jc_courts_planted_missing']
+    revive(); stand(5.0, 20.0, JP.G); time.sleep(4)                     # the MLO's ytyp is loaded only near the lot: stand in the galleria
+    r = lua('local o={} for _,n in ipairs({"%s"}) do o[#o+1]=tostring(IsModelInCdimage(GetHashKey(n))) end return table.concat(o,",")' % '","'.join(names), 30).split(',')
+    got = {n: v in ('true', '1') for n, v in zip(names, r)}
+    return got, len(r) == len(names) and not got['jc_courts_planted_missing'] and all(v for n, v in got.items() if n != 'jc_courts_planted_missing')
+def lifts():
+    """on screen, like a player: stood 2.2 m out from each cab's landing, the ped walks in through the landing door, [E] (a real key
+    press into the game window) opens the floor list, the floor row is clicked in ox_lib's menu, and the ped must arrive in the same cab
+    on that floor. Rides: courts L1->L3->L5->L1 (both cabs), secure L3->L5->L3. Control: [E] stood outside the cab must open nothing."""
+    import json as J
+    banks = J.load(open(P3 / 'out/lifts.json')); out = []; ok_all = True
+    def key_e(): subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', r'C:\C9Test\key.ps1', '-Vk', '69', '-Scan', '18'], capture_output=True, timeout=30)
+    def menu_open(): return lua('return tostring(lib and lib.getOpenContextMenu and lib.getOpenContextMenu() or exports.ox_lib:getOpenContextMenu())', 10)
+    for b in banks:
+        fl = b['floors']; h = math.radians(b['heading']); fx, fy = -math.sin(h), math.cos(h)        # the cab's front (the rider faces out)
+        order = [0, 1, 2, 0] if len(fl) == 3 else [0, 1, 0]
+        for ci in range(len(fl[0]['cabs'])):
+            for a, t in zip(order, order[1:]):
+                cx, cy, cz = fl[a]['cabs'][ci]; ox, oy = cx + fx * 2.2, cy + fy * 2.2
+                u, v = F.L(ox, oy); revive(); stand(u, v, cz, (b['heading'] + 180.0) % 360); time.sleep(1.0)
+                ctl = None
+                if a == order[0] and ci == 0:
+                    key_e(); time.sleep(1.0); ctl = menu_open()
+                cu, cv = F.L(cx, cy); arrived, log = walk_to(cu, cv, 10.0)
+                time.sleep(0.8); key_e(); time.sleep(1.2); opened = menu_open()
+                r = subprocess.run([GB, '-c', "bash /c/C9Test/oxclick.sh '^%s$'" % fl[t]['name']], capture_output=True, text=True, timeout=60).stdout.strip()
+                time.sleep(4.5)
+                e = lua('local c=GetEntityCoords(PlayerPedId()) return string.format("%.2f:%.2f:%.2f",c.x,c.y,c.z)', 10).split(':')
+                tx, ty, tz = fl[t]['cabs'][ci]; d = math.hypot(float(e[0]) - tx, float(e[1]) - ty); dz = float(e[2]) - (tz + 1.0)
+                good = arrived and opened == 'jc_lift' and 'clicked' in r and d < 1.1 and abs(dz) < 0.4 and (ctl in (None, 'nil'))
+                ok_all &= good
+                out.append({'bank': b['bank'], 'cab': ci, 'from': fl[a]['name'], 'to': fl[t]['name'], 'walked_in': arrived, 'menu': opened,
+                            'click': r[-40:], 'xy_off': round(d, 2), 'dz': round(dz, 2), 'outside_control': ctl, 'ok': good})
+                lua("exports.ox_lib:hideContext() return \"x\"", 10)
+    return out, ok_all
+WALK2 = {   # courtroom floor L3 (lot u, v): each route walked leg by leg; every leg must arrive with no ragdoll / climb / fall state
+    'public':   [(16.0, 19.4), (29.4, 19.4), (29.4, 21.9), (30.0, 24.0), (30.0, 29.3), (25.65, 29.3), (25.65, 31.2), (25.65, 33.0),
+                 (25.65, 29.3), (30.0, 29.3), (30.0, 24.0), (29.4, 21.9), (29.4, 19.4)],
+    'secure':   [(33.1, 26.4), (31.9, 26.4), (31.9, 36.25), (30.2, 36.25), (31.9, 36.25), (31.9, 26.4), (33.1, 26.4)],
+    'restricted': [(16.5, 25.0), (16.5, 42.6), (20.15, 42.6), (20.15, 40.4), (20.15, 42.6), (35.0, 42.6), (16.5, 42.6), (16.5, 25.0)],
+}
+def walk2():
+    import jc3_tower as JT
+    out = {}; ok_all = True
+    for name, pts in WALK2.items():
+        revive(); stand(*pts[0], JT.F3); time.sleep(1.5); legs = []
+        for u, v in pts[1:]:
+            ok, log = walk_to(u, v, 15.0)
+            bad = sum(1 for e in log if e[3] != '000'); zs = [e[2] for e in log] or [0]
+            good = ok and bad == 0 and max(zs) - min(zs) < 0.6; ok_all &= good
+            legs.append({'to': [u, v], 'arrived': ok, 'bad_states': bad, 'z_range': round(max(zs) - min(zs), 2), 'ok': good})
+        out[name] = legs
+    return out, ok_all
+STAIR_ROUTE = []
+def stair():
+    """L1 lobby -> the stair door -> both flights of each storey -> L3 landing -> out into pubA (and on to L5)."""
+    import jc3_tower as JT
+    S = JT.SC; ls, ln = sum(JT.LANE_S) / 2, sum(JT.LANE_N) / 2
+    revive(); stand(44.0, 33.95, JT.F1, 90.0); time.sleep(2); legs = []; ok_all = True
+    pts = [(41.6, 33.95), (40.4, ls)]
+    for k in range(4): pts += [(36.6, ls), (36.2, ln), (40.4, ln), (40.6, ls)] if k < 3 else [(36.6, ls), (36.2, ln), (40.4, ln)]
+    pts += [(41.6, 33.95), (44.0, 33.95)]
+    for u, v in pts:
+        ok, log = walk_to(u, v, 20.0)
+        zmax = max(e[2] for e in log) if log else 0; states = sum(1 for e in log if e[3] != '000')
+        legs.append({'to': [u, v], 'arrived': ok, 'z_end': round(log[-1][2], 2) if log else None, 'bad_states': states}); ok_all &= ok and states == 0
+    zend = legs[-1]['z_end'] or 0
+    return legs, ok_all and abs(zend - (JT.F5 + 1.0)) < 0.3
 if __name__ == '__main__':
     fails = 0
     try:

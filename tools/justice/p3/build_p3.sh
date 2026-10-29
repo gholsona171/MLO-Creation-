@@ -9,10 +9,12 @@ grep -q '"zfight": {}' logs/jc3_build.log || { echo 'SWEEP FAILED (out/zfight.js
 py -3 jc3_meta.py | grep JC3_META_PASS
 for f in jc_courts_galleria.ydr jc_courts.ybn; do powershell -NoProfile -ExecutionPolicy Bypass -File tools/local_xml.ps1 -In "$(cygpath -w $PWD/out/$f)" -Out "$(cygpath -w $PWD/out/xml/$f.xml)" > /dev/null; done
 py -3 -c "import xml.etree.ElementTree as E; r=E.parse('out/xml/jc_courts.ybn.xml').getroot(); ids=[int(i.find('RoomID').get('value')) for m in r.iter('Materials') for i in m]; assert ids and min(ids)>=1, ids; print('ROOM_IDS_OK', sorted(set(ids)))"
-py -3 jc3_gap_check.py --plant 2>/dev/null | grep JC3_GAP_PLANT_FOUND
+py -3 jc3_gap_check.py --plant galleria 2>/dev/null | grep JC3_GAP_PLANT_FOUND
+py -3 jc3_gap_check.py --plant tower 2>/dev/null | grep JC3_GAP_PLANT_FOUND
 py -3 jc3_gap_check.py 2>/dev/null | grep JC3_GAP_PASS
 py -3 jc3_footprint.py --plant | grep JC3_FOOTPRINT_PLANT_FOUND
 py -3 jc3_footprint.py | grep JC3_FOOTPRINT_PASS
 py -3 jc3_mlo_data.py
 py -3 jc3_plandraw.py "C:/Users/anton/Documents/Codex/JusticeCenter/shots/p3_area1_plan.png"
+py -3 jc3_plandraw_tower.py "C:/Users/anton/Documents/Codex/JusticeCenter/shots/p3_area2_plan_L1.png" "C:/Users/anton/Documents/Codex/JusticeCenter/shots/p3_area2_plan_L3.png"
 echo BUILD_P3_PASS

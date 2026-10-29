@@ -356,3 +356,14 @@ night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings
 - **Assemble must ship every room:** an assemble line written for the first room (`cp ... jc_courts_galleria.ydr`) silently left the
   later rooms out. The stream gate now checks that every room drawable the ytyp places is in `stream/` (with a plant). A gate inside
   `a && b` under `set -e` does NOT stop the script: use `gate || { echo ...; exit 1; }`.
+- **Elevator leaf `v_ilev_finelevdoor01`:** the leaf runs +x from its origin (bounds x -0.15 .. 1.45) and opens by sliding along its
+  -x. Put the origin at the opening's edge with the leaf lying across the opening (tc_kit.lift_bank: left car c + 0.65 heading 180,
+  right car c - 0.65 heading 0). Turned the other way, the leaf rests in the wall and slides ACROSS the doorway as a ped walks up,
+  so the lift can never be entered. The on-screen lift probe (`jc3_probe.py lifts`) caught it: walk in through the landing door,
+  press E as a real key into the game window (`C9Test/key.ps1 -Vk 69 -Scan 18`), click the floor row in ox_lib (`oxclick.sh`),
+  check the arrival floor. Control: E pressed outside a cab must open no menu.
+- **Lift landings:** size the landing in front of every lift door first (>= 1.5 m deep, door wide) and check it in a unit test. The
+  holding cells' wall once stood 0.3 m off the secure lift door, and no geometry gate noticed.
+- **Fly-through look-ahead:** a camera that looks 6 m ahead along its path tips down onto the end point as it arrives. jc3_fly.sh now
+  extrapolates the look target along the last leg. A still scripted camera inside an MLO shows the outside world for about 5 s before
+  the interior takes it: trim the head of the first segment (jc3_fly_area2.sh). End each segment clear of walls and furniture.

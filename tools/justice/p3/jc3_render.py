@@ -16,7 +16,9 @@ OUTD = Path(argv[0]) if argv else P3 / 'renders'; OUTD.mkdir(parents=True, exist
 ONLY = set(argv[1:])
 VAN = P3 / 'survey/vanilla'; TEX = VAN / '_tex'
 L = json.load(open(P3 / 'out/jc3_layout.json')); L2 = json.load(open(WK / 'p2/out/p2_layout.json'))
-bpy.ops.wm.read_homefile(use_empty=True)
+bpy.ops.wm.open_mainfile(filepath=str(P3 / 'out/jc3_scene.blend'))                  # the build's own scene (our rooms as built)
+for o in list(bpy.data.objects):                                                      # the collision composites stay out of the picture
+    if 'bound' in str(getattr(o, 'sollum_type', '')).lower() or o.name.startswith('col'): o.hide_render = True
 scn = bpy.context.scene
 def imp(directory, name):
     before = set(bpy.data.objects)
@@ -25,10 +27,8 @@ def imp(directory, name):
     roots = [o for o in new if o.parent is None]
     return roots, new
 # ---------------- our room(s) ----------------
-for k, d in L['drawables'].items():
-    imp(P3 / 'out', k + '.ydr')
 # ---------------- phase 2 exteriors (read only), at their centres ----------------
-EXT = ['jc_atrium', 'jc_tower', 'jc_police', 'jc_jail1', 'jc_site']
+EXT = ['jc_atrium', 'jc_tower', 'jc_police', 'jc_jail1', 'jc_site']                     # (the tower's model is needed: the rooms look out through its glass)
 for n in EXT:
     roots, new = imp(WK / 'p2/out', n + '.ydr'); c = L2['drawables'][n]['centre']
     for r in roots: r.location = Vector(c)
@@ -86,6 +86,16 @@ for u, v, z, m in JP.wall_lights():
     l = bpy.data.lights.new('wl', 'AREA'); l.energy = 120; l.size = 0.6; o = bpy.data.objects.new('wl', l); scn.collection.objects.link(o)
     k = 0 if m[1] == 'u' else 1; sg = 1 if m[0] == '+' else -1; pos = [u, v, z]; pos[k] -= sg * 0.2; o.location = pos
     o.rotation_euler = (math.radians(90), 0, math.radians({'+u': 90, '-u': 270, '+v': 180, '-v': 0}[m]))
+for k, zs in L['zones'].items():                    # the tower rooms' lamps (the game's lights are not Blender lights in the saved scene):
+    if k == 'galleria': continue                    # area lights on a 4 m grid under each room region's ceiling, pointing down
+    for u0, u1, v0, v1, z0, z1 in zs:
+        if (u1 - u0) < 1.4 or (v1 - v0) < 1.4: continue
+        nu, nv = max(1, int((u1 - u0) // 4.0)), max(1, int((v1 - v0) // 4.0))
+        for i in range(nu):
+            for j in range(nv):
+                l = bpy.data.lights.new('tl', 'AREA'); l.shape = 'RECTANGLE'; l.size, l.size_y = 1.2, 0.3; l.energy = 160
+                o = bpy.data.objects.new('tl', l); scn.collection.objects.link(o)
+                o.location = (u0 + (u1 - u0) * (i + 0.5) / nu, v0 + (v1 - v0) * (j + 0.5) / nv, z1 - 0.45)
 scn.render.engine = 'CYCLES'; scn.cycles.device = 'CPU'; scn.cycles.samples = 40; scn.cycles.use_denoising = True
 scn.render.resolution_x, scn.render.resolution_y = 1600, 900; scn.view_settings.view_transform = 'AgX'; scn.view_settings.exposure = -0.9
 VIEWS = {   # name: (camera lot-frame position, target, lens mm)
@@ -96,6 +106,24 @@ VIEWS = {   # name: (camera lot-frame position, target, lens mm)
     'p3_a1_plaza':          ((54.0, 4.0, 30.4), (30.0, 4.0, 31.0), 24),
     'p3_a1_inscription':    ((8.0, 12.0, 30.45), (-8.2, 19.5, 33.5), 22),
 }
+import jc3_tower as JT
+F3, F5 = JT.F3, JT.F5
+VIEWS.update({   # area 2
+    'p3_a2_courtroom_gallery': ((25.7, 23.6, F3 + 1.7), (25.3, 40.0, F3 + 1.4), 18),
+    'p3_a2_courtroom_bench':   ((25.3, 39.3, F3 + 1.85), (25.3, 24.0, F3 + 0.9), 18),
+    'p3_a2_courtroom_jury':    ((29.6, 33.0, F3 + 1.6), (20.0, 33.0, F3 + 0.9), 20),
+    'p3_a2_lobby':             ((45.6, 22.4, JT.F1 + 1.7), (22.0, 45.0, JT.F1 + 2.5), 16),
+    'p3_a2_vestibule':         ((27.0, 12.0, JT.F1 + 1.6), (27.0, 30.0, JT.F1 + 1.6), 20),
+    'p3_a2_public_corridor':   ((15.4, 20.3, F3 + 1.7), (45.0, 20.6, F3 + 1.4), 18),
+    'p3_a2_jury_room':         ((23.6, 43.8, F3 + 1.7), (16.0, 53.0, F3 + 0.8), 18),
+    'p3_a2_chambers':          ((31.6, 43.8, F3 + 1.7), (26.0, 53.0, F3 + 0.8), 18),
+    'p3_a2_holding':           ((31.95, 25.9, F3 + 1.6), (32.6, 36.0, F3 + 1.1), 18),
+    'p3_a2_stair':             ((42.2, 32.9, JT.F1 + 1.6), (37.0, 32.9, JT.F1 + 2.6), 18),
+    'p3_a2_courtroomB':        ((25.7, 23.6, F5 + 1.7), (25.3, 40.0, F5 + 1.4), 18),
+})
+SET = [a for a in ONLY if a in ('area1', 'area2')]
+if SET: ONLY = {k for k in VIEWS if k.startswith('p3_a1' if SET[0] == 'area1' else 'p3_a2')}
+if 'p3_a2_lobby' in ONLY or not ONLY: scn.cycles.samples = 24; scn.render.resolution_x, scn.render.resolution_y = 1280, 720
 done = []
 for name, (pos, tgt, lens) in VIEWS.items():
     if ONLY and name not in ONLY: continue

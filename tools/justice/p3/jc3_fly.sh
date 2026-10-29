@@ -14,11 +14,11 @@ local p=PlayerPedId() SetEntityInvincible(p,true) SetEntityVisible(p,false) SetE
 if _G.__tccam then DestroyCam(_G.__tccam,false) end
 local c=CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA',P[1].x,P[1].y,P[1].z,0.0,0.0,0.0,62.0,false,0) SetCamActive(c,true) RenderScriptCams(true,false,0,true,true) _G.__tccam=c
 NetworkOverrideClockTime(${HOUR:-13},0,0) SetWeatherTypeNowPersist('EXTRASUNNY') DisplayRadar(false) DisplayHud(false)
-local function at(d) local i=1 while i<#P-1 and #(P[i+1]-P[i])<d do d=d-#(P[i+1]-P[i]) i=i+1 end local seg=#(P[i+1]-P[i]) local t=math.min(1.0,d/seg) return P[i]+(P[i+1]-P[i])*t end
+local function at(d) local i=1 while i<#P-1 and #(P[i+1]-P[i])<d do d=d-#(P[i+1]-P[i]) i=i+1 end local seg=#(P[i+1]-P[i]) local t=d/seg if i<#P-1 then t=math.min(1.0,t) end return P[i]+(P[i+1]-P[i])*t end   -- past the end: carries on along the last leg (the look-ahead never collapses onto the end point)
 _G.__tcfly=true
 CreateThread(function() Wait(${PRE:-0}*1000) local d=0.0 local total=0 for i=1,#P-1 do total=total+#(P[i+1]-P[i]) end local last=GetGameTimer()
   while _G.__tcfly and d<total do local now=GetGameTimer() d=d+$SPEED*(now-last)/1000.0 last=now
-    local pos=at(d) local look=LOOK or at(math.min(total,d+6.0)) SetCamCoord(c,pos.x,pos.y,pos.z) PointCamAtCoord(c,look.x,look.y,LOOK and look.z or look.z-0.3)
+    local pos=at(d) local look=LOOK or at(d+6.0) SetCamCoord(c,pos.x,pos.y,pos.z) PointCamAtCoord(c,look.x,look.y,LOOK and look.z or look.z-0.3)
     SetEntityCoords(p,pos.x,pos.y,pos.z-1.0,false,false,false,false) SetFocusPosAndVel(pos.x,pos.y,pos.z,0.0,0.0,0.0) Wait(0) end
   _G.__tcfly=false end)
 SetEntityCoords(p,P[1].x,P[1].y,P[1].z-1.0,false,false,false,false) SetFocusPosAndVel(P[1].x,P[1].y,P[1].z,0.0,0.0,0.0)

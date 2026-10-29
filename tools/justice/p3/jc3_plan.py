@@ -25,9 +25,10 @@ sys.path[:0] = [str(WK / 'p2'), str(WK)]
 import p2_plan as PL
 G = PL.G                                         # 28.8: the galleria floor = the podium / plaza outside the doors
 MLO = 'jc_courts'                                # the courts MLO (atrium + tower interiors as they are built)
-ROOMS = {'galleria': 1}                          # collision room ids (1..31, 0 = limbo)
-ROOM_NAME = {'galleria': 'JC_GALLERIA'}
-TCYC = {'galleria': 'mp_heist_tuner_smshop_default'}   # pins exposure (-1 .. 0.1), bloom .25, no sky light (TC LIT_TC, lower case)
+import jc3_tower as JT                           # area 2: the tower lobby, stair, lifts, courtroom floors
+ROOMS = JT.rooms()                               # collision room ids (1..31, 0 = limbo)
+ROOM_NAME = {'galleria': 'JC_GALLERIA', **JT.ROOM_NAME}
+TCYC = {'galleria': 'mp_heist_tuner_smshop_default', **JT.TCYC}   # pins exposure (-1 .. 0.1), bloom .25, no sky light (TC LIT_TC, lower case)
 # ---------------- the atrium box (phase 2) ----------------
 AB = PL.B['atrium']; D = AB['depth']             # 0.3: the atrium's stone depth = our linings' thickness
 RA, RB = PL.rects('atrium')                      # (-8.5, 37.9, -7.2, 17.3), (-8.5, 13.7, 17.3, 49.6)
@@ -75,9 +76,15 @@ WALLS = {   # name: (axis of the plane, (lo, hi) across, a0, a1 along, the build
 FIN_W, FIN_P = 0.35, 0.20                        # granite fins on the walls (the tower's exterior rib, 0.35 wide), 0.20 proud
 SKIRT_H, SKIRT_P = 0.15, 0.02                    # dark granite skirting
 RESERVED = {   # wall stretches kept free for the next areas' doors: (wall, a0, a1, z0, z1, what)
-    'tower_lobby': ('tower_s', 22.5, 31.5, G, G + 4.2, 'tower lift lobby (area 2)'),
     'police_link': ('police', 18.0, 22.0, G, G + 3.0, 'police HQ public lobby link (area 3)'),
 }
+# the tower lobby's doorway in the galleria's tower wall (area 2): two glazed pairs (jc3_tower.GALLERIA_DOORS), each 2 x 1.30 + jambs
+TOWER_DOORS = [(a0, a0 + 2 * JT.LEAF + 2 * JT.JAMB) for a0, _ in JT.GALLERIA_DOORS]
+def wall_holes(wall):
+    """3D boxes cut out of a lining (the doorways through it)."""
+    if wall != 'tower_s': return []
+    lo, hi = WALLS['tower_s'][1]
+    return [(a0, a1, lo - 0.3, hi + 0.3, G, G + JT.LEAF_H + 0.10) for a0, a1 in TOWER_DOORS]
 def fins(wall):
     """fin centres along a wall: the tower's bay rhythm (7.2 m bays, 0.7 m fins) on the tower walls; 6 m elsewhere; never inside a
     reserved stretch or within 0.6 m of an end."""
@@ -89,6 +96,7 @@ def fins(wall):
         c = x0 + i * pitch
         if c - FIN_W / 2 < a0 + 0.6 or c + FIN_W / 2 > a1 - 0.6: continue
         if any(r[0] == wall and r[1] - 0.3 < c < r[2] + 0.3 for r in RESERVED.values()): continue
+        if wall == 'tower_s' and any(a0 - 0.5 < c < a1 + 0.5 for a0, a1 in TOWER_DOORS): continue      # never over a doorway
         if wall == INSCRIPTION['wall'] and INSCRIPTION['a'][0] - 0.5 < c < INSCRIPTION['a'][1] + 0.5: continue   # the letters' stretch stays plain
         out.append(c)
     return out

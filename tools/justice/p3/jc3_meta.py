@@ -23,6 +23,12 @@ DEPS = sorted({S[m]['ytyp'] for m in models})
 KEY = {'limbo': 0, **{r['key']: r['id'] for r in L['rooms']}}
 assert sorted(KEY.values()) == list(range(len(KEY))) and max(KEY.values()) <= 31, 'room ids must run 0..n (n <= 31) without gaps'
 for r in L['rooms']: assert r['timecycle'] == r['timecycle'].lower(), 'timecycle names must be lower case (playbook 02)'
+def _names_lower(drawables):
+    """every archetype / asset name lower case: the meta compiler hashes names case-sensitively, the game hashes file names lower case
+    (2026-10-29: jc_courts_crtA never matched jc_courts_crta.ydr - every L3 / L5 room was undrawn while all offline gates passed)"""
+    return [n for n in drawables if n != n.lower()]
+assert _names_lower(['jc_courts_crtA']) == ['jc_courts_crtA'], 'the name-case gate did not find its planted name'
+assert not _names_lower(list(D) + [L['mlo']]), f'archetype names must be lower case: {_names_lower(list(D) + [L["mlo"]])}'
 PORT = [{'from': KEY[p['from']], 'to': KEY[p['to']], 'corners': p['corners'], 'flags': p.get('flags', 0)} for p in L['portals']]
 lo, hi, exits, nent = MM.mlo_ytyp(L['mlo'], L['rooms'], PORT, L['props'], D, OUT, 3100100000)
 # the MLO archetype's box covers the whole atrium (door leaves in the glass plane, the perimeter collision to the outer faces), not
