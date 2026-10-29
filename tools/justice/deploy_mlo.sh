@@ -8,7 +8,7 @@ set -e; M=$1; J="/c/Users/anton/Documents/Codex/JusticeCenter"; cd "$J"
 [ -f work/jail/out/bin/jc_jail.ytyp ] && [ -f work/jail/out/interior.json ] || { echo 'jail: work/jail/out not built'; exit 1; }
 LIVE="/c/C9Test/live/resources/[localtest]/justice_center"; R=resource/justice_center
 for D in "$LIVE" "$R"; do
-  rm -f "$D"/stream/jc_jail*.ydr "$D"/stream/jc_jail.ybn "$D"/stream/jc_jail.ytyp "$D"/stream/jc_jail_milo_.ymap "$D"/stream/jc_jail_ext.ymap
+  rm -f "$D"/stream/jc_jail_*.ydr "$D"/stream/jc_jail.ybn "$D"/stream/jc_jail.ytyp "$D"/stream/jc_jail_milo_.ymap "$D"/stream/jc_jail_ext.ymap
   cp work/jail/out/bin/jc_jail.ytyp work/jail/out/bin/jc_jail_milo_.ymap work/jail/out/bin/jc_jail_ext.ymap work/jail/out/jc_jail_*.ydr work/jail/out/jc_jail.ybn "$D"/stream/
   cp work/jail/out/mlo-data/jc_jail.json "$D"/mlo-data/
 done
