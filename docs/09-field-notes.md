@@ -402,3 +402,8 @@ night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings
   the swap went ahead.
 - **Filming aid for fly-throughs through native doors:** add the doors to the client's DoorSystem under hashes of your own, open by
   ratio, hold open; remove them afterwards (`jj_doorctl.py open|close`) - never shipped, never a lock.
+- **Prove the rig runs the newest build before any test (Antonio, 2026-10-29).** He saw no steel tables in game: the rig still ran an
+  older jc_jail while the newest sat in work/jail/out (another agent owns assemble / deploy). `jj_deploy_check.py` hashes every
+  jc_jail_* / jc_jail.* file in the LIVE resource's stream against the build's output (missing, stale, extra), proven on a planted stale
+  file; then a 13:00 shot of a room the change shows in (the dayroom's tables). Run it at the start of every rig session; a mismatch
+  means no test. Name filters matter: `jc_jail*` also matched phase 2's `jc_jail1` / `jc_jail2` shells.
