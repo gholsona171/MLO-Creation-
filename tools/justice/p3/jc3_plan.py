@@ -47,8 +47,9 @@ E_BAYS = curtain(FACE_E)                         # 16 bays of 1.456 m, s (= v) -
 # ---------------- the main entrance ----------------
 DOOR_L, DOOR_R = 'v_ilev_ph_door01', 'v_ilev_ph_door002'     # leaf 1.30 x 2.30, pivot at the hinge, mid-height (z -1.15 .. 1.15)
 LEAF_W, LEAF_H = 1.30, 2.30
-DOOR_TOP = G + LEAF_H + 0.10                     # the opening: the door's own top + 10 cm (playbook 07)
-ENTRANCES = {'entry': (5, 6), 'exit': (9, 10)}   # curtain bay pairs (index into E_BAYS) that become door openings
+DOOR_TOP = PL.ATRIUM_DOOR_TOP                    # the opening: the door's own top + 10 cm (playbook 07), set in phase 2's plan
+ENTRANCES = PL.ATRIUM_DOORS['E0']                # curtain bay pairs (index into E_BAYS) that are door openings (p2_plan)
+assert abs(DOOR_TOP - (G + LEAF_H + 0.10)) < 1e-9
 def entrance_span(k):
     a, b = ENTRANCES[k]; return (E_BAYS[a][0], E_BAYS[b][1])
 DOOR_U = RA[1] - D / 2                           # 37.75: the leaves in the curtain's glass plane
@@ -88,6 +89,7 @@ def fins(wall):
         c = x0 + i * pitch
         if c - FIN_W / 2 < a0 + 0.6 or c + FIN_W / 2 > a1 - 0.6: continue
         if any(r[0] == wall and r[1] - 0.3 < c < r[2] + 0.3 for r in RESERVED.values()): continue
+        if wall == INSCRIPTION['wall'] and INSCRIPTION['a'][0] - 0.5 < c < INSCRIPTION['a'][1] + 0.5: continue   # the letters' stretch stays plain
         out.append(c)
     return out
 # ---------------- floor ----------------
@@ -182,11 +184,11 @@ def wall_lights():
 # ---------------- seats (sit points: tested on the rig before shipping) ----------------
 def seat_points(model, u, v, z, heading):
     """the sit points of a placed seat (lot frame), heading = the way the sitter faces. v_ilev_ph_bench (measured from the model,
-    tools/seat_probe.py): seat pans at z 0.42-0.435 between armrests at x -1.27 / -0.65 / 0 / 0.62 / 1.25 -> 4 seats at
-    x -0.96 / -0.32 / 0.31 / 0.94; the backrest's front at y +0.30, seats face -y; sit point 0.22 m in front of it (y +0.08).
-    UNTESTED until the rig sit test (feedback-mlo-seating)."""
+    tools/seat_probe.py, then checked on the rig 2026-10-29: the first guess put sitters between the chairs): FIVE moulded chairs,
+    their pans' tops at x -1.27 / -0.645 / 0 / 0.62 / 1.25, z ~0.47; the backrest's front at y +0.30, seats face -y; sit point
+    0.18 m in front of it (y +0.12), z = the seat surface."""
     if model != BENCH: return []
     h = math.radians(heading); c, s = math.cos(h), math.sin(h); out = []
-    for x in (-0.96, -0.32, 0.31, 0.94):
-        y = 0.08; out.append((u + x * c - y * s, v + x * s + y * c, z + 0.43, (heading + 180.0) % 360.0))   # facing the prop's -y
+    for x in (-1.27, -0.645, 0.0, 0.62, 1.25):
+        y = 0.12; out.append((u + x * c - y * s, v + x * s + y * c, z + 0.47, (heading + 180.0) % 360.0))   # facing the prop's -y
     return out

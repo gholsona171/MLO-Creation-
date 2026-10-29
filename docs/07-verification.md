@@ -187,3 +187,16 @@ checks now run on the built files (`tools/towercity/`), each proven first on the
   health 0, ragdoll on every step - three walk "failures" here were that, not the ground. Put the ped back on the ground BEFORE
   `tc_release.sh`, and revive + heal before each walk (`jc_probe.revive`, the tc_connect.sh sequence; the console revive is not enough).
 - `jc_pair.sh <dir> lod night`: every survey camera at 13:00, forced LOD 0.08 / 0.04, and 23:00; `pair_sheet.py` before / after.
+
+## Rig probes for an interior (Justice Center phase 3, `tools/justice/p3/jc3_probe.py`, 2026-10-29)
+- `interior`: the control is the PED on the plaza (GetInteriorFromEntity must be 0). GetInteriorAtCoords on a point outside the
+  room but inside the MLO's box (the plaza 12 m out) still returned the interior, so it is no control.
+- In this harness `tostring(true)` comes back as `"1"`: accept `'true'` and `'1'`, or every boolean check silently fails.
+- Feed the test player before every walk (`qbx_core` metadata hunger / thirst 100): at 0 Qbox drains health and the walker collapsed
+  mid-route on open floor. That read as a geometry failure until the frames were checked.
+- A walk route has to keep to the aisles. A leg cutting a corner hits the wall or a planter and the ped ragdolls. Check failing legs
+  on the recording before blaming the build.
+- Sit test: `TaskStartScenarioAtPosition(..., teleport true)` snaps the ped to the point, so xy error is always 0. The real check is
+  photos of seated clones (`ClonePed`) from the front and the side. That caught sitters between the chairs: v_ilev_ph_bench has
+  five chairs, not four.
+- `jc3_fly.sh`: tc_fly.sh with the lot heading as a parameter (tc_fly.sh hard-codes Tower City's 69.5 deg).

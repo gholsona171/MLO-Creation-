@@ -115,7 +115,7 @@ for w, (axis, (lo, hi), a0, a1, b) in JP.WALLS.items():
     for s0, s1 in zip(xs[0::2], xs[1::2]):                                     # skirting between the fins
         # a wall meeting this one at its end: the skirting stops at that wall's face (skirting is 2 cm proud)
         s0 += 0.0; s1 -= 0.0
-        if s1 - s0 > 0.05: wall_box(w, s0 + (JP.SKIRT_P if s0 == a0 else 0), s1 - (JP.SKIRT_P if s1 == a1 else 0), G, G + JP.SKIRT_H, dn=JP.SKIRT_P, mat='band', col=False)
+        if s1 - s0 > 0.05: wall_box(w, s0 + (JP.SKIRT_P if s0 == a0 else 0), s1 - (JP.SKIRT_P if s1 == a1 else 0), G, G + JP.SKIRT_H, dn=JP.SKIRT_P, mat='band', col=True)   # (collision: the drawn and walked ground agree at its top)
 # ---------------- the perimeter's collision + the portals' clear zones ----------------
 for lo, hi in JP.perimeter_col(): TK.colbox(R, lo, hi)
 # ---------------- the screen line (glass in steel frames, 2.4 m) ----------------
@@ -186,9 +186,9 @@ for u, v in ((JP.UA0 + 0.55, JP.VA0 + 0.55), (JP.UB1 - 0.55, 18.0), (36.9, JP.VA
 # extinguishers hang on a wall (pivot at the hook; back plane y +0.007): back 1.2 cm off the wall face
 for u, v, h in ((JP.UA0 + 0.019, 1.0, 90.0), (JP.UB1 - 0.019, 30.0, 270.0), (30.0, JP.VA0 + 0.019, 180.0)): place('prop_fire_exting_2a', u, v, G + 0.4, h)
 # ---------------- signs ----------------
-ins = JP.INSCRIPTION; zc = sum(ins['z']) / 2
-TK.sign(R, (JP.UA0 + 0.0, sum(ins['a']) / 2, zc), '+u', ins['a'][1] - ins['a'][0], ins['z'][1] - ins['z'][0], ins['lines'], 'TC sign jc inscription',
-        bg=(58, 44, 30), fg=(214, 178, 110), emis=False, scale=1.0)
+ins = JP.INSCRIPTION                                                              # raised bronze letters on the granite (as the plaza wall's)
+import p2_sitebuild as SB2
+SB2.letters(R, ins['lines'][0], JP.UA0 + JP.SKIRT_P * 0, sum(ins['a']) / 2, sum(ins['z']) / 2, ins['z'][1] - ins['z'][0], 0.04, max_w=ins['a'][1] - ins['a'][0])
 TK.sign(R, (27.0, JP.VA1, G + 5.0), '-v', 4.8, 1.6, ['COURTS TOWER', 'COURTROOMS  -  CLERK OF COURTS', 'JURY ASSEMBLY'], 'TC sign jc courts', bg=(30, 30, 34), fg=(232, 214, 170), scale=0.9)
 TK.sign(R, (20.0, JP.VA0, G + 3.6), '+v', 3.6, 0.9, ['POLICE HEADQUARTERS'], 'TC sign jc police', bg=(30, 30, 34), fg=(232, 214, 170), scale=0.9)
 TK.sign(R, (33.0, JP.VA0, G + 3.2), '+v', 5.0, 1.1, ['SECURITY SCREENING', 'ALL PERSONS AND BAGS ARE SUBJECT TO SEARCH'], 'TC sign jc screening', bg=(20, 34, 70), fg=(255, 255, 255), scale=0.85)
