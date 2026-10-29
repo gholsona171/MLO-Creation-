@@ -407,3 +407,10 @@ night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings
   jc_jail_* / jc_jail.* file in the LIVE resource's stream against the build's output (missing, stale, extra), proven on a planted stale
   file; then a 13:00 shot of a room the change shows in (the dayroom's tables). Run it at the start of every rig session; a mismatch
   means no test. Name filters matter: `jc_jail*` also matched phase 2's `jc_jail1` / `jc_jail2` shells.
+- **Deploy check (Antonio 2026-10-29: the rig ran an old Jail I build):** after every deploy, each MLO's live stream files must
+  hash-match its build outputs (`tools/justice/deploy_check.py <live dir> courts jail`, proven first on a planted one-byte change).
+  It is fatal at the end of assemble's deploy. When one MLO's owner needs its newest build live while another MLO is mid-build, use a
+  single-MLO redeploy into the last gated deploy (`tools/justice/deploy_mlo.sh jail`): swap only that MLO's files, re-merge the one
+  `_manifest.ymf`, run its stream gate and the deploy check. Never assemble half-built outputs to get one MLO out.
+- **Windows Python + bash paths:** pass `cygpath -w` paths to py -3. A `/c/...` path is read as `C:\c\...`, and a check that cannot
+  find its files must fail, never pass.
