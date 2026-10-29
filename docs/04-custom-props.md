@@ -42,6 +42,8 @@ Rockstar's recipe (from `prop_tv_flat_01`): the screen shader (`normal_spec_emis
   walls' `cs4_02_airscrap_2`). Texture names come in lower case on import; GTA's lookup is case-insensitive.
 - Match Rockstar's texel density: measure metres per UV from the vanilla faces (wow2easy_move/tools: the plaster was 3.5 m a repeat).
 - Copy their vertex colour too: Rockstar's exterior walls carry Colour0 ~ (0.46, 0, 0.44); all-white makes a new piece glow next to them.
+  G is the ARTIFICIAL ambient (night light): about 0.05 on his walls (sc1_19_courts 0.467 / 0.054 / 0.222, sheriff 0.581 / 0.132 / 0.368,
+  hw1_26 0.484 / 0.015 / 0.485, read with `color_srgb`). Never 1.0 on an exterior or LOD: at 23:00 every wall glows (Justice Center, doc 13).
 - v13_kit `new_drawable(name, ...)` treats an existing object called `name` as the root: never name the mesh part the same.
 - Climb-proof walls: a ped climbs ~2.5 m from where it stands; an SUV roof adds ~1.9 m. 6 m of wall with collision to 6.6 m is out of
   reach from any car or SUV.

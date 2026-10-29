@@ -22,6 +22,9 @@ files or server credentials. Keep it that way.
 11. [Modular props](docs/11-modular-props.md): cutting Rockstar props (bars, counters) into modules that snap edge to edge, full-size copies of interior-only props, collision / tint traps found in game.
 12. [Site survey](docs/12-site-survey.md): finding a vanilla block, its live (`lr_` / `hei_`) files, occluders, lights, AI, measuring it
     from its collision, rig shots that put the player back, and the fit proposal (Justice Center, Davis).
+13. [Exterior shells](docs/13-exterior-shells.md): a new complex on a cleared block (Justice Center phase 2). One plan feeds the HD
+    facades, the LODs and the night pattern. Collision hulls, the vanilla LOD tree re-used, Rockstar's vertex colours (night glow),
+    colonnades, driveways, gates.
 
 ## Tools at a glance
 See [tools/README.md](tools/README.md). The short list:
@@ -46,6 +49,7 @@ See [tools/README.md](tools/README.md). The short list:
 | Survey a new lot: block files, live variant, occluders, lights, AI, collision height map, calibrated top-down (doc 12) | `survey/` |
 | Video → frame contact sheets for review | `video_review.py` |
 | Clear a whole vanilla block to one flat lot: outline from Rockstar's sidewalk edge, removals, LOD / SLOD cuts, collision, occluders, LOD lights, AI off, gates + rig probes (doc 02 / 07) | `justice/` (`build_p1.sh`) |
+| New exterior shells + their LOD chain plugged into Rockstar's block tree, LOD-level debug colours, Rockstar texture survey by colour, rig walks round / up entrances (doc 13) | `justice/p2/` |
 | Ground holes / steps and drawn-vs-collision, offline on the built files (before deploying) | `wow2easy_move/tools/hole_grid_offline.py`, `seen_vs_solid.py` (see 07) |
 
 ## Project tools (copies; the projects stay where they run from)

@@ -315,3 +315,13 @@ Related: [[c9-local-test-rig]], [[venues-160-test-progress]].
 - Design: `scripts/c9_dj/docs/STATION-MENUS.md`. Takeover brief: `STATION-MENUS-HANDOFF.md`. Both are on cloud9 branch `claude/c9dj-station-menus` (7f52b756); the worktree is C:\C9Test\cloud9-menus.
 - The design is NOT yet approved by Antonio, and no code has changed.
 - Push it through C:\C9Test\cloud9-notes (the test copy's push URL is disabled).
+
+## exterior-vertex-colours (Justice Center phase 2, 2026-10-28)
+
+Exterior vertex colours must copy Rockstar's, never 1.0. In his exterior models colour 0 is R = natural ambient, **G = artificial
+ambient** (night light "from inside"), B = a third term. Measured (Sollumz import, `color_srgb`, model means): sc1_19_courts
+0.467 / 0.054 / 0.222, sc1_19_sheriff 0.581 / 0.132 / 0.368, hw1_26_build01 0.484 / 0.015 / 0.485 - G is about 0.05 on walls.
+With 1.0 (tc_kit's exterior default) every wall glowed evenly at 23:00 while the vanilla neighbours went dark.
+
+**How to apply:** write his values (or his model's per-vertex colours) with `color_srgb` on every exterior and LOD model; only
+night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings. Details: docs/13 "Night: vertex colours".
