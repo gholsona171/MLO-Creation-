@@ -367,3 +367,38 @@ night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings
 - **Fly-through look-ahead:** a camera that looks 6 m ahead along its path tips down onto the end point as it arrives. jc3_fly.sh now
   extrapolates the look target along the last leg. A still scripted camera inside an MLO shows the outside world for about 5 s before
   the interior takes it: trim the head of the first segment (jc3_fly_area2.sh). End each segment clear of walls and furniture.
+
+## jail-area-4 (Justice Center phase 3, Jail I, MLO jc_jail, 2026-10-29)
+
+- **Mission Row's block wall, measured** (`v_20_policedlc_shell`, shader xj_v_breeze03): the texture tiles every **4.05 m** and its
+  dark wainscot band (bottom ~31 % of the texture) sits at the floor: DX v = -0.2471 z + c, i.e. Blender v = 0.2471 (z - floor) + 0.032.
+  Anchor each wall face's v to its own floor. A wall taller than ~4 m bands TWICE (the second band ~4 m up reads as a stripe): use
+  his concrete (xj_v_conc_wall) for the 6 m sally port and the stair shafts, and split a two-tier cell block's linings per tier so each
+  tier gets its own wainscot. Other MR scales: speckled floor 1.71 m per UV, ceiling tile 0.85 m, concrete ~3.3 m. Colour0 medians:
+  walls (0, 0.60, 0), floors (0, 0.65, 0), ceilings (0, 0.68, 0). Measure with a 20-line parser over the shell's CodeWalker XML.
+- **A window between two rooms of one MLO: each room draws only its own half of the frame.** The vision windows in the holding cells'
+  wall had the whole steel frame in the cell room; from booking, the frame's faces in FRONT of the portal plane belong to the other
+  room's drawable and are not this room's to draw - the portal-aware gap check reported 81 rays through the frame edges. Split frame
+  boxes at the portal plane (booking half / cell half); the one glass pane can sit on the plane.
+- **Interior ground check (drawn vs walked), rules that made it trustworthy:** cast from just under the room's ceiling (a ray started
+  at floor + 2 m began UNDER a glass screen's collision top and under stair ramps: false mismatches); skip grid points inside a solid
+  (wall boxes); a drawn top more than 2.2 m over the collision is a fitting you walk under; stairs may differ by one riser. Plant: a
+  1 x 1 m patch of floor collision removed must be found.
+- **Wall lights in a stairwell go over the landings (landing + 2.4 m), never over a flight:** a wall lamp at a fixed height over a
+  descending flight was 1.8 m above its treads (found by the ground check as a drawn face 1.8-2.0 m over the ramp).
+- **Sally port drive gate:** a pure plan test (door width / height, ceiling, the tail clear of the doorway so the roll-up closes,
+  platform / ramp outside the car's swept footprint, proven on a planted 4.6 m truck) + a built-geometry test: each vehicle's swept
+  AABB (+0.3 m each side, floor + 0.15 to roof + 0.2, street to its stop) against every built triangle - ours drawn + collision and the
+  exterior's - with a separating-axis triangle / box test (a vertex-in-box test misses big wall triangles). Plant: a pillar in the bay.
+- **A secure route across a public galleria:** any ground-level walled corridor between two buildings that sit either side of an
+  L-shaped hall cuts the hall in two unless it hugs the hall's outer band. Antonio chose a tunnel (B1, 6 m under L1 = the same 30-riser
+  stair as L1 -> L2, top 2 m under every slab / hull bottom). Before digging under a cleared lot, scan the game for collision VERTICES
+  and entities inside the tunnel's world box (`tools/justice/p4/below_scan.ps1`), then prove it with rays on the rig.
+- **A lift stop in another MLO: no MLO-to-MLO doorway.** The courts tower's secure lift (jc_courts) gets a B1 stop drawn by jc_jail at
+  exactly the same cab position (cab, front wall, `v_ilev_finelevdoor01` at c + 0.65, heading 180, as tc_kit.lift_bank's left car);
+  the lift script fades between identical cabs, so the hand-over between the two interiors is the fade.
+- **Build into a staging folder and swap**: another agent's assemble copies our out/ at any time. Build to out_next, run every gate there,
+  then mv. A hold flag must have CONTENT: the build's own "delete 0-byte files" sweep (the hook-junk rule) deleted an empty flag file and
+  the swap went ahead.
+- **Filming aid for fly-throughs through native doors:** add the doors to the client's DoorSystem under hashes of your own, open by
+  ratio, hold open; remove them afterwards (`jj_doorctl.py open|close`) - never shipped, never a lock.
