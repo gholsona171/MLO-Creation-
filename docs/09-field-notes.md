@@ -325,3 +325,23 @@ With 1.0 (tc_kit's exterior default) every wall glowed evenly at 23:00 while the
 
 **How to apply:** write his values (or his model's per-vertex colours) with `color_srgb` on every exterior and LOD model; only
 night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings. Details: docs/13 "Night: vertex colours".
+
+## interior-rooms-area-2 (Justice Center phase 3 courts tower, 2026-10-29)
+
+- **Door leaf heading:** `v_ilev_ph_gendoor005` / `v_ilev_ph_cellgate` leaves run along the model's **-x** from the hinge (glass
+  `v_ilev_ph_door01` along +x). Put the hinge at the opening's far end and point the heading's +x along the wall, so the leaf lies back
+  across the opening. The first build had every leaf turned 180 degrees, into the wall beside its opening: all doors-both-ways walks
+  failed. Now a unit test checks it: each leaf's far end (hinge + 1.30 m) must lie inside its opening.
+- **Walking lanes through doors:** a 0.7 m lane through the middle of each leaf, 1.5 m either side, must miss every fitting (pew
+  ends, bars, benches). A 4-seat pew block had its end 0.13 m from a door leaf's lane and the walker stuck on it. This is a plan-time
+  test now: prove it on the old pew end, then pass.
+- **Door probe geometry:** the probe's start and end points must be inside the rooms. The corridor beside the holding cells is 1.3 m,
+  so a 1.5 m stand point was inside the wall and the walker never moved ("past_line -1.87"). Use a depth that fits the narrower side.
+  The pass mark is depth minus the arrival radius (0.6 m), not a fixed 1.0.
+- **Preview renders of windowless rooms:** a scene saved by the build has no Blender lights (game lights are not Blender lights), so
+  inner rooms render black apart from the emissive lamp panels. The renderer adds area lights on a 4 m grid under each room region's
+  ceiling (from the layout's zones). This is preview only; nothing changes in the build.
+- **Saved-scene renders:** Sollumz could not re-import the built ydr (sign texture mips). The build now saves its own scene
+  (`out/jc3_scene.blend`) and the renderer opens it. Rebuilding wipes `out/`, so never rebuild while a render is reading it.
+- **Room walls = linings by region:** each room's lining comes from its own region: 0.1 against another room (back-to-back 0.2
+  partitions), 0.2 on outer walls, thicker in the lobby. The footprint gate insets each region only on its boundary sides, per level.
