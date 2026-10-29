@@ -92,3 +92,20 @@ Read the block's own tree first. Davis: SLOD3 `sc1_lod_slod4` 15000 -> SLOD2 `sc
 - ground_check (doc 07) extended: the complex's models in the drawn set; cells inside a building's mass are walls (counted, not
   tested); a "low look" under every soffit / bay ceiling; on steps the treads and the ramp may differ by one riser. Planted defects
   must sit on open slab (a planted hole under the podium is never seen).
+
+## Night glass, corners, parapets, site walls against glass (Justice Center phase 3 fixes, 2026-10-28)
+- **Exterior glass: copy Rockstar's `glass_env.sps`, never a glass with a fixed environment texture.** Our panes used
+  `glass_normal_spec_reflect` with a light-grey gradient env texture: at 23:00 every colonnade and ribbon pane read light grey while
+  the vanilla buildings went dark. His downtown dark glass (`dt1_06_build1_1`): `glass_env.sps`, ALPHA bucket, `im_glass_01im_glass_01_a`
+  (RGB ~29, alpha ~0.6, in `dt1_06_build.ytd`) + `mc_window_0005_n` + `im_glass_01_s` (generic `gtxd.rpf/ch2struc04grp.ytd`), bumpiness .5,
+  spec 1, falloff 430, fresnel .97. It has no environment sampler: it reflects the game's own probe, dark at night. Tints (bronze, a
+  see-through atrium) = his texture with RGB / alpha scaled. Compare with a vanilla dark-glass building at 23:00 (hold the clock).
+- **Corner columns:** "N / S faces own the corners" leaves a 0.3 x 0.3 open notch from slab to roof where the N / S face is covered by
+  a neighbour (the atrium's SE corner against the police HQ). The E / W face takes such a corner (`p2_plan.corner_ext`), only where it
+  is itself built and the other face is covered over its whole height. Found by the ground check once the atrium was tested.
+- **Parapet collision only where a parapet is drawn:** a ring on every side of every rect put invisible 0.8 m ledges across the L's
+  inner split and along walls against taller neighbours. Rings now follow the exposed runs of each face (0.1 m steps).
+- **A site wall that runs into a curtain wall ends on stone:** the yard wall stopped mid-bay, 15 cm in front of a pane, and read through
+  the glass from inside. The bay it meets is a stone bay (`p2_plan.ATRIUM_SOLID`), and `p2_site` asserts every such wall has one.
+- Raised bronze lettering: Blender's font -> mesh, extruded 2.5-4 cm, Rockstar's brass recipe, no sign panel (a printed panel read as
+  a banner up close). Give the letter band a thin collision box, or the ground check reads the letter tops as drawn-without-collision.
