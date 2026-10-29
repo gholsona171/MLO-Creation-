@@ -13,3 +13,5 @@
 - **Keep working**; don't stop to ask what's obviously next. Ask only when a choice is genuinely his.
 - **Never wait for him on the rig**: kick or close his client and restart whenever needed, unless told otherwise.
 - Safety: never print licence keys, txAdmin credentials or tokens; never push from test copies; never touch the live VPS.
+- **Stage only your own files in this repo.** Several agents share the clone; `git add -A` once committed another agent's uncommitted
+  tool copies with a phase 3 commit (2026-10-28). Use `git add <your paths>` and check `git status` before every commit.
