@@ -345,3 +345,14 @@ night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings
   (`out/jc3_scene.blend`) and the renderer opens it. Rebuilding wipes `out/`, so never rebuild while a render is reading it.
 - **Room walls = linings by region:** each room's lining comes from its own region: 0.1 against another room (back-to-back 0.2
   partitions), 0.2 on outer walls, thicker in the lobby. The footprint gate insets each region only on its boundary sides, per level.
+- **Archetype names lower case (BIG):** the meta compiler hashes archetype and asset names exactly as written. The game hashes the
+  .ydr file name lower case. Rooms named `jc_courts_crtA` never matched `jc_courts_crta.ydr`: every L3 / L5 room was unregistered
+  (`IsModelInCdimage` false) and drew as a white void showing the outside world, while all offline gates passed. Collision, the
+  room probe, door walks and sit tests all passed too, because they do not need the drawable. Rules:
+  - Lower-case every drawable / archetype name at the source; jc3_meta now asserts it (proven on a planted name).
+  - The rig `models` probe stands in the MLO (its ytyp loads only near it) and requires `IsModelInCdimage` for every room drawable,
+    with a planted unstreamed name that must read false.
+  - Look at the rooms in game (first-person shots per room) before trusting walk and sit passes.
+- **Assemble must ship every room:** an assemble line written for the first room (`cp ... jc_courts_galleria.ydr`) silently left the
+  later rooms out. The stream gate now checks that every room drawable the ytyp places is in `stream/` (with a plant). A gate inside
+  `a && b` under `set -e` does NOT stop the script: use `gate || { echo ...; exit 1; }`.
