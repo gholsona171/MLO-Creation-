@@ -229,7 +229,7 @@ def drive_selftest():
     su = J.JBOX[0] - 16.0; purged, eng = _spawn('police', su, J.DRIVE_V, h_in)
     r = lua(('local p=PlayerPedId() local v=_G.__jjv local c0=GetEntityCoords(v) TaskVehicleTempAction(p,v,23,2000) Wait(2200) TaskVehicleTempAction(p,v,1,1500) Wait(1600) '
              'local d=#(GetEntityCoords(v)-c0) local fr=IsEntityPositionFrozen(v) TaskLeaveVehicle(p,v,16) Wait(1500) SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) '
-             'return string.format("%%.2f:%%s:%%s",d,tostring(fr),tostring(not DoesEntityExist(v)))'), 40).split(':')
+             'return string.format("%.2f:%s:%s",d,tostring(fr),tostring(not DoesEntityExist(v)))'), 40).split(':')
     moved, frozen, gone = float(r[0]), r[1], r[2] in ('true', '1')
     res.update({'purged_before_spawn': purged, 'engine_running': eng, 'moved_m_on_2s_gas': moved, 'frozen': frozen, 'deleted': gone})
     ok = door_ok and moved >= 2.0 and gone; res['ok'] = ok

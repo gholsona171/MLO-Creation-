@@ -13,7 +13,18 @@
 #   pairs    13:00 / 23:00 shots of every view + the pair sheet shots/p4_jail_pairs.jpg
 set -o pipefail; JL=/c/Users/anton/Documents/Codex/JusticeCenter/work/jail; S=/c/Users/anton/Documents/Codex/JusticeCenter/shots; cd $JL
 V=$S/p4_jail_video; mkdir -p $V
-res() { echo "JJ_TEST $1 $2 $3"; [ "$2" = PASS ]; }
+T0=$JL/logs/.t0_$$; mkdir -p $JL/logs; touch $T0
+# why: the probe's own error line from the newest log this run wrote (rig 2026-10-30: a FAIL read "self-test: " with nothing after it -
+# the probe had died in a Python ValueError that only the log showed). A traceback's last line, a PROBE: reason or a *_FAIL line.
+why() { local f; f=$(find $JL/logs -maxdepth 1 -name '*.log' -newer $T0 -printf '%T@ %p
+' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
+        [ -n "$f" ] || return 0
+        local l; l=$(grep -E '^[A-Za-z_.]*(Error|Exception)|PROBE:|_FAIL|REC_FAIL|DOORCTL_FAIL' "$f" | tail -1)
+        [ -n "$l" ] || l=$(grep -v '^[[:space:]]*$' "$f" | tail -1)
+        echo "${l:0:300} [${f#$JL/}]"; }
+res() { local d="$3"; d="${d%%: }"
+        if [ "$2" != PASS ]; then local w; w=$(why); [ -n "$w" ] && case "$d" in *"$w"*) ;; *) d="${d:+$d | }probe: $w";; esac; fi
+        echo "JJ_TEST $1 $2 $d"; rm -f $T0; [ "$2" = PASS ]; }
 trap 'bash /c/C9Test/tc_release.sh > /dev/null 2>&1' EXIT
 case "$1" in
 deploy)  py -3 jj_intrusion.py --plant | grep -q JJ_INTRUSION_PLANT_FOUND || { res deploy FAIL "the intrusion check did not find its planted slab"; exit 1; }
@@ -30,7 +41,8 @@ walks)   py -3 jj_probe.py walk_plant > logs/rig_walk_plant.log 2>&1            
          bash jj_rec.sh $V/p4_jail_walks.mp4 1500 py -3 jj_probe.py walk > logs/rig_walks.log 2>&1
          grep -q REC_OK logs/rig_walks.log || { res walks FAIL "the recording did not finalise: $(grep REC_ logs/rig_walks.log)"; exit 1; }
          grep -q PROBE_WALK_PASS logs/rig_walks.log && res walks PASS "video $V/p4_jail_walks.mp4" || res walks FAIL "see out/probe_walk.json" ;;
-drive)   py -3 jj_probe.py drive_selftest > logs/rig_drive_selftest.log 2>&1      # the pieces first: roll-up read-back shut/open/shut, a car moves 2 m, deleted
+drive)   py -3 jj_luasim.py > logs/rig_luasim.log 2>&1 || { res drive FAIL "the offline Lua run failed (py -3 jj_luasim.py)"; exit 1; }   # every chunk executed offline first
+         py -3 jj_probe.py drive_selftest > logs/rig_drive_selftest.log 2>&1      # the pieces first: roll-up read-back shut/open/shut, a car moves 2 m, deleted
          grep -q PROBE_DRIVE_SELFTEST_PASS logs/rig_drive_selftest.log || { res drive FAIL "self-test: $(grep -o 'PROBE_DRIVE_SELFTEST_FAIL.*\|PROBE:.*' logs/rig_drive_selftest.log | head -1 | cut -c1-300)"; exit 1; }
          py -3 jj_probe.py drive_plant > logs/rig_drive_plant.log 2>&1
          grep -q PROBE_DRIVE_PLANT_PASS logs/rig_drive_plant.log || { res drive FAIL "the planted off-line drive did not collide: the check is not proven"; exit 1; }

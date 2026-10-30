@@ -480,6 +480,14 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   filming door opener had failed to close). Plant a target inside the building's solid hull, and count "arrived" only with the root ~1 m
   over the target floor (never on another level).
 - Lua sent to the rig is compiled offline first (`jj_luacheck.py`, lupa's Lua runtime, proven on a planted syntax error).
+- Compiling is not enough: EXECUTE it offline (`tools/justice/p4/jj_luasim.py`). 2026-10-30 a drive self-test died on the rig in
+  `ValueError: could not convert string to float: '%.2f'` - a Python string holding `"%%.2f"` was never %-formatted, so Lua got a literal
+  `%%` and returned the template. A dry run with stubbed results could not see it. The fix: run every chunk in lupa against a small mock
+  of the natives (vectors with arithmetic, a game timer that advances, entities that remember position AND heading - without heading the
+  mock spawn "failed" and the buggy chunk was never reached, a false pass), drive the real probe functions with `lua` routed there, and
+  flag any result that still holds `%d/%f/%s`. Plus a static AST check: `%%` in a string literal that is not the left side of a `%`.
+  Both proven on plants, and the unfixed probe must FAIL the sim before the fix counts.
+- A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous
   impact; prove it on an off-line drive into a wall. Read a garage door PHYSICALLY (object offset + pitch from its placement) while the
