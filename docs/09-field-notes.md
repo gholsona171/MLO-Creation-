@@ -549,6 +549,10 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   lights do not reach an exterior entity and the night's natural ambient is ~0 (Jail I's sally roll-up at 23:00, 2026-10-30; its
   vertex colour was fine: Rockstar's prop has Colour0 136/133/129 on both faces). Put an opening's door in the MLO as an entity of the
   room it opens from (same model, coords, heading, door flags), so interior light reaches its inside face; check the inside at 23:00.
+  CAUTION: a ROLL-UP moved into the MLO (flags 1572866) never opened for cars (jc-interiors, police garages: they were moved out to a
+  map ymap for that). For a roll-up, first light its inner face from the interior (a light aimed at it, an emissive strip over the
+  opening, a light-only portal attachment) and keep it a map entity; move it in only if that fails, then re-run the drive test in AND
+  out through the door system before shipping.
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous
