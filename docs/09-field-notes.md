@@ -506,6 +506,14 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   is planted and must not move it); the pre-fix probe fails there with the rig's "never moved". Lua that is %-formatted twice must
   not hold a Lua % operator: use math.fmod.
 - Read ox_fuel's state bag only after it has seen the driver (a server round trip): wait for Entity(v).state.fuel up to 3 s.
+- Hinge side matters for walkways: a native door swings both ways, and the leaf a walker pushes open lies at 90 deg from its hinge on
+  the walker's side. book_stair's hinge stood at the opening's end next to the stair, so the pushed-open leaf lay across the foot of flight 1
+  and the next leg stalled (rig 2026-10-30, all doors shut; it passed earlier only because the door system held the doors open). Gate:
+  tools/justice/p4/jj_swing.py - for each walk route, the doors it pushes open, the leaf on the side it went (less the 0.3 m tip),
+  must clear every other leg by the walker's body; proven on the old hinge. Fix in the plan (hinge="near": hinge at the wall end,
+  heading +180), never by opening doors for the walker.
+- A map garage door (prop_hw1_03_gardoor_01 as a ymap door) opens by itself when the player is near. A door test must first force it
+  SHUT through the door system (registered, ratio 0, locked) before reading "shut"; releasing it hands it back to the map default.
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous

@@ -182,15 +182,18 @@ RUX_ = None
 def _rollup():
     """the roll-up's placement (world) and its door-system / read-back Lua helpers: the door object is looked up AGAIN at every read
     (rig 2026-10-30: a handle taken before the door was registered read 0 while a car drove under the open door) and its opening is
-    measured against its PLACEMENT (position + pitch / roll), not against a first reading."""
+    measured against its PLACEMENT (position + pitch / roll), not against a first reading.
+    dsys(mode): "shut" = registered, ratio 0, LOCKED, not held open, rolled down (5 s); "open" = registered, unlocked, ratio 1, held open
+    (5 s); "release" = unlocked and out of the door system (the map default: rig 2026-10-30, the roll-up as a plain map door opens by
+    itself as soon as the player stands near it - it read 5.41 open at the start of the self-test, right after DOORCTL close)."""
     rux, ruy = W(J.JBOX[0] + 0.275, J.DRIVE_V); ruz = J.SALLY_Z + J.ROLLUP[2] / 2
     lua_ = ('local DH=GetHashKey("jjdrive_rollup") local RP=vector3(%.3f,%.3f,%.3f) local RM=GetHashKey("%s") '
             'local function dopen() local o=GetClosestObjectOfType(RP.x,RP.y,RP.z,4.0,RM,false,false,false) if o==0 then return -1.0 end '
             'local r_=GetEntityRotation(o,2) return #(GetEntityCoords(o)-RP)+(math.abs(r_.x)+math.abs(r_.y))/30.0 end '
-            'local function dsys(open) if not IsDoorRegisteredWithSystem(DH) then AddDoorToSystem(DH,RM,RP.x,RP.y,RP.z,false,false,false) end '
-            'if open then DoorSystemSetDoorState(DH,0,false,true) DoorSystemSetOpenRatio(DH,1.0,false,true) DoorSystemSetHoldOpen(DH,true) '
-            'else DoorSystemSetHoldOpen(DH,false) DoorSystemSetOpenRatio(DH,0.0,false,true) DoorSystemSetDoorState(DH,1,false,true) Wait(5000) '
-            'DoorSystemSetDoorState(DH,0,false,true) RemoveDoorFromSystem(DH) end end ') % (rux, ruy, ruz, J.ROLLUP[0])
+            'local function reg() if not IsDoorRegisteredWithSystem(DH) then AddDoorToSystem(DH,RM,RP.x,RP.y,RP.z,false,false,false) end end '
+            'local function dsys(mode) if mode=="open" then reg() DoorSystemSetDoorState(DH,0,false,true) DoorSystemSetOpenRatio(DH,1.0,false,true) DoorSystemSetHoldOpen(DH,true) Wait(5000) '
+            'elseif mode=="shut" then reg() DoorSystemSetHoldOpen(DH,false) DoorSystemSetOpenRatio(DH,0.0,false,true) DoorSystemSetDoorState(DH,1,false,true) Wait(5000) '
+            'else if IsDoorRegisteredWithSystem(DH) then DoorSystemSetDoorState(DH,0,false,true) RemoveDoorFromSystem(DH) end end end ') % (rux, ruy, ruz, J.ROLLUP[0])
     return lua_
 # every vehicle near the bay goes before a test car is made - mission entities too (ClearAreaOfVehicles leaves those: a car left by an
 # earlier run blocked two test cars at their spawn, rig 2026-10-30). Returns how many were removed and how many are still there.
@@ -258,10 +261,10 @@ def _spawn(m, su, sv, h_in):
     return purged, {'engine': run, 'fuel': fuel, 'fuel_state': fs, 'seat_tries': f'{tries} {how}'.strip()}
 def drive_selftest():
     """each piece of the drive test on its own (rig 2026-10-30: the first two cars never moved, the roll-up read 0 while a car drove
-    under it): (1) the roll-up read-back: shut ~0, opened by the door system > 1.0, shut again ~0; (2) a car spawned in the cleared
+    under it): (1) the roll-up read-back through the door system: forced shut (locked) ~0, opened > 1.0, shut again ~0, then released; (2) a car spawned in the cleared
     street on the line moves >= 2 m on 2 s of gas; (3) it is deleted for certain."""
     h_in = (270.0 + F.HDEG) % 360; res = {}
-    r = lua((_rollup() + 'local a=dopen() dsys(true) Wait(5000) local b=dopen() dsys(false) Wait(500) local c=dopen() return string.format("%.2f:%.2f:%.2f",a,b,c)'), 60).split(':')
+    r = lua((_rollup() + 'dsys("shut") local a=dopen() dsys("open") local b=dopen() dsys("shut") local c=dopen() dsys("release") return string.format("%.2f:%.2f:%.2f",a,b,c)'), 60).split(':')
     a, b, c = map(float, r); res['rollup_shut_open_shut'] = [a, b, c]; door_ok = a >= 0 and a < 0.3 and b > 1.0 and c < 0.3
     su = J.JBOX[0] - 16.0; purged, eng = _spawn('police', su, J.DRIVE_V, h_in)
     # the shared method (DRV): 8 gas slices on the line heading, then brake; the engine is read during the gas (the keys guard)
@@ -293,7 +296,7 @@ def drive(models=None, plant=False):
                  'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then '
                  'hits=hits+1 last=GetGameTimer() if #imp<5 then local a,b=uv() imp[#imp+1]=string.format("%%.2f/%%.2f/%%.2f/%%.2f/%%.2f",a,b,n.x,n.y,n.z) end end end end '
                  'local Hh=%.1f '
-                 'dsys(true) Wait(4000) local dPre=dopen() '
+                 'dsys("open") local dPre=dopen() '
                  'local t0=GetGameTimer() while GetGameTimer()-t0<50000 do local rem=%.3f-(u()+half) local sp=GetEntitySpeed(v) '
                  'if rem<=0.25+sp*0.5 then break end if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end '
                  'local want=math.max(0.6,math.min(2.5,rem*0.3)) SetEntityMaxSpeed(v,want+0.3) slice(v,sp<want and 23 or 1,tick) hold(v,Hh) end '
@@ -301,7 +304,7 @@ def drive(models=None, plant=False):
                  'while GetGameTimer()-t1<60000 and u() > %.3f do local rear=u()-half if math.abs(rear-ud)<4.0 then dOut=math.max(dOut,dopen()) end '
                  'slice(v,GetEntitySpeed(v)<1.8 and 22 or 1,tick) hold(v,Hh) end '
                  'for i=1,7 do slice(v,1,tick) end SetEntityMaxSpeed(v,500.0) local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
-                 'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys(false) '
+                 'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys("shut") dsys("release") '
                  'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:%%.2f:%%.2f:%%.1f:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone),dPre,moved,drift)..table.concat(imp,",")')
                 % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, h_in, J.DRIVE_STOP, J.JBOX[0] - 8.0), 220).split(':')
         hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6]))

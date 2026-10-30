@@ -23,7 +23,17 @@ local T = 0
 function GetGameTimer() T = T + 50 return T end
 function Wait(ms) T = T + (ms or 0) end
 local POS, HD, CREATED, ENG, SEAT, WANT = {}, {}, {}, {}, {}, {}   -- every table a mock function uses, declared before any of them
-function GetEntityCoords(e) return POS[e] or vector3(300.0, -1660.0, 29.0) end
+-- the roll-up as the rig has it (2026-10-30): a map garage door that opens by itself while the player is near, unless the door system
+-- holds it (registered + locked -> shut; registered + unlocked -> the set ratio). Object 7 at the first spot asked for; opening = 2.6 m up.
+local DOOR = {base = nil, reg = false, locked = false, ratio = 0.0}
+function GetClosestObjectOfType(x, y, z) if not DOOR.base then DOOR.base = vector3(x, y, z) end return 7 end
+function AddDoorToSystem() DOOR.reg = true end
+function RemoveDoorFromSystem() DOOR.reg, DOOR.locked = false, false end
+function IsDoorRegisteredWithSystem() return DOOR.reg end
+function DoorSystemSetDoorState(h, st) DOOR.locked = (st == 1) end
+function DoorSystemSetOpenRatio(h, r) DOOR.ratio = r end
+local function doorOpen() if not DOOR.reg then return 1.0 end if DOOR.locked then return 0.0 end return (DOOR.ratio > 0) and 1.0 or 0.0 end
+function GetEntityCoords(e) if e == 7 and DOOR.base then return DOOR.base + vector3(0.0, 0.0, 2.6 * doorOpen()) end return POS[e] or vector3(300.0, -1660.0, 29.0) end
 function SetEntityCoords(e, x, y, z) POS[e] = vector3(x, y, z) end
 function CreateVehicle(h, x, y, z, hd) local e = 1000 + math.random(1, 999) POS[e] = vector3(x, y, z) HD[e] = hd or 0.0 CREATED[e] = T return e end
 function SetEntityHeading(e, h) HD[e] = h end
@@ -72,7 +82,7 @@ function TaskVehicleTempAction(p, v, a, ms)
 end
 function GetEntitySpeed(e) return 0.0 end
 function IsDoorRegisteredWithSystem(h) return false end
-function GetClosestObjectOfType() return 0 end
+
 function tostring_(x) return tostring(x) end
 setmetatable(_G, {__index = function(t, k) return function() return 0 end end})   -- every other native: a stub
 '''
@@ -128,6 +138,7 @@ if __name__ == '__main__':
     try:
         st = P.drive_selftest()[0]; print('  drive_selftest:', str(st)[:300])
         if st.get('moved_m_on_2s_gas', 0) < 2.0: bad.append(f"drive_selftest: the car did not move in the mock ({st.get('moved_m_on_2s_gas')} m)")
+        if not st.get('ok'): bad.append(f"drive_selftest: not ok in the mock (roll-up shut/open/shut {st.get('rollup_shut_open_shut')})")
         print('  drive_plant (same Lua state, straight after the self-test as on the rig):', str(P.drive_plant()[0])[:200])
     except SystemExit as e: bad.append(f'drive_selftest stopped: {str(e)[:160]}')
     except Exception as e: bad.append(f'drive_selftest: {type(e).__name__}: {e}')

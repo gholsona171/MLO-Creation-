@@ -21,6 +21,8 @@ py -3 jj_gap_check.py --plant 2>/dev/null | grep JJ_GAP_PLANT_FOUND || { echo 'G
 py -3 jj_gap_check.py 2>/dev/null | tail -22 | grep -A21 JJ_GAP || true; py -3 -c "import json,sys; s=json.load(open('$O/gap_check.json'))['summary']; sys.exit(1 if s['gaps'] else 0)" || { echo 'GAP CHECK FAILED'; exit 1; }
 py -3 jj_footprint.py --plant | grep JJ_FOOTPRINT_PLANT_FOUND || { echo 'FOOTPRINT NOT PROVEN'; exit 1; }
 py -3 jj_footprint.py | tail -12 | grep -B11 JJ_FOOTPRINT_PASS || { py -3 jj_footprint.py | tail -20; echo 'FOOTPRINT FAILED'; exit 1; }
+py -3 jj_swing.py --plant | grep JJ_SWING_PLANT_FOUND || { echo 'SWING GATE NOT PROVEN'; exit 1; }      # no walk route runs into a leaf it pushed open
+py -3 jj_swing.py | tail -1 | grep JJ_SWING_PASS || { py -3 jj_swing.py; echo 'SWING GATE FAILED'; exit 1; }
 [ -f out/probe_sit.json ] && cp out/probe_*.json $O/ 2>/dev/null || true          # rig results carry over (mlo-data marks tested seats)
 py -3 jj_mlo_data.py; py -3 jj_cams.py > /dev/null
 py -3 jj_plandraw.py ../../shots/p4_jail_plan_L1.png ../../shots/p4_jail_plan_L2.png ../../shots/p4_jail_plan_L3.png ../../shots/p4_jail_plan_B1.png ../../shots/p4_jail_section.png
