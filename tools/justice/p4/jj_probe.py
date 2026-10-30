@@ -195,17 +195,22 @@ def _rollup():
             'elseif mode=="shut" then reg() DoorSystemSetHoldOpen(DH,false) DoorSystemSetOpenRatio(DH,0.0,false,true) DoorSystemSetDoorState(DH,1,false,true) Wait(5000) '
             'else if IsDoorRegisteredWithSystem(DH) then DoorSystemSetDoorState(DH,0,false,true) RemoveDoorFromSystem(DH) end end end ') % (rux, ruy, ruz, J.ROLLUP[0])
     return lua_
-# every vehicle near the bay goes before a test car is made - mission entities too (ClearAreaOfVehicles leaves those: a car left by an
-# earlier run blocked two test cars at their spawn, rig 2026-10-30). Returns how many were removed and how many are still there.
-# ONE driving method for the self-test, the plant and the drive (rig 2026-10-30: the self-test's 300 ms gas slices moved the car 27 m;
-# the drive's 200 ms slices left it standing, -0.01 m). A slice = the temp action (23 gas, 22 reverse, 1 brake) issued for SLICE_MS and
-# re-issued after it, never shorter; meanwhile tk() runs every frame. Speed is capped with SetEntityMaxSpeed so a gas slice cannot
-# overshoot. Steering = heading hold on the drive line: a drift over 1.5 deg is set back to the line heading (the plant starts 4.5 m off
-# the line and holds the same heading, so it drives straight into the wall). No AI drive task.
+# ONE driving method for the self-test, the plant and the drive. Rig 2026-10-30: TaskVehicleTempAction in 300 ms slices moved the car
+# 27 m, 200 ms slices left it standing; and with SetEntityMaxSpeed at 2.8 the gas slices could not start the car at all (trace: speed
+# 0.01-0.02 at the spawn) - so NO speed cap: the speed is held by the slices themselves. cruise(v, want, rev): below want-0.8 a gas slice
+# (23, or 22 reversing), above want+1.0 a brake slice (1), in between a coast slice (no action). A slice is SLICE_MS, never shorter;
+# the band follows the car: the rig self-test (26-27 m on 8 gas + 4 brake slices) puts low-speed gas at ~5.5 m/s2, so ONE 300 ms gas
+# slice adds ~1.65 m/s and no slice loop can hold +-0.7; at 2.5 it holds ~1.6-3.4.
+# meanwhile tk() runs every frame. Steering = heading hold on the drive line: a drift over 1.5 deg is set back to the line heading (the
+# plant starts 4.5 m off the line and holds the same heading, so it drives straight into the wall). No AI drive task. The self-test
+# proves this exact loop: cruise at 2.5 m/s held within 1.5-3.5 for 5 s, every slice's speed logged.
 SLICE_MS = 300
-DRV = ('local function slice(v,a,tk) TaskVehicleTempAction(PlayerPedId(),v,a,%d) local t=GetGameTimer() while GetGameTimer()-t<%d do Wait(0) if tk then tk() end end end '
+DRV = ('local function slice(v,a,tk) if a~=0 then TaskVehicleTempAction(PlayerPedId(),v,a,%d) end local t=GetGameTimer() while GetGameTimer()-t<%d do Wait(0) if tk then tk() end end end '
+       'local function cruise(v,want,rev,tk) local sp=GetEntitySpeed(v) local a=0 if sp<math.max(0.2,want-0.8) then a=rev and 22 or 23 elseif sp>want+1.0 then a=1 end slice(v,a,tk) return a end '
        'local drift=0.0 local function hold(v,h) local d=math.abs(math.fmod((GetEntityHeading(v)-h)+540.0,360.0)-180.0) if d>drift then drift=d end if d>1.5 then SetEntityHeading(v,h) end end '
        % (SLICE_MS, SLICE_MS))
+# every vehicle near the bay goes before a test car is made - mission entities too (ClearAreaOfVehicles leaves those: a car left by an
+# earlier run blocked two test cars at their spawn, rig 2026-10-30). Returns how many were removed and how many are still there.
 PURGE = ('local function purge(x,y,z,rad) local n=0 for _,veh in ipairs(GetGamePool("CVehicle")) do if #(GetEntityCoords(veh)-vector3(x,y,z))<rad then '
          'SetEntityAsMissionEntity(veh,true,true) DeleteVehicle(veh) if DoesEntityExist(veh) then DeleteEntity(veh) end n=n+1 end end Wait(300) local left=0 '
          'for _,veh in ipairs(GetGamePool("CVehicle")) do if #(GetEntityCoords(veh)-vector3(x,y,z))<rad then left=left+1 end end return n,left end ')
@@ -262,25 +267,32 @@ def _spawn(m, su, sv, h_in):
 def drive_selftest():
     """each piece of the drive test on its own (rig 2026-10-30: the first two cars never moved, the roll-up read 0 while a car drove
     under it): (1) the roll-up read-back through the door system: forced shut (locked) ~0, opened > 1.0, shut again ~0, then released; (2) a car spawned in the cleared
-    street on the line moves >= 2 m on 2 s of gas; (3) it is deleted for certain."""
+    street on the line, driven by the drive's own speed loop (DRV cruise), holds 2.5 m/s within 1.5-3.5 for 5 s; (3) it is deleted for certain."""
     h_in = (270.0 + F.HDEG) % 360; res = {}
     r = lua((_rollup() + 'dsys("shut") local a=dopen() dsys("open") local b=dopen() dsys("shut") local c=dopen() dsys("release") return string.format("%.2f:%.2f:%.2f",a,b,c)'), 60).split(':')
     a, b, c = map(float, r); res['rollup_shut_open_shut'] = [a, b, c]; door_ok = a >= 0 and a < 0.3 and b > 1.0 and c < 0.3
     su = J.JBOX[0] - 16.0; purged, eng = _spawn('police', su, J.DRIVE_V, h_in)
-    # the shared method (DRV): 8 gas slices on the line heading, then brake; the engine is read during the gas (the keys guard)
-    r = lua((DRV + 'local p=PlayerPedId() local v=_G.__jjv local c0=GetEntityCoords(v) local off=0 SetEntityMaxSpeed(v,30.0) '
-             'for i=1,8 do slice(v,23) hold(v,%.1f) if not GetIsVehicleEngineRunning(v) then off=off+1 end end slice(v,1) slice(v,1) slice(v,1) slice(v,1) '
-             'local d=#(GetEntityCoords(v)-c0) local fr=IsEntityPositionFrozen(v) TaskLeaveVehicle(p,v,16) Wait(1500) SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) '
-             'return string.format("%%.2f:%%s:%%s:%%d:%%.1f",d,tostring(fr),tostring(not DoesEntityExist(v)),off,drift)') % h_in, 40).split(':')
-    moved, frozen, gone, off = float(r[0]), r[1], r[2] in ('true', '1'), int(r[3]); res['engine_off_reads_during_gas'] = off; res['max_heading_drift_deg'] = float(r[4])
-    res.update({'purged_before_spawn': purged, 'engine_fuel': eng, 'moved_m_on_2s_gas': moved, 'frozen': frozen, 'deleted': gone})
-    ok = door_ok and moved >= 2.0 and gone; res['ok'] = ok
+    # the shared method (DRV) itself: cruise at 2.5 m/s on the line heading (the roll-up held open by the door system meanwhile) until the
+    # speed has stayed within 1.5-3.5 for 5 s (at most 25 s and 25 m: the nose stays short of the stop), then brake; the engine is read
+    # every slice (the keys guard)
+    r = lua((_rollup() + DRV + 'local p=PlayerPedId() local v=_G.__jjv local c0=GetEntityCoords(v) local off=0 dsys("open") '
+             'local ws=nil local held=false local sps={} local t0=GetGameTimer() '
+             'while GetGameTimer()-t0<25000 and #(GetEntityCoords(v)-c0)<25.0 do cruise(v,2.5,false) hold(v,%.1f) local sp=GetEntitySpeed(v) '
+             'if not GetIsVehicleEngineRunning(v) then off=off+1 end if #sps<90 then sps[#sps+1]=string.format("%%.2f",sp) end '
+             'if sp>=1.5 and sp<=3.5 then ws=ws or GetGameTimer() if GetGameTimer()-ws>=5000 then held=true break end else ws=nil end end '
+             'for i=1,6 do slice(v,1) end local d=#(GetEntityCoords(v)-c0) local fr=IsEntityPositionFrozen(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
+             'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys("shut") dsys("release") '
+             'return string.format("%%.2f:%%s:%%s:%%d:%%.1f:%%s:",d,tostring(fr),tostring(gone),off,drift,tostring(held))..table.concat(sps,",")') % h_in, 90).split(':')
+    moved, frozen, gone, off, held = float(r[0]), r[1], r[2] in ('true', '1'), int(r[3]), r[5] in ('true', '1')
+    res.update({'purged_before_spawn': purged, 'engine_fuel': eng, 'engine_off_reads_during_drive': off, 'max_heading_drift_deg': float(r[4]),
+                'cruise_2_5_held_5s': held, 'speeds_per_slice': [float(x) for x in r[6].split(',') if x], 'moved_m': moved, 'frozen': frozen, 'deleted': gone})
+    ok = door_ok and held and moved >= 2.0 and gone; res['ok'] = ok
     return res, ok
 def drive(models=None, plant=False):
     """the test player drives each vehicle from Macdonald St straight into the sally port to its stop and backs it straight out to the
     street. The roll-up is opened through the DOOR SYSTEM for the car's whole run (in and out), as the client's lock system will (Antonio
     2026-10-29: "client add locks"), then shut and released. Every car starts on a purged street, on the line, keyed, engine on
-    (_spawn) and must be seen moving; it is driven by the shared method DRV (gas / reverse slices, heading hold); the stop: the speed tapers with the distance left and the brakes go on in time (rig 2026-10-30:
+    (_spawn) and must be seen moving; it is driven by the shared method DRV (cruise: gas / coast / brake slices, no speed cap; heading hold); the stop: the speed tapers with the distance left and the brakes go on in time (rig 2026-10-30:
     the van overshot to -28.02). Logged: impacts (wall / door / kerb faces, debounced - not floor contact) going in and backing out
     with the first five impacts' spot and normal; body health; the nose stop; the final spot; the roll-up's opening on each leg
     (read from the door object found anew each time, against its placement). plant=True: 4.5 m off the line - it must hit the wall."""
@@ -295,25 +307,25 @@ def drive(models=None, plant=False):
                  'local half=%.2f local ud=%.3f local dIn,dOut=0.0,0.0 local u0=u() '
                  'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then '
                  'hits=hits+1 last=GetGameTimer() if #imp<5 then local a,b=uv() imp[#imp+1]=string.format("%%.2f/%%.2f/%%.2f/%%.2f/%%.2f",a,b,n.x,n.y,n.z) end end end end '
-                 'local Hh=%.1f local tr={} local cap=0.0 local function trace(tag) if #tr<90 then local a,b=uv() tr[#tr+1]=string.format("%%s/%%.2f/%%.2f/%%.2f/%%d/%%.1f",tag,a,b,GetEntitySpeed(v),GetIsVehicleEngineRunning(v) and 1 or 0,cap) end end '
+                 'local Hh=%.1f local tr={} local want=0.0 local function trace(tag) if #tr<90 then local a,b=uv() tr[#tr+1]=string.format("%%s/%%.2f/%%.2f/%%.2f/%%d/%%.1f",tag,a,b,GetEntitySpeed(v),GetIsVehicleEngineRunning(v) and 1 or 0,want) end end '
                  'dsys("open") local dPre=dopen() '
                  'trace("s") local t0=GetGameTimer() while GetGameTimer()-t0<50000 do local rem=%.3f-(u()+half) local sp=GetEntitySpeed(v) '
                  'if rem<=0.25+sp*0.5 then break end if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end '
-                 'local want=math.max(0.6,math.min(2.5,rem*0.3)) cap=want+0.3 SetEntityMaxSpeed(v,cap) slice(v,sp<want and 23 or 1,tick) hold(v,Hh) trace("i") end '
-                 'for i=1,8 do slice(v,1,tick) end hin=hits local cin=GetEntityCoords(v) local moved=u()-u0 local t1=GetGameTimer() SetEntityMaxSpeed(v,2.0) '
+                 'want=math.max(0.6,math.min(2.5,rem*0.3)) cruise(v,want,false,tick) hold(v,Hh) trace("i") end '
+                 'for i=1,8 do slice(v,1,tick) end hin=hits local cin=GetEntityCoords(v) local moved=u()-u0 local t1=GetGameTimer() '
                  'while GetGameTimer()-t1<60000 and u() > %.3f do local rear=u()-half if math.abs(rear-ud)<4.0 then dOut=math.max(dOut,dopen()) end '
-                 'slice(v,GetEntitySpeed(v)<1.8 and 22 or 1,tick) hold(v,Hh) trace("o") end '
-                 'for i=1,7 do slice(v,1,tick) end SetEntityMaxSpeed(v,500.0) local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
+                 'want=1.8 cruise(v,want,true,tick) hold(v,Hh) trace("o") end '
+                 'for i=1,7 do slice(v,1,tick) end local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
                  'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys("shut") dsys("release") '
                  'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:%%.2f:%%.2f:%%.1f:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone),dPre,moved,drift)..table.concat(imp,",")..":"..table.concat(tr,",")')
                 % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, h_in, J.DRIVE_STOP, J.JBOX[0] - 8.0), 220).split(':')
         hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6]))
         d_in, d_out, h_in_ = float(r[7]), float(r[8]), int(r[9]); gone = r[10] in ('true', '1'); d_pre, moved = float(r[11]), float(r[12])
         drift = float(r[13]); imps = [x for x in r[14].split(',') if x]; nose = ui + L_ / 2
-        trace = [dict(zip(('leg', 'u', 'v_off', 'speed', 'engine', 'cap'), [t.split('/')[0]] + [float(x) for x in t.split('/')[1:]])) for t in r[15].split(',') if t]
+        trace = [dict(zip(('leg', 'u', 'v_off', 'speed', 'engine', 'want'), [t.split('/')[0]] + [float(x) for x in t.split('/')[1:]])) for t in r[15].split(',') if t]
         (JL / OD / f'probe_drive_trace_{m}{"_plant" if plant else ""}.json').write_text(json.dumps({'vehicle': m, 'plant': plant, 'engine_fuel': eng, 'moved': moved, 'trace': trace}, indent=1))
-        if moved < 2.0: raise SystemExit(f'PROBE: {m} never moved ({moved:.2f} m; engine {eng}; first slices u/v_off/speed/engine/cap: '
-                                         f'{[(t["u"], t["v_off"], t["speed"], int(t["engine"]), t["cap"]) for t in trace[:5]]}; trace in {OD}/probe_drive_trace_{m}{"_plant" if plant else ""}.json) - nothing was tested')
+        if moved < 2.0: raise SystemExit(f'PROBE: {m} never moved ({moved:.2f} m; engine {eng}; first slices u/v_off/speed/engine/want: '
+                                         f'{[(t["u"], t["v_off"], t["speed"], int(t["engine"]), t["want"]) for t in trace[:5]]}; trace in {OD}/probe_drive_trace_{m}{"_plant" if plant else ""}.json) - nothing was tested')
         good = hits == 0 and b1 >= b0 - 1.0 and J.DRIVE_STOP - 1.0 < nose < J.PLATFORM[0] - 0.3 and uo < J.JBOX[0] - 5.0 and gone and d_pre > 1.0
         out.append({'vehicle': m, 'purged_before_spawn': purged, 'impacts': hits, 'impacts_going_in': h_in_, 'impacts_backing_out': hits - h_in_,
                     'first_impacts_u_v_nx_ny_nz': imps, 'max_heading_drift_deg': drift, 'slices': len(trace), 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,

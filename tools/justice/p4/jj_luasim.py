@@ -20,9 +20,7 @@ VM.__len = function(a) return math.sqrt(a.x * a.x + a.y * a.y + (a.z or 0) * (a.
 function vector2(x, y) return vec(x, y, nil) end
 function vector3(x, y, z) return vec(x, y, z or 0.0) end
 local T = 0
-function GetGameTimer() T = T + 50 return T end
-function Wait(ms) T = T + (ms or 0) end
-local POS, HD, CREATED, ENG, SEAT, WANT = {}, {}, {}, {}, {}, {}   -- every table a mock function uses, declared before any of them
+local POS, HD, CREATED, ENG, SEAT, WANT, VEL, ACT, CAP = {}, {}, {}, {}, {}, {}, {}, {}, {}   -- every table a mock function uses, declared before any of them
 -- the roll-up as the rig has it (2026-10-30): a map garage door that opens by itself while the player is near, unless the door system
 -- holds it (registered + locked -> shut; registered + unlocked -> the set ratio). Object 7 at the first spot asked for; opening = 2.6 m up.
 local DOOR = {base = nil, reg = false, locked = false, ratio = 0.0}
@@ -45,7 +43,7 @@ function GetGamePool(n) return {} end
 function GetHashKey(s) return 12345 end
 function PlayerPedId() return 1 end
 function DoesEntityExist(e) return POS[e] ~= nil end
-function DeleteVehicle(e) POS[e] = nil SEAT[e] = nil end
+function DeleteVehicle(e) POS[e] = nil SEAT[e] = nil VEL[e] = nil ACT[e] = nil CAP[e] = nil end
 -- the c9_vehiclekeys guard (disableAutoStart, rig 2026-10-30): with a player in the driver's seat the engine runs only when the
 -- keys script wants it (its ToggleEngine); a raw SetVehicleEngineOn is switched off again the next frame
 
@@ -73,14 +71,34 @@ exports = setmetatable({c9_vehiclekeys = {CanDrive = function(self, v) return tr
                                           ToggleEngine = function(self) local v = _G.__jjv local on = not GetIsVehicleEngineRunning(v) WANT[v] = on ENG[v] = on end}},
                        {__index = function() return setmetatable({}, {__index = function() return function() return true end end}) end})
 -- gas / reverse move the car 0.5 m per call along its heading (GTA forward = (-sin h, cos h)) when the engine runs
--- ONLY the proven driving method moves the car (rig 2026-10-30: 300 ms gas slices moved it 27 m, 200 ms slices -0.01 m): a gas /
--- reverse temp action of at least 300 ms; any other drive task (shorter slices, AI drive tasks: stubs) leaves it standing
-function TaskVehicleTempAction(p, v, a, ms)
-    if not GetIsVehicleEngineRunning(v) or not POS[v] or (a ~= 23 and a ~= 22) or (ms or 0) < 300 then return end
-    local h = math.rad(HD[v] or 0.0) local s = (a == 23) and 0.5 or -0.5
-    POS[v] = vector3(POS[v].x - math.sin(h) * s, POS[v].y + math.cos(h) * s, POS[v].z)
+-- motion over game time (rig 2026-10-30): a temp action drives only when issued for >= 300 ms (200 ms slices left the car standing) and
+-- the engine runs (the keys guard); 23 gas +5.5 m/s2 (from the rig self-test: 26-27 m on 8 gas + 4 brake slices), 22 reverse -4 m/s2,
+-- 1 brake 6 m/s2 toward 0, no action = coasting 1.0 m/s2;
+-- SetEntityMaxSpeed caps the speed, and a cap under 3 m/s keeps a standing car standing (rig: cap 2.8 -> 0.01 m/s at the spawn)
+local LAST = 0
+local function step()
+    local dt = (T - LAST) / 1000.0 LAST = T
+    if dt <= 0 then return end
+    for v, pos in pairs(POS) do
+        local a = ACT[v] if a and T > a.untl then ACT[v] = nil a = nil end
+        local vel = VEL[v] or 0.0 local run = GetIsVehicleEngineRunning(v)
+        local stuck = CAP[v] and CAP[v] < 3.0 and math.abs(vel) < 0.1
+        if a and run and a.a == 23 and not stuck then vel = vel + 5.5 * dt
+        elseif a and run and a.a == 22 and not stuck then vel = vel - 4.0 * dt
+        else local dec = (a and a.a == 1) and 6.0 or 1.0 if vel > 0 then vel = math.max(0.0, vel - dec * dt) else vel = math.min(0.0, vel + dec * dt) end end
+        if CAP[v] then vel = math.max(-CAP[v], math.min(CAP[v], vel)) end
+        VEL[v] = vel
+        if vel ~= 0.0 then local h = math.rad(HD[v] or 0.0) POS[v] = vector3(pos.x - math.sin(h) * vel * dt, pos.y + math.cos(h) * vel * dt, pos.z) end
+    end
 end
-function GetEntitySpeed(e) return 0.0 end
+function GetGameTimer() T = T + 50 step() return T end
+function Wait(ms) T = T + (ms or 0) step() end
+function GetEntitySpeed(e) return math.abs(VEL[e] or 0.0) end
+function SetEntityMaxSpeed(e, c) CAP[e] = c end
+function TaskVehicleTempAction(p, v, a, ms)
+    if not POS[v] or (ms or 0) < 300 then return end
+    ACT[v] = {a = a, untl = T + ms}
+end
 function IsDoorRegisteredWithSystem(h) return false end
 
 function tostring_(x) return tostring(x) end
@@ -114,10 +132,11 @@ def static_check(src):
 if __name__ == '__main__':
     bad = []
     assert check_result(run('return string.format("%%.2f", 1)')), 'the simulator did not catch its planted unfilled format'
-    reset()   # plant: a 200 ms gas slice (the old drive method) must not move the mock car; a 300 ms one must
-    assert run('local v=CreateVehicle(1,0.0,0.0,0.0,0.0) _G.__jjv=v Wait(2000) TaskWarpPedIntoVehicle(1,v,-1) exports.c9_vehiclekeys:ToggleEngine() local c0=GetEntityCoords(v) '
-               'TaskVehicleTempAction(1,v,23,200) local a=#(GetEntityCoords(v)-c0) TaskVehicleTempAction(1,v,23,300) local b=#(GetEntityCoords(v)-c0) '
-               'return tostring(a==0 and b>0)') == 'true', 'the mock moved the car on an unproven drive method'
+    MV = ('local v=CreateVehicle(1,0.0,0.0,0.0,0.0) _G.__jjv=v Wait(2000) TaskWarpPedIntoVehicle(1,v,-1) exports.c9_vehiclekeys:ToggleEngine() local c0=GetEntityCoords(v) %s '
+          'for i=1,10 do TaskVehicleTempAction(1,v,23,%d) Wait(%d) end return tostring(#(GetEntityCoords(v)-c0))')
+    reset(); assert float(run(MV % ('', 200, 200))) == 0.0, 'the mock moved the car on 200 ms slices (an unproven drive method)'
+    reset(); assert float(run(MV % ('SetEntityMaxSpeed(v,2.8)', 300, 300))) == 0.0, 'the mock moved a standing car under a 2.8 m/s cap'
+    reset(); assert float(run(MV % ('', 300, 300))) > 2.0, 'the mock did not move the car on the proven 300 ms slices'
     reset()   # plant: the old raw engine start (spawn engine on, warp, SetVehicleEngineOn) must leave the car dead under the keys guard
     assert run('local v=CreateVehicle(1,0.0,0.0,0.0,0.0) SetVehicleEngineOn(v,true,true,false) Wait(2000) TaskWarpPedIntoVehicle(1,v,-1) SetVehicleEngineOn(v,true,true,false) '
                'local c0=GetEntityCoords(v) TaskVehicleTempAction(1,v,23,300) return tostring(#(GetEntityCoords(v)-c0))') == '0.0', 'the mock keys guard did not stop a raw engine start'
@@ -138,8 +157,9 @@ if __name__ == '__main__':
     reset()
     try:
         st = P.drive_selftest()[0]; print('  drive_selftest:', str(st)[:300])
-        if st.get('moved_m_on_2s_gas', 0) < 2.0: bad.append(f"drive_selftest: the car did not move in the mock ({st.get('moved_m_on_2s_gas')} m)")
-        if not st.get('ok'): bad.append(f"drive_selftest: not ok in the mock (roll-up shut/open/shut {st.get('rollup_shut_open_shut')})")
+        print('  self-test cruise held 5 s:', st.get('cruise_2_5_held_5s'), 'speeds per slice:', st.get('speeds_per_slice', [])[:40])
+        if st.get('moved_m', 0) < 2.0: bad.append(f"drive_selftest: the car did not move in the mock ({st.get('moved_m')} m)")
+        if not st.get('ok'): bad.append(f"drive_selftest: not ok in the mock (roll-up {st.get('rollup_shut_open_shut')}, cruise held {st.get('cruise_2_5_held_5s')}, speeds {st.get('speeds_per_slice', [])[:12]})")
         print('  drive_plant (same Lua state, straight after the self-test as on the rig):', str(P.drive_plant()[0])[:200])
     except SystemExit as e: bad.append(f'drive_selftest stopped: {str(e)[:160]}')
     except Exception as e: bad.append(f'drive_selftest: {type(e).__name__}: {e}')

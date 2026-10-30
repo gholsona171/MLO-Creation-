@@ -514,6 +514,11 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   heading +180), never by opening doors for the walker.
 - A map garage door (prop_hw1_03_gardoor_01 as a ymap door) opens by itself when the player is near. A door test must first force it
   SHUT through the door system (registered, ratio 0, locked) before reading "shut"; releasing it hands it back to the map default.
+- Never cap a test car with SetEntityMaxSpeed: at 2.8 m/s a standing police car under TaskVehicleTempAction gas never started (trace:
+  0.01-0.02 m/s at the spawn, rig 2026-10-30). Hold speed with the slices: gas below want-0.8, brake above want+1.0, coast between.
+  Full-throttle 300 ms slices add ~1.65 m/s each (low-speed gas ~5.5 m/s2, from 26-27 m on 8 gas + 4 brake slices), so no slice loop
+  holds +-0.7; at 2.5 it holds about 1.6-3.4. The self-test proves the drive's own loop (2.5 held in 1.5-3.5 for 5 s, every speed logged).
+  The sim integrates motion over game time with those rates; a low cap and 200 ms slices are planted and must leave the car standing.
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous
