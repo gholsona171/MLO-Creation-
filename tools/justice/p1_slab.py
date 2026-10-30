@@ -30,6 +30,12 @@ def export(root):
     bpy.ops.object.select_all(action='DESELECT'); root.select_set(True); bpy.context.view_layer.objects.active = root
     assert 'FINISHED' in bpy.ops.sollumz.export_assets(directory=str(OUT), use_custom_settings=True, target_formats={'NATIVE'}, target_versions={'GEN8'}, limit_to_selected=True)
 GRID = 2.0
+sys.path.insert(0, str(J / 'work/p2')); import p2_plan as PL
+def _in_hole(c):
+    """a world point inside one of p2_plan.SLAB_HOLES (lot-frame rects): the slab is not drawn / does not collide there (area 3: the
+    police HQ's B1 garage and its ramps run below the slab's height under the whole police box)."""
+    u, v = F.L(c.x, c.y)
+    return any(r[0] < u < r[1] and r[2] < v < r[3] for r in PL.SLAB_HOLES)
 def slab_mesh(pts, mat, skirt=0.0, apron=0.0):
     bm = bmesh.new(); vs = [bm.verts.new(Vector(p)) for p in pts]
     f = bm.faces.new(vs); f.normal_update()
@@ -39,10 +45,19 @@ def slab_mesh(pts, mat, skirt=0.0, apron=0.0):
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=Vector((k * GRID, 0, 0)), plane_no=Vector((1, 0, 0)))
     for k in range(int(np.floor(min(ys) / GRID)) + 1, int(np.ceil(max(ys) / GRID))):
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=Vector((0, k * GRID, 0)), plane_no=Vector((0, 1, 0)))
+    import math as _m
+    hd = _m.radians(F.HDEG); du = Vector((_m.cos(hd), _m.sin(hd), 0.0)); dv = Vector((-_m.sin(hd), _m.cos(hd), 0.0))
+    for r in PL.SLAB_HOLES:                                                 # split the slab exactly on each hole's edge lines (then only what lies
+        for a_, n_ in ((r[0], du), (r[1], du)):                             # inside goes: a centre test on 2 m triangles left holes outside it)
+            x, y = F.W(a_, 0.0); bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=Vector((x, y, 0)), plane_no=n_)
+        for a_, n_ in ((r[2], dv), (r[3], dv)):
+            x, y = F.W(0.0, a_); bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=Vector((x, y, 0)), plane_no=n_)
     edge = {v for e in bm.edges if e.is_boundary for v in e.verts}           # on his edge lines: linear between his vertices already
     for v in bm.verts:
         if v not in edge: v.co.z = F.slab_z(v.co.x, v.co.y)
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method='BEAUTY', ngon_method='BEAUTY')
+    dead = [f for f in bm.faces if _in_hole(f.calc_center_median())]   # the holes (p2_plan.SLAB_HOLES): under the police HQ's B1
+    if dead: bmesh.ops.delete(bm, geom=dead, context='FACES')
     for f in bm.faces:
         f.normal_update()
         if f.normal.z < 0: f.normal_flip()

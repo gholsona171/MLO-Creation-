@@ -114,7 +114,20 @@ def flights():
     return out
 # ---------------- lifts ----------------
 LIFT_STOPS = [('L1', 'tlobby', F1, LOB_CEIL), ('L3', 'pubA', F3, F3 + ROOM_H), ('L5', 'pubB', F5, F5 + ROOM_H)]
+# the lobby's core dressing (Antonio 2026-10-29): a walnut band with brass edges round the core above the doors, a floor number over
+# every lift door (every stop), a brass-framed directory board between the two lift doors
+CORE_BAND = (F1 + 3.0, F1 + 3.4)                                       # z: above the lift doors (2.6) and their floor numbers (2.64 .. 2.86)
+CORE_BAND_EDGE = 0.03                                                  # the brass edge strips (top and bottom of the band)
+LIFT_IND = (2.75, 0.9, 0.22)                                           # floor number over a lift door: centre z above the floor, w, h
+DIRECTORY = ['DIRECTORY', 'L5    COURTROOM 5B', 'L3    COURTROOM 3A', 'L1    CLERK OF COURTS', 'L1    JURY ASSEMBLY',
+             'L1    LOBBY']                                              # what the tower holds (the board is made from this)
+# Antonio 2026-10-29: the L1 information desk is the Clerk of Courts counter; the seating by the east glass (north) is Jury Assembly
+CLERK_DESK = (24.6, 29.4, 22.6, 23.4, 1.05)                             # the counter (u0, u1, v0, v1, height); its sign is its public (south) face
+JURY_ASSEMBLY = (45.4, 43.0, 3.1, 2.6, 0.5)                             # the hanging sign over the east benches: u, v, centre z above the floor, w, h
+DIRECTORY_BOARD = (1.6, 1.3, 1.5)                                      # centre z above the floor, w, h (between the lift doors)
+LOBBY_FLAGS = [('v_20_flag01', 34.45, 30.3), ('v_20_flag02', 34.45, 31.0), ('v_20_flag03', 34.45, 31.7)]   # against the core's west face, clear of the lift doors
 SEC_STOPS = [('L3', 'secA', F3), ('L5', 'secB', F5)]
+SEC_B1 = 22.8                                                          # the secure bank's B1 stop: jc-jail's prisoner tunnel (work/jail/jj_plan.B1)
 SEC_CAB = (SLIFT[0] + 0.7, SLIFT[1] - 0.7, SLIFT[2] + 0.2, SLIFT[3] - 0.6)   # one car: u 31.9 .. 34.3, v 23.0 .. 25.2; front wall to 25.5, doors face +v
 SEC_LAND = 1.8                                                         # the secure lift's landing: front wall face (25.5) .. the cells' south wall
 CELL_S = SEC_CAB[3] + 0.3 + SEC_LAND                                   # the cells' south wall (27.3) (rig 2026-10-29: at 25.8 the lift opened onto a 0.3 m slot)
@@ -199,7 +212,8 @@ def sec_fittings(f):
     return out
 # chairs: sit point from the prop (seat height, sit point y in the prop's frame; facing = the prop's front, -y). Checked on the rig.
 CHAIR_SEAT = {'v_corp_bk_chair1': (0.48, 0.02), 'v_ilev_leath_chr': (0.50, 0.04), 'ex_prop_offchair_exec_01': (0.52, 0.05),
-              'prop_off_chair_05': (0.50, 0.02), 'v_ilev_ph_bench': None}
+              'prop_off_chair_05': (0.50, 0.02), 'v_ilev_ph_bench': None,
+              'v_corp_lazychair': (0.44, 0.03)}                                # (2026-10-29: had none - never sit-tested; rig sit + clone photos verify)
 def room_props(f):
     """[(room, model, u, v, z_rel, heading)] for rst and pub (the jury room, the chambers, the robing room, the witness room, the NE
     conference room, the waiting benches and plants)."""

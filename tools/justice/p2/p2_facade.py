@@ -52,9 +52,9 @@ def building(k, emi):
         f, at, ax, s0, s1, o = face
         ops = PL.openings(k, face); cov = PL.covered(k, face)
         zbase = PL.SLAB - 0.35
-        holes = [(a0, a1, zbase if kind in ('arcade', 'garage') else z0 - (0.25 if kind == 'slot' else 0.0), z1 + (0.25 if kind == 'garage' else 0.0)) for kind, a0, a1, z0, z1 in ops] + list(cov)
+        holes = [(a0, a1, zbase if kind in ('arcade', 'garage') else z0 - (0.25 if kind == 'slot' else 0.0), z1 + (0.25 if kind == 'garage' else PL.ATRIUM_DOOR_HEAD if kind == 'door' else 0.0)) for kind, a0, a1, z0, z1 in ops] + list(cov)   # (a door's steel head fills its band)
         holes += [(r[0][0], r[-1][1], zbase, PL.G) for r in PL.arcade_runs(k, face)]       # the colonnade floor runs under its piers
-        for a0, a1, c0, c1 in TK.rects_minus(s0, s1, zbase, b['top'], holes): fbox(k, face, a0, a1, -D, 0.0, c0, c1, stone)
+        for a0, a1, c0, c1 in TK.rects_minus(s0 - PL.corner_ext(k, face)[0], s1 + PL.corner_ext(k, face)[1], zbase, b['top'], holes): fbox(k, face, a0, a1, -D, 0.0, c0, c1, stone)
         arc = []
         for kind, a0, a1, z0, z1 in ops:
             lvl = PL.floor_of(k, z0); lit = (lvl not in see) and PL.lit(k, f, round(a0, 1), round(z0, 1))
@@ -76,6 +76,7 @@ def building(k, emi):
                 louvre(k, face, a0, a1, z0, z1, D, 0.15, 0.35)
             elif kind == 'arcade': arc.append((a0, a1, z0, z1))
             elif kind == 'garage': garage(k, face, a0, a1, z0, z1, D)
+            elif kind == 'door': door_frame(k, face, a0, a1, z0, z1, D)
         if arc: arcade(k, emi, face, arc, D, glass, 1 in see)
         for a0, a1, z0, z1, pr in PL.fins(k, face): fbox(k, face, a0, a1, 0.0, pr, z0, z1, stone)
     roof(k)
@@ -96,11 +97,18 @@ def arcade(k, emi, face, bays, D, glass, see_out):
         fbox(k, face, r0, r1, -A, -D, z1, z1 + 0.45, STONE[k])                                       # soffit
         fbox(k, face, r0, r1, -A, 0.0, PL.G - 0.5, PL.G, 'granite')                                  # floor
         col_box(PL.P(face, r0, -A, PL.G - 0.5), PL.P(face, r1, 0.05, PL.G), 'stone')                 # 5 cm past the face: no seam with the ground outside
-        winbox(k, emi, face, r0, r1, z0, z1, A, glass, False, mull=1.65, see_out=see_out)
+        segs = [(r0, r1)]
+        if k == 'police' and face[0] == 'E' and r0 < PL.POLICE_FRONT < r1:          # area 3: the front pair stands in the glass line
+            d0, d1 = PL.POLICE_FRONT, PL.POLICE_FRONT + PL.POLICE_FRONT_W; segs = [(r0, d0 - 0.06), (d1 + 0.06, r1)]
+            winbox(k, emi, face, d0 - 0.06, d1 + 0.06, z0 + 2.4 + PL.ATRIUM_DOOR_HEAD, z1, A, glass, False, mull=0.0, see_out=see_out)   # glass over the head
+            fbox(k, face, d0 - 0.06, d0, -A - 0.05, -A + 0.05, z0, z0 + 2.4, 'metal'); fbox(k, face, d1, d1 + 0.06, -A - 0.05, -A + 0.05, z0, z0 + 2.4, 'metal')
+            fbox(k, face, d0 - 0.06, d1 + 0.06, -A - 0.05, -A + 0.05, z0 + 2.4, z0 + 2.4 + PL.ATRIUM_DOOR_HEAD, 'metal')
+        for s0_, s1_ in segs: winbox(k, emi, face, s0_, s1_, z0, z1, A, glass, False, mull=1.65, see_out=see_out)
         if z1 - z0 > 4:                                                                              # transom, between the mullions
-            n = max(1, round((r1 - r0) / 1.65)); xs = [r0] + [r0 + (r1 - r0) * i / n for i in range(1, n)] + [r1]
-            for i_, (x0, x1) in enumerate(zip(xs, xs[1:])):
-                fbox(k, face, x0 + (0.035 if i_ else 0.0), x1 - (0.035 if i_ < n - 1 else 0.0), -A + 0.006, -A + 0.07, z0 + 3.0, z0 + 3.12, 'metal')
+            for s0_, s1_ in segs:                                                                    # (per glass segment: its own mullion grid)
+                n = max(1, round((s1_ - s0_) / 1.65)); xs = [s0_] + [s0_ + (s1_ - s0_) * i / n for i in range(1, n)] + [s1_]
+                for i_, (x0, x1) in enumerate(zip(xs, xs[1:])):
+                    fbox(k, face, x0 + (0.035 if i_ else 0.0), x1 - (0.035 if i_ < n - 1 else 0.0), -A + 0.006, -A + 0.07, z0 + 3.0, z0 + 3.12, 'metal')
         for a0, a1, _, _ in run:
             c = (a0 + a1) / 2; zc = z1 - 0.06
             fquad(emi, face, [(c - 0.35, -A / 2 - 0.35, zc), (c + 0.35, -A / 2 - 0.35, zc), (c + 0.35, -A / 2 + 0.35, zc), (c - 0.35, -A / 2 + 0.35, zc)], 'soffit_emis', toward=(0, 0, -1), name='downlight')
@@ -109,9 +117,18 @@ def arcade(k, emi, face, bays, D, glass, see_out):
             col_box(PL.P(face, p1, -PD, PL.G - 0.5), PL.P(face, q0, 0.0, z1 + 0.45), 'stone')
         fbox(k, face, r0 - 0.5, r0, -A, -D, PL.G - 0.5, z1 + 0.45, STONE[k])                         # the run's closed ends
         fbox(k, face, r1, r1 + 0.5, -A, -D, PL.G - 0.5, z1 + 0.45, STONE[k])
+def door_frame(k, face, a0, a1, z0, z1, D):
+    """an atrium entrance (phase 3): steel jambs from the curtain's mullion line in to the leaves, a steel head over the opening (the
+    curtain bay's glass starts above it). The leaves are the galleria MLO's native doors in the glass plane; the floor under them is
+    the stone below G (flush with the podium and the MLO floor)."""
+    jw = ((a1 - a0) - 2 * 1.30) / 2                                                                   # what the two leaves leave
+    # the bay to the left carries its full-height mullion on a0 (+-0.06); the bay to the right has none on its a0 (mullions sit on a
+    # bay's a1), and the curtain bay over the door has its mullion on a1 only from the head up: the right jamb takes that line
+    fbox(k, face, a0 + 0.06, a0 + jw, -D, 0.05, z0, z1, 'metal'); fbox(k, face, a1 - jw, a1 + 0.06, -D, 0.05, z0, z1, 'metal')
+    fbox(k, face, a0 + 0.06, a1 + 0.06, -D, 0.05, z1, z1 + PL.ATRIUM_DOOR_HEAD, 'metal')
 def garage(k, face, a0, a1, z0, z1, D):
     """a vehicle bay behind its door opening: floor (flush with the street + 5 cm), walls, ceiling; collision for all of it."""
-    gd = next(g for g in PL.GARAGES.values() if g['face'] == (k, face[0]))
+    gkey, gd = next((n, g) for n, g in PL.GARAGES.items() if g['face'] == (k, face[0]))
     u0, u1, v0, v1 = gd['room']; t = 0.3; zc = gd['ceil']
     f, at, ax, *_ , o = face
     if ax == 'u':
@@ -128,6 +145,7 @@ def garage(k, face, a0, a1, z0, z1, D):
     else:
         far = v1 if o < 0 else v0
         pieces += [((u0, v0, z0), (u0 + t, v1, zc)), ((u1 - t, v0, z0), (u1, v1, zc)), ((u0 + t, far - t if o < 0 else far, z0), (u1 - t, far if o < 0 else far + t, zc))]
+    if PL.MLO_BUILT.get(gkey): pieces = pieces[1:2]                                                    # an MLO brings the bay: only the threshold stays
     for lo, hi in pieces: TK.box(k, lo, hi, 'conc', col=False); col_box(lo, hi, 'concrete')
     fbox(k, face, a0, a1, -D, 0.0, z1, z1 + 0.25, 'metal')                                          # the door head (steel)
 def inset(k, r):

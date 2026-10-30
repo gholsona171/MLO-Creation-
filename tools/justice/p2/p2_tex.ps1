@@ -16,13 +16,14 @@ $want = [ordered]@{
   'sc1_19_rsd_jp_brick_0001' = 'sc1_19_ground.ydr'; 'sc1_19_rsd_jp_brick_0001_n' = 'sc1_19_ground.ydr'                           # the plaza's red-brick bands (the old plaza's brick)
   'im_grass10deepb' = '*'                                                    # the lawn (the old block's lawn layer 0; default.sps, no normal)
   'im_kerbs03' = '*'; 'im_kerbs03_n' = '*'                                                         # granite kerbs / step nosings
+  'im_glass_01im_glass_01_a' = 'dt1_06_build.ytd'; 'mc_window_0005_n' = 'dt1_06_build.ytd'; 'im_glass_01_s' = 'ch2struc04grp.ytd'   # Rockstar's exterior dark glass (dt1_06_build1_1, glass_env.sps)
 }
 $found = @{}
 foreach ($f in $rpf.AllRpfs) { if (-not $f.AllEntries) { continue }
   foreach ($e in $f.AllEntries) {
-    $n = $e.Name.ToLower(); if (-not ($n.EndsWith('.ytd') -or $n.EndsWith('.ydr')) -or $e.Path -notmatch '_citye|_cityw') { continue }
+    $n = $e.Name.ToLower(); if (-not ($n.EndsWith('.ytd') -or $n.EndsWith('.ydr')) -or $e.Path -notmatch '_citye|_cityw|generic.gtxd') { continue }
     if ($n.EndsWith('.ydr') -and -not ($want.Values -contains $n)) { continue }
-    if ($n.EndsWith('.ytd') -and $e.Path -notmatch 'hw1_26|sc1_19|sc1_rd|scentral') { continue }
+    if ($n.EndsWith('.ytd') -and $e.Path -notmatch 'hw1_26|sc1_19|sc1_rd|scentral|dt1_06|ch2struc04grp') { continue }
     try {
       if ($n.EndsWith('.ytd')) { $y = New-Object CodeWalker.GameFiles.YtdFile; $y.Load($e.File.ExtractFile($e), $e); $tex = $y.TextureDict.Textures.data_items }
       else { $y = New-Object CodeWalker.GameFiles.YdrFile; $y.Load($e.File.ExtractFile($e), $e); $tex = $y.Drawable.ShaderGroup.TextureDictionary.Textures.data_items }

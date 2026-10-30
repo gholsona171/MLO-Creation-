@@ -485,3 +485,28 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   impact; prove it on an off-line drive into a wall. Read a garage door PHYSICALLY (object offset + pitch from its placement) while the
   car is near it: the sally-port roll-up (map door flags) opened for a car arriving from the street, then the cars reversing out stopped
   with their rears on its line - it had closed behind them.
+
+## police-hq-area-3 (Justice Center phase 3, Police HQ + B1 garage in jc_courts, 2026-10-30)
+
+- **The exterior colonnade follows the garage doors:** moving the garage doors moved the end of the east arcade (it stops at the door
+  pier), so the lobby behind it suddenly did not front the whole glass run. A unit test now checks that the lobby region fronts
+  every arcade glass segment (GAR_N to the link), proven on the old line.
+- **One portal per glass run, not per door span:** portals cut around each door span left slits the gap check found. Put a single
+  portal over the whole glass run, a little inside the glass (EG - 0.3).
+- **A reveal belongs to the room it starts in:** put the portal at the plane where the next room starts (ramp foot at U_FOOT across
+  the full lane), not at the middle of a reveal; a counter ledge that crosses a wall plane is split there and the lobby draws its half.
+- **Cut a slab hole by bisecting on the hole lines, then delete the faces inside:** deleting faces whose centre is inside the hole
+  left saw-tooth holes (ground check HOLE cells along the edge).
+- **The street opening = the garage room:** a garage room wider than its door opening drew over the facade beside the door.
+- **Garage bay lines as a decal shader**, not raised paint (paint coplanar with the slab flickers; raised paint was a trip edge).
+- **Ramps:** build each ramp as a prism over the clear lane (inset 0.2 from the linings) so the ramp top is never coplanar with a
+  lining foot; 4 m parabolic transitions at both ends, 1:7 between, checked by a unit test for the car's ground clearance.
+- **Cross-drawable flicker check at 3 cm:** a driveway strip 3 cm over the slab still flickered at distance; its last 0.4 m eases to
+  +3.8 cm and the cross check uses DZ 0.03 (proven on a planted strip).
+- **One-way garage loop:** check the loop's lane paths never meet head-on in a plan test (IN lane, U-turn, return, OUT lane), and
+  steer the drive probe by waypoints (SetEntityHeading capped per tick + SetVehicleForwardSpeed); count IMPACTS only (see the jail's
+  note above), with an open-plaza and a planted-wall control.
+- **Interview mirror:** Rockstar's `vw_vwint02_pent_mbt_mirror` (1.87 x 1.24, plane YZ) scaled to the window, as its own entity, with
+  a mirror portal (flags 4) to limbo; the observation side is dark glass plus a room-to-room portal.
+- **Gap rays explained:** `tools/justice/p3/tools_gap_why.py` names the first triangle (and its room) each leaking gap ray would hit,
+  which turns a gap count into a fix list.

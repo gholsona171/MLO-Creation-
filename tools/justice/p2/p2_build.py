@@ -22,7 +22,7 @@ SW = PM.build()
 import p2_kit as PK, p2_facade as FA, p2_sitebuild as SB
 for k in BLD: FA.building(k, 'emi_' + k); print('P2_BUILT', k, round(time.time() - t0, 1), flush=True)
 FA.bridges('bridges', 'emi_bridges')
-SB.podium('site'); SB.steps('site'); SB.lawn('site'); SB.walls('site'); SB.portal('site')
+SB.podium('site'); SB.steps('site'); SB.lawn('site'); SB.walls('site'); SB.portal('site'); SB.driveways('site')
 if 'core' in KEYS: SB.core('core')
 # the tower's roof: the antenna mast (real tower: a lattice mast with dishes at one corner) and its aviation light
 def mast(u, v, z, h=9.0):

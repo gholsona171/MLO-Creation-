@@ -121,8 +121,18 @@ VIEWS.update({   # area 2
     'p3_a2_stair':             ((42.2, 32.9, JT.F1 + 1.6), (37.0, 32.9, JT.F1 + 2.6), 18),
     'p3_a2_courtroomB':        ((25.7, 23.6, F5 + 1.7), (25.3, 40.0, F5 + 1.4), 18),
 })
-SET = [a for a in ONLY if a in ('area1', 'area2')]
-if SET: ONLY = {k for k in VIEWS if k.startswith('p3_a1' if SET[0] == 'area1' else 'p3_a2')}
+VIEWS.update({   # area 3: the Police HQ and its B1 garage
+    'p3_a3_lobby':       ((41.0, -38.5, 30.6), (34.0, -20.0, 30.0), 18),
+    'p3_a3_counter':     ((38.0, -22.0, 30.5), (32.8, -22.0, 30.2), 20),
+    'p3_a3_open_office': ((12.0, -28.0, 33.7), (20.0, -46.0, 32.8), 18),
+    'p3_a3_interview':   ((12.0, -51.5, 33.6), (14.2, -53.0, 33.4), 18),
+    'p3_a3_observe':     ((15.9, -52.8, 33.6), (12.0, -52.8, 33.3), 20),
+    'p3_a3_garage':      ((12.5, -55.0, 27.4), (30.0, -20.0, 26.6), 16),
+    'p3_a3_workshop':    ((25.0, -26.0, 27.3), (34.0, -16.0, 26.3), 18),
+    'p3_a3_ramp':        ((22.5, -54.5, 26.8), (44.0, -54.5, 28.6), 20),
+})
+SET = [a for a in ONLY if a in ('area1', 'area2', 'area3')]
+if SET: ONLY = {k for k in VIEWS if k.startswith({'area1': 'p3_a1', 'area2': 'p3_a2', 'area3': 'p3_a3'}[SET[0]])}
 if 'p3_a2_lobby' in ONLY or not ONLY: scn.cycles.samples = 24; scn.render.resolution_x, scn.render.resolution_y = 1280, 720
 done = []
 for name, (pos, tgt, lens) in VIEWS.items():

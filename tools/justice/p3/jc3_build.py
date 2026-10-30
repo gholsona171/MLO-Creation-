@@ -33,6 +33,9 @@ VCOL['tlobby'] = {'floor': (0.35, 0.45, 1.0, 1.0), 'wall': (0.30, 0.45, 1.0, 1.0
 for _k in JP.ROOMS:
     if _k[:3] in ('pub', 'rst'): VCOL[_k] = _WIN
     elif _k[:3] in ('crt', 'sec') or _k == 'stair': VCOL[_k] = _IN
+    elif _k in ('pstaff1', 'pstaff2', 'pint1', 'pint2'): VCOL[_k] = _WIN                        # area 3: rooms on the west windows
+    elif _k in ('pdesk', 'pstair', 'pobs1', 'pobs2', 'pdeck', 'pramp_in', 'pramp_out'): VCOL[_k] = _IN   # inner rooms, the garage
+VCOL['plobby'] = VCOL['tlobby']                                                               # behind the colonnade glass, as the tower lobby
 DRAW2ROOM = {}
 _orig_new = TK.K.new_drawable
 def _new_drawable(name, parts, *a, **kw):
@@ -106,6 +109,7 @@ rs('speckle', 'normal_detail.sps', {'DiffuseSampler': 'xj_v_speckledfloor01', 'D
    {'detailSettings': 1.0, 'bumpiness': 0.3, 'specularIntensityMult': 0.2, 'specularFalloffMult': 120.0, 'specularFresnel': 0.9})    # Mission Row's floor
 rs('conc', 'normal.sps', {'DiffuseSampler': 'xj_v_conc_wall', 'BumpSampler': 'xj_v_concrete01_n'},
    {'bumpiness': 1.0, 'specularIntensityMult': 0.125, 'specularFalloffMult': 20.0, 'specularFresnel': 0.97})              # Mission Row's concrete
+TK.MAT['obsglass'] = TK.clear_glass('JC obs glass', (0.05, 0.06, 0.07), 0.45)          # the observation rooms' dark one-way glass
 M_PER_UV = {'granite': 4.05, 'marble': 2.4, 'slat': 2.0, 'carpet': 2.0, 'plaster': 3.0, 'ceiltile': 1.2, 'panel': 1.0, 'plank': 2.0,
             'block': 2.0, 'speckle': 2.0, 'conc': 3.0}             # (bfloormrble1 = 2 x 2 tiles: 1.2 m tiles)
 # ---------------- helpers ----------------
@@ -132,6 +136,8 @@ for u0, u1, v0, v1, kind in JP.floor_rects():
 # ---------------- the linings (granite), skirting, fins ----------------
 import jc3_tower_build as TB, jc3_tower as JT
 TB.prepare()                                                                     # area 2's doors: the galleria's tower wall has the doorway
+import jc3_police_build as PB, jc3_pgarage_build as GB, jc3_police as JPOL, jc3_pgarage as JGAR
+PB.prepare()                                                                     # area 3's doors (the galleria's police wall has the link pair)
 def wall_box(w, a0, a1, z0, z1, dn=0.0, mat='granite', col=True):
     """a piece of wall w between a0 .. a1 along it; dn > 0 = that far proud of its room face (fins, skirting)."""
     axis, (lo, hi), *_ = JP.WALLS[w]
@@ -232,6 +238,8 @@ for u, v, z, mount in JP.wall_lights():
 TK.LCOL[R] = (1.0, 0.95, 0.86)
 # ---------------- area 2: the tower ----------------
 REGIONS = TB.build_rooms()
+REGIONS.update(PB.build(JGAR.ZB))                                                # area 3: the Police HQ L1 / L2, the stair, the interview suites
+REGIONS.update(GB.build())                                                       # area 3: the B1 garage and its two ramps
 for room, m, u, v, z, h in TB.OPS['props']:
     place(m, u, v, z, h, room=room)
     if m == JP.BENCH: SEATS.extend([tuple(x) + (room, 'PROP_HUMAN_SEAT_BENCH') for x in JP.seat_points(m, u, v, z, h)])
@@ -275,7 +283,8 @@ def corners_of(P):
     axis, plane, a0, a1, z0, z1, into = P; return (TK.portal_u if axis == 'u' else TK.portal_v)(plane, a0, a1, z0, z1, into)
 ports = []
 for a, b, kind, P in JP.portals(): ports.append({'from': a, 'to': b, 'kind': kind, 'corners': corners_of(P), 'door': 'galleria_street' if kind.startswith('east') else None})
-for p_ in TB.OPS['portals']: ports.append({'from': p_['from'], 'to': p_['to'], 'kind': p_['kind'], 'corners': corners_of(p_['P']), 'door': p_.get('door')})
+for p_ in TB.OPS['portals']: ports.append({'from': p_['from'], 'to': p_['to'], 'kind': p_['kind'], 'corners': corners_of(p_['P']), 'door': p_.get('door'),
+                                           **({'flags': p_['flags']} if p_.get('flags') else {})})
 for p_ in ports: p_['corners'] = [[round(x, 4) for x in c] for c in p_['corners']]
 props = [dict(p_) for p_ in TK.PROPS]
 door_ents = []
@@ -292,8 +301,12 @@ lifts = {}
 for L_ in TK.LIFTS + TB.OPS['lifts']: lifts.setdefault(L_['bank'], {'bank': L_['bank'], 'heading': L_['heading'], 'floors': []})['floors'].append({'name': L_['floor'], 'z': L_['z'], 'cabs': L_['cabs']})
 json.dump(list(lifts.values()), open(OUT / 'lifts.json', 'w'), indent=1)
 zones = {'galleria': [[JP.UA0, JP.UA1, JP.VA0, JP.VA1, G, JP.ROOF], [JP.UB0, JP.UB1, JP.VB0, JP.VB1, G, JP.ROOF]]}
+ZONE3 = {'plobby': (JPOL.P1, JPOL.CEIL), 'pdesk': (JPOL.P1, JPOL.P1 + PB.ROOM_H), 'pstaff1': (JPOL.P1, JPOL.P1 + PB.ROOM_H), 'pstair': (JGAR.ZB, JPOL.P2 + PB.ROOM_H),
+         'pdeck': (JGAR.ZB, JGAR.CEIL_B), 'pramp_in': (JGAR.ZB, GB.RAMP_CEIL), 'pramp_out': (JGAR.ZB, GB.RAMP_CEIL),
+         **{k: (JPOL.P2, JPOL.P2 + PB.ROOM_H) for k in ('pstaff2', 'pint1', 'pobs1', 'pobs2', 'pint2')}}
 for k, rs_ in REGIONS.items():
-    z0 = JT.F1 if k in ('tlobby', 'stair') else JT.FLOORS[k[-1]]; z1 = {'tlobby': JT.LOB_CEIL, 'stair': JT.STAIR_TOP + 3.2}.get(k, z0 + (JT.CEIL_T if k.startswith('crt') else JT.ROOM_H))
+    if k in ZONE3: z0, z1 = ZONE3[k]
+    else: z0 = JT.F1 if k in ('tlobby', 'stair') else JT.FLOORS[k[-1]]; z1 = {'tlobby': JT.LOB_CEIL, 'stair': JT.STAIR_TOP + 3.2}.get(k, z0 + (JT.CEIL_T if k.startswith('crt') else JT.ROOM_H))
     zones[k] = [[round(r[0], 3), round(r[1], 3), round(r[2], 3), round(r[3], 3), z0, z1] for r in rs_]
 lay = {'mlo': JP.MLO, 'origin': [F.OX, F.OY, 0.0], 'heading': F.HDEG, 'drawables': info, 'bound': JP.MLO,
        'rooms': [{'key': k, 'name': JP.ROOM_NAME[k], 'id': i, 'drawable': ('jc_courts_' + k).lower(), 'timecycle': JP.TCYC[k]} for k, i in JP.ROOMS.items()],

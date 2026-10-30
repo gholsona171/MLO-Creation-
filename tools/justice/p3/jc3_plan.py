@@ -26,9 +26,11 @@ import p2_plan as PL
 G = PL.G                                         # 28.8: the galleria floor = the podium / plaza outside the doors
 MLO = 'jc_courts'                                # the courts MLO (atrium + tower interiors as they are built)
 import jc3_tower as JT                           # area 2: the tower lobby, stair, lifts, courtroom floors
+import jc3_police as JPOL, jc3_pgarage as JGAR   # area 3: the Police HQ (L1, L2, the stair, the interview suites) and its B1 garage
 ROOMS = JT.rooms()                               # collision room ids (1..31, 0 = limbo)
-ROOM_NAME = {'galleria': 'JC_GALLERIA', **JT.ROOM_NAME}
-TCYC = {'galleria': 'mp_heist_tuner_smshop_default', **JT.TCYC}   # pins exposure (-1 .. 0.1), bloom .25, no sky light (TC LIT_TC, lower case)
+ROOMS.update({k: max(ROOMS.values()) + 1 + i for i, k in enumerate(JPOL.KEYS + JGAR.KEYS)})
+ROOM_NAME = {'galleria': 'JC_GALLERIA', **JT.ROOM_NAME, **JPOL.ROOM_NAME, **JGAR.ROOM_NAME}
+TCYC = {'galleria': 'mp_heist_tuner_smshop_default', **JT.TCYC, **JPOL.TCYC, **JGAR.TCYC}   # pins exposure (-1 .. 0.1), bloom .25, no sky light (TC LIT_TC, lower case)
 # ---------------- the atrium box (phase 2) ----------------
 AB = PL.B['atrium']; D = AB['depth']             # 0.3: the atrium's stone depth = our linings' thickness
 RA, RB = PL.rects('atrium')                      # (-8.5, 37.9, -7.2, 17.3), (-8.5, 13.7, 17.3, 49.6)
@@ -81,7 +83,10 @@ RESERVED = {   # wall stretches kept free for the next areas' doors: (wall, a0, 
 # the tower lobby's doorway in the galleria's tower wall (area 2): two glazed pairs (jc3_tower.GALLERIA_DOORS), each 2 x 1.30 + jambs
 TOWER_DOORS = [(a0, a0 + 2 * JT.LEAF + 2 * JT.JAMB) for a0, _ in JT.GALLERIA_DOORS]
 def wall_holes(wall):
-    """3D boxes cut out of a lining (the doorways through it)."""
+    """3D boxes cut out of a lining (the doorways through it): the tower's two pairs, the police HQ's link pair (area 3)."""
+    if wall == 'police':
+        lo, hi = WALLS['police'][1]; a0 = JPOL.LINK[0]
+        return [(a0, a0 + 2 * JT.LEAF + 2 * JT.JAMB, lo - 0.3, hi + 0.3, G, G + JT.LEAF_H + 0.10)]
     if wall != 'tower_s': return []
     lo, hi = WALLS['tower_s'][1]
     return [(a0, a1, lo - 0.3, hi + 0.3, G, G + JT.LEAF_H + 0.10) for a0, a1 in TOWER_DOORS]

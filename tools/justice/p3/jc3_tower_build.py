@@ -160,21 +160,55 @@ def lobby():
     lift_holes = [(c - 0.65, c + 0.65, CO[2] - 0.4, CO[2] + 0.4, JT.F1, JT.F1 + 2.6) for c in ((CO[0] + CO[1]) / 2 - 1.7, (CO[0] + CO[1]) / 2 + 1.7)]
     slab(room, reg, JT.F1 - 0.4, JT.F1, 'marble')
     slab(room, reg, JT.LOB_CEIL - 0.2, JT.LOB_CEIL, 'plaster', col=False)
-    lining(room, reg, oth, JT.F1, JT.LOB_CEIL - 0.2, 'granite', holes + lift_holes, ext_t=JT.LL, int_t=0.1)
+    band_hole = [(CO[0] - 0.15, CO[1] + 0.15, CO[2] - 0.15, CO[3] + 0.15, JT.CORE_BAND[0], JT.CORE_BAND[1])]   # the core's lining leaves the band's course
+    lining(room, reg, oth, JT.F1, JT.LOB_CEIL - 0.2, 'granite', holes + lift_holes + band_hole, ext_t=JT.LL, int_t=0.1)
+    core_band(room)
     lights_grid(room, reg, JT.LOB_CEIL - 0.2, 6.0)
     # the information desk (kit counter) by the vestibule, benches
-    TK.box(room, (24.6, 22.6, JT.F1), (29.4, 23.4, JT.F1 + 1.05), 'granite'); TK.box(room, (24.5, 22.5, JT.F1 + 1.05), (29.5, 23.5, JT.F1 + 1.09), 'band')
+    u0, u1, v0, v1, hh = JT.CLERK_DESK                                    # the Clerk of Courts counter, its name on its public face
+    TK.box(room, (u0, v0, JT.F1), (u1, v1, JT.F1 + hh), 'granite'); TK.box(room, (u0 - 0.1, v0 - 0.1, JT.F1 + hh), (u1 + 0.1, v1 + 0.1, JT.F1 + hh + 0.04), 'band')
+    TK.sign(room, ((u0 + u1) / 2, v0 + 0.035, JT.F1 + 0.62), '-v', 3.2, 0.36, ['CLERK OF COURTS'], 'TC sign clerk of courts', bg=(26, 22, 18), fg=(232, 214, 170), emis=False, scale=0.9)
+    jury_assembly(room)
     for u in (25.6, 28.4): OPS['props'].append((room, 'prop_off_chair_05', u, 24.2, JT.F1, 0.0))
     for u, v, h in ((JT.LU1 - 0.5, 40.0, 270.0), (JT.LU1 - 0.5, 46.0, 270.0)): OPS['props'].append((room, JT_BENCH, u, v, JT.F1, h))   # east wall, facing in
     for cu, cv in ((22.5, 33.0), (22.5, 44.0), (30.5, 47.5)):                       # seating islands: benches back to back, planters at the ends
         OPS['props'] += [(room, JT_BENCH, cu, cv - 0.5, JT.F1, 0.0), (room, JT_BENCH, cu, cv + 0.5, JT.F1, 180.0)]
         OPS['props'] += [(room, 'ch_prop_ch_planter_01', cu + du, cv, JT.F1, 0.0) for du in (-2.35, 2.35)]
-    OPS['props'] += [(room, m, u, 27.6, JT.F1, 0.0) for m, u in (('v_20_flag01', 36.6), ('v_20_flag02', 37.2), ('v_20_flag03', 40.4))]
+    OPS['props'] += [(room, m, u, v, JT.F1, 0.0) for m, u, v in JT.LOBBY_FLAGS]
     OPS['props'] += [(room, 'apa_mp_h_acc_plant_palm_01', u, v, JT.F1, 0.0) for u, v in ((JT.LU0 + 1.0, JT.LV1 - 1.0), (JT.LU1 - 1.0, JT.LV1 - 1.0), (JT.LU1 - 1.0, JT.LV0 + 1.2))]
     OPS['props'] += [(room, 'ch_prop_ch_planter_01', u, 27.9, JT.F1, 0.0) for u in (34.2, 43.4)]
     OPS['props'] += [(room, 'prop_watercooler', JT.LU0 + 0.3, 27.0, JT.F1, 90.0), (room, 'prop_bin_11b', JT.LU0 + 0.35, 28.0, JT.F1, 0.0), (room, 'prop_bin_11b', 43.6, 36.2, JT.F1, 0.0)]
-    TK.sign(room, (JT.CORE[0] + 3.8, JT.CORE[2], JT.F1 + 3.2), '-v', 4.2, 1.2, ['COURTS TOWER', 'COURTROOMS 3A  -  LEVEL 3', 'COURTROOMS 5B  -  LEVEL 5'], 'TC sign tower lobby', bg=(30, 30, 34), fg=(232, 214, 170), scale=0.9)
+    directory(room)
     return reg
+def jury_assembly(room):
+    """the Jury Assembly sign hung from the ceiling over the east benches: a 4 cm walnut panel, the sign on both faces, two brass rods."""
+    u, v, zc, w, h = JT.JURY_ASSEMBLY; z = JT.F1 + zc; top = JT.LOB_CEIL - 0.2
+    TK.box(room, (u - 0.02, v - w / 2, z - h / 2), (u + 0.02, v + w / 2, z + h / 2), 'panel', col=False)
+    for face, du in (('-u', 0.015), ('+u', -0.015)):                     # TK.sign stands 5 cm off its centre: 0.035 off the axis = 1.5 cm proud of the 2 cm half-panel
+        TK.sign(room, (u + du, v, z), face, w - 0.1, h - 0.1, ['JURY ASSEMBLY'], 'TC sign jury assembly', bg=(26, 22, 18), fg=(232, 214, 170), emis=False, scale=0.9)
+    for dv in (-w / 2 + 0.2, w / 2 - 0.2): TK.box(room, (u - 0.01, v + dv - 0.01, z + h / 2), (u + 0.01, v + dv + 0.01, top), 'brass', col=False)
+def core_band(room):
+    """the walnut band (the bank's panel wood) with brass top / bottom edges round the core, in the course the lining leaves for it:
+    0.1 deep like the lining, so its face is the lining's face."""
+    CO = JT.CORE; z0, z1 = JT.CORE_BAND; e = JT.CORE_BAND_EDGE
+    faces = [(CO[0] - 0.1, CO[1] + 0.1, CO[2] - 0.1, CO[2]), (CO[0] - 0.1, CO[1] + 0.1, CO[3], CO[3] + 0.1),
+             (CO[0] - 0.1, CO[0], CO[2], CO[3]), (CO[1], CO[1] + 0.1, CO[2], CO[3])]
+    for u0, u1, v0, v1 in faces:
+        TK.box(room, (u0, v0, z0), (u1, v1, z0 + e), 'brass'); TK.box(room, (u0, v0, z0 + e), (u1, v1, z1 - e), 'panel')
+        TK.box(room, (u0, v0, z1 - e), (u1, v1, z1), 'brass')
+def directory(room):
+    """the directory board between the lift doors (made from JT.DIRECTORY) in a 4 cm brass frame proud of the lining."""
+    CO = JT.CORE; zc, w, h = JT.DIRECTORY_BOARD; mid = (CO[0] + CO[1]) / 2; face = CO[2] - 0.1; z = JT.F1 + zc; f = 0.04
+    TK.sign(room, (mid, face, z), '-v', w, h, JT.DIRECTORY, 'TC sign tower directory', bg=(26, 22, 18), fg=(232, 214, 170), emis=False, scale=0.8)
+    for a0, a1, b0, b1 in ((mid - w / 2 - f, mid + w / 2 + f, z + h / 2, z + h / 2 + f), (mid - w / 2 - f, mid + w / 2 + f, z - h / 2 - f, z - h / 2),
+                           (mid - w / 2 - f, mid - w / 2, z - h / 2, z + h / 2), (mid + w / 2, mid + w / 2 + f, z - h / 2, z + h / 2)):
+        TK.box(room, (a0, face - 0.06, b0), (a1, face, b1), 'brass', col=False)
+def lift_marks(room, name, z0):
+    """the floor number over each lift door of the public bank, on the lining's face (tc_kit.lift_bank's own indicator stands in the
+    front wall's plane, behind this room's 0.1 lining, and is never seen)."""
+    CO = JT.CORE; mid = (CO[0] + CO[1]) / 2; zc, w, h = JT.LIFT_IND
+    for c in (mid - 1.7, mid + 1.7):
+        TK.sign(room, (c, CO[2] - 0.1, z0 + zc), '-v', w, h, [name], f'TC lift floor {name}', bg=(10, 10, 10), fg=(255, 160, 40))
 JT_BENCH = 'v_ilev_ph_bench'
 def stair():
     room = 'stair'; CO = JT.CORE; SC = JT.SC; z0, z1 = JT.F1, JT.STAIR_TOP + 3.2
@@ -196,8 +230,12 @@ def lifts():
     CO = JT.CORE; mid = (CO[0] + CO[1]) / 2
     for name, room, z0, z1 in JT.LIFT_STOPS:
         TK.lift_bank(room, 'courts', name, CO[0], CO[1], CO[2], JT.LIFT_BODY, z0, z1, front='granite', body='granite', panel=tuple(s[0] for s in JT.LIFT_STOPS))
+        lift_marks(room, name, z0)
     for name, room, z0 in JT.SEC_STOPS:
         sec_car(room, name, z0)
+    cu0, cu1, cv0, cv1 = JT.SEC_CAB                                       # B1: jc-jail's tunnel stop (its MLO draws the cab, front wall and door;
+    OPS['lifts'].append({'bank': 'secure', 'floor': 'B1', 'z': JT.SEC_B1, 'cabs': [TK.world((cu0 + cu1) / 2, (cv0 + cv1) / 2) + [JT.SEC_B1]],   # here only its stop)
+                         'heading': (math.degrees(TK.HEAD)) % 360})
 def sec_car(room, name, z0):
     """one car facing +v (into the secure corridor): cab, front wall with one sliding door, the shaft walls."""
     cu0, cu1, cv0, cv1 = JT.SEC_CAB; SL = JT.SLIFT; z1 = z0 + JT.ROOM_H; c = (cu0 + cu1) / 2; ep = cv1 + 0.3   # front wall cv1 .. ep (doors at ep)

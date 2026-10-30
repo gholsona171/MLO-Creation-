@@ -8,7 +8,7 @@ and embedded (one drawable mixes sources from several of his dictionaries, so no
   brick    normal.sps        sc1_19_rsd_jp_brick_0001 + _n (the old plaza's red brick)
   kerb     normal.sps        im_kerbs03 + _n (granite kerbs, step nosings, the lawn edge)
   grass    default.sps       im_grass10deepb (the old block's lawn layer)
-  glass_*  glass_normal_spec_reflect.sps, ALPHA bucket (apa_mp_h_01_living_glass2, doc 09): dark / bronze tints, one pane per bay
+  glass_*  glass_env.sps, ALPHA bucket: Rockstar's exterior dark glass (dt1_06_build1_1, glass()); bronze / atrium = his texture scaled
   metal    normal_spec.sps   dark steel, spec .8 / falloff 40 / fresnel .9 (ba_trad_rails, doc 09): mullions, louvres, the Portal
   back     the dark backing panel behind shell glass; win_emis / soffit_emis: emissivenight.sps (lit only at night)
   sidewalk Rockstar's im_sidewalk012 (work/sidewalk_mat.py: his material, txd sc1_rd_road; the podium's paving = the slab's)
@@ -43,11 +43,24 @@ def rs(key, shader, samplers, params):
         q = m.node_tree.nodes.get(p)
         if q is not None: (q.set_vec3 if isinstance(v, tuple) else q.set_float)(v)
     TK.MAT[key] = m; return m
-def glass(key, tint, alpha, reflect=12.0):
-    g = TK.clear_glass('JC ' + key, tint, alpha)
-    q = g.node_tree.nodes.get('reflectivePower')
-    if q: q.set_float(reflect)
-    TK.MAT[key] = g; return g
+def glass(key, rgb_mult=(1.0, 1.0, 1.0), alpha_mult=1.0):
+    """Rockstar's exterior dark glass, copied (dt1_06_build1_1, the downtown building: glass_env.sps, ALPHA bucket, his
+    im_glass_01im_glass_01_a (RGB ~29, alpha ~0.6) + mc_window_0005_n + im_glass_01_s, bumpiness .5, spec 1, falloff 430, fresnel
+    .97). glass_env has no environment sampler: it reflects the game's own reflection probe, which goes dark at night. (Our old
+    glass_normal_spec_reflect carried a fixed light-grey environment texture, so every pane read light grey at 23:00 - Antonio.)
+    A variant (bronze, the atrium's see-through glass) is HIS texture with its RGB / alpha scaled, embedded under its own name."""
+    m = TK.create_shader('glass_env.sps'); m.name = 'JC ' + key
+    im = _img('im_glass_01im_glass_01_a', False)
+    if rgb_mult != (1.0, 1.0, 1.0) or alpha_mult != 1.0:
+        w, h = im.size; px = np.array(im.pixels[:], np.float32).reshape(h, w, 4)
+        px[:, :, :3] = np.clip(px[:, :, :3] * np.array(rgb_mult, np.float32), 0, 1); px[:, :, 3] = np.clip(px[:, :, 3] * alpha_mult, 0, 1)
+        im = TK.dds('jc_glass_' + key, px, TK.OUT / 'tex', False, 'BC3_UNORM')
+    for s_, img in (('DiffuseSampler', im), ('BumpSampler', _img('mc_window_0005_n', True)), ('SpecSampler', _img('im_glass_01_s', True))):
+        nd = m.node_tree.nodes.get(s_); assert nd is not None, (key, s_); nd.image = img; nd.texture_properties.embedded = True
+    for p, v in (('bumpiness', 0.5), ('specularIntensityMult', 1.0), ('specularFalloffMult', 430.0), ('specularFresnel', 0.97)):
+        q = m.node_tree.nodes.get(p)
+        if q is not None: q.set_float(v)
+    TK.MAT[key] = m; return m
 def flat(key, rgb, spec=.1, grain=.04, shader=None, params=None):
     k = 64; px = np.ones((k, k, 4), np.float32); px[:, :, :3] = np.clip(np.array(rgb)[None, None, :] * (1 + grain * TK.rng.normal(0, 1, (k, k, 1))), 0, 1)
     m = TK.tex_mat('JC ' + key, px, spec=spec, shader=shader)
@@ -71,9 +84,9 @@ def build():
     rs('brick', 'normal.sps', {'DiffuseSampler': 'sc1_19_rsd_jp_brick_0001', 'BumpSampler': 'sc1_19_rsd_jp_brick_0001_n'}, {'bumpiness': 1.0, 'specularIntensityMult': 0.2, 'specularFalloffMult': 30.0})
     rs('kerb', 'normal.sps', {'DiffuseSampler': 'im_kerbs03', 'BumpSampler': 'im_kerbs03_n'}, {'bumpiness': 1.0, 'specularIntensityMult': 0.25, 'specularFalloffMult': 40.0})
     rs('grass', 'default.sps', {'DiffuseSampler': 'im_grass10deepb'}, {})
-    glass('glass_dark', (.035, .045, .055), .80)                    # the shell / office glass: dark from outside, reflective
-    glass('glass_bronze', (.075, .055, .035), .82)                  # bronze-tinted base glass (police HQ, Jail I: Wikipedia)
-    glass('glass_atrium', (.30, .38, .42), .30, 10.0)               # the galleria's curtain wall + roof: the one see-through glass
+    glass('glass_dark')                                             # the shell / office glass: his dark glass as it is
+    glass('glass_bronze', (1.45, 1.05, 0.62))                       # bronze-tinted base glass (police HQ, Jail I: Wikipedia): his, warmed
+    glass('glass_atrium', (2.2, 2.4, 2.5), 0.45)                    # the galleria's curtain wall + roof: the one see-through glass
     flat('metal', (.045, .045, .05), .8, .02, 'normal_spec.sps', {'specularFalloffMult': 40.0, 'specularFresnel': 0.9})
     flat('back', (.030, .030, .034), .05, .03)                     # backing panel / window box: a dark, unlit interior
     flat('conc', (.42, .41, .39), .08, .06)                        # vehicle bay walls

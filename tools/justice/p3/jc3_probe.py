@@ -113,7 +113,7 @@ def doors2():
     """every area-2 door (and the galleria -> lobby pair): through the middle of each LEAF both ways, 1.5 m either side."""
     out = []; ok_all = True
     for d in L['doors']:
-        if d['name'].startswith(('entry', 'exit')): continue
+        if d['name'].startswith(('entry', 'exit')) or 'rollup' in d['name']: continue      # (the garage roll-ups are driven through: gdrive)
         u, v, z = d['pos']; t = math.radians(d['heading']); sgn = 1.0 if d['model'] in ('v_ilev_ph_door01',) else -1.0
         lu, lv = sgn * math.cos(t), sgn * math.sin(t); mu, mv = u + lu * 0.65, v + lv * 0.65; nu, nv = -lv, lu
         fz = z - 1.15; res = {'door': d['name']}
@@ -182,6 +182,71 @@ def walk2():
             legs.append({'to': [u, v], 'arrived': ok, 'bad_states': bad, 'z_range': round(max(zs) - min(zs), 2), 'ok': good})
         out[name] = legs
     return out, ok_all
+GDRIVE_STEP = 'local v=_G.__gv local t0=GetGameTimer() local hits=0 local last=-1000 local hat="" local reached=false\nwhile GetGameTimer()-t0<20000 do local c=GetEntityCoords(v) local dx,dy=%.3f-c.x,%.3f-c.y local d=math.sqrt(dx*dx+dy*dy)\n if d<1.2 then reached=true break end\n local want=(math.deg(math.atan(dy,dx))-90.0)%%360.0 local h=GetEntityHeading(v) if %.2f<0 then want=(want+180.0)%%360.0 end\n local dh=((want-h+540.0)%%360.0)-180.0 local cap=2.2 if dh>cap then dh=cap elseif dh<-cap then dh=-cap end\n SetEntityHeading(v,h+dh) SetVehicleForwardSpeed(v,%.2f)\n if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) local now=GetGameTimer() if math.abs(n.z)<0.6 and now-last>600 then last=now hits=hits+1 if hat=="" then hat=string.format("%%.1f,%%.1f,%%.2f",c.x,c.y,c.z) end end end\n Wait(30) end\nSetVehicleForwardSpeed(v,0.0) local c=GetEntityCoords(v)\nreturn string.format("%%s|%%d|%%s|%%.2f,%%.2f,%%.2f",tostring(reached),hits,hat,c.x,c.y,c.z)'
+def _garage_route():
+    """the drive test's waypoints (lot u, v, speed m/s; negative = reverse): in through the IN door, down the ramp, the IN turn, up the
+    west aisle, the north aisle, the east aisle, the return aisle, into a bay of row 4 (nose in), out backwards, the U-turn, up the OUT
+    ramp, out through the OUT door. The turns follow the plan's arcs (jc3_pgarage) as polylines."""
+    import jc3_pgarage as G
+    pts = [(60.0, G.IN_C, 6.0), (45.5, G.IN_C, 4.0), (G.U_FOOT + 1.0, G.IN_C, 4.0)]
+    cx, cy = G.IN_X + G.UT_R, G.IN_C + G.UT_R
+    pts += [(cx - G.UT_R * math.sin(t), cy - G.UT_R * math.cos(t), 3.0) for t in [i * math.pi / 2 / 6 for i in range(1, 7)]]
+    pts += [(G.IN_X, -16.0, 4.0), (G.IN_X + 3.0, -11.2, 3.0), (36.0, -11.2, 4.0), (41.4, -15.0, 3.0), (41.4, G.RET_V + 1.0, 4.0), (32.5, G.RET_V, 3.0)]
+    bay = [b for b in G.bays() if b[3] == 3][0]                              # row 4: south of the return aisle, nose-in heading south
+    pts += [(bay[0], G.RET_V - 2.0, 2.0), (bay[0], bay[1] - 1.0, 1.5), (bay[0], G.RET_V - 1.0, -1.5)]   # in, then back out
+    pts += [(G.UT_C[0] + 1.0, G.RET_V, 3.0)]
+    pts += [(G.UT_C[0] - G.UT_R * math.sin(t), G.UT_C[1] + G.UT_R * math.cos(t), 3.0) for t in [i * math.pi / 8 for i in range(1, 9)]]
+    pts += [(G.U_FOOT + 2.0, G.OUT_C, 4.0), (44.0, G.OUT_C, 4.0), (47.0, G.OUT_C, 4.0), (60.0, G.OUT_C, 6.0)]
+    return pts
+def gdrive(model='police3'):
+    """the garage drive test, script-steered (no path nodes underground): the vehicle is pointed at each waypoint in turn (a capped
+    turn rate, as a steering lock) and driven at the waypoint's speed; every collision with anything is counted and its place logged.
+    Pass: every waypoint reached, no collision, out on the plaza at the end."""
+    import jc3_pgarage as G
+    pts = _garage_route(); x0, y0 = W(pts[0][0], pts[0][1])
+    revive(); stand(64.0, G.IN_C + 4.0, 28.3); time.sleep(2)
+    lua('local m=GetHashKey("%s") RequestModel(m) local t=GetGameTimer() while not HasModelLoaded(m) and GetGameTimer()-t<10000 do Wait(50) end '
+        'local _,gz=GetGroundZFor_3dCoord(%.2f,%.2f,40.0,false) local v=CreateVehicle(m,%.2f,%.2f,gz+0.3,%.1f,false,false) SetVehicleOnGroundProperly(v) '
+        'SetEntityAsMissionEntity(v,true,true) _G.__gv=v local p=PlayerPedId() SetPedIntoVehicle(p,v,-1) return "spawned"' % (model, x0, y0, x0, y0, (F.HDEG + 90.0) % 360), 40)
+    out = []; ok_all = True
+    for u, v, spd in pts[1:]:
+        x, y = W(u, v)
+        r = lua(GDRIVE_STEP % (x, y, spd, spd), 40).split('|')
+        reached = r[0] in ('true', '1'); hits = int(r[1]); good = reached and hits == 0; ok_all &= good
+        out.append({'to': [round(u, 2), round(v, 2)], 'reached': reached, 'collisions': hits, 'first_hit_at': r[2], 'at': r[3], 'ok': good})
+        if not reached: break
+    lua('local p=PlayerPedId() TaskLeaveVehicle(p,_G.__gv,16) Wait(1500) if _G.__gv then DeleteEntity(_G.__gv) end return "gone"', 20)
+    return out, ok_all
+def gdrive_van(): return gdrive('policet')
+WALK3 = {   # area 3 (lot u, v, floor z): leg by leg, every leg must arrive with no ragdoll / climb / fall state
+    'public':  [(20.0, -5.6, 28.8), (20.0, -9.5, 28.8), (30.0, -10.5, 28.8), (36.0, -20.0, 28.8), (36.0, -33.0, 28.8), (36.0, -20.0, 28.8), (30.0, -10.5, 28.8), (20.0, -9.5, 28.8), (20.0, -5.6, 28.8)],
+    'staff':   [(23.0, -11.5, 28.8), (23.0, -15.0, 28.8), (23.0, -34.9, 28.8), (21.0, -34.9, 28.8)],
+    'garage':  [(17.0, -37.0, 25.6), (19.3, -36.6, 25.6), (13.0, -36.6, 25.6), (13.0, -20.0, 25.6), (25.0, -12.6, 25.6), (30.0, -30.0, 25.6), (19.3, -36.6, 25.6)],
+}
+def walk3():
+    out = {}; ok_all = True
+    for name, pts in WALK3.items():
+        revive(); stand(pts[0][0], pts[0][1], pts[0][2]); time.sleep(1.5); legs = []
+        for u, v, z in pts[1:]:
+            ok, log = walk_to(u, v, 20.0)
+            bad = sum(1 for e in log if e[3] != '000'); good = ok and bad == 0; ok_all &= good
+            legs.append({'to': [u, v], 'arrived': ok, 'bad_states': bad, 'z_end': round(log[-1][2], 2) if log else None, 'ok': good})
+        out[name] = legs
+    return out, ok_all
+def gdrive_control():
+    """proves the drive probe before it is trusted: a straight run on the open plaza must count no collision, a run into the police
+    east face (solid stone between the colonnade's end and the doors) must count one or more."""
+    import jc3_pgarage as G
+    res = {}
+    for name, (u0, v0, u1, v1) in (('open plaza', (60.0, -30.0, 52.0, -30.0)), ('planted wall', (52.0, -42.5, 43.0, -42.5))):
+        x0, y0 = W(u0, v0); revive(); stand(u0 + 3.0, v0 + 3.0, 28.8); time.sleep(1.5)
+        lua('local m=GetHashKey("police3") RequestModel(m) local t=GetGameTimer() while not HasModelLoaded(m) and GetGameTimer()-t<10000 do Wait(50) end '
+            'local _,gz=GetGroundZFor_3dCoord(%.2f,%.2f,40.0,false) local v=CreateVehicle(m,%.2f,%.2f,gz+0.3,%.1f,false,false) SetVehicleOnGroundProperly(v) '
+            'SetEntityAsMissionEntity(v,true,true) _G.__gv=v local p=PlayerPedId() SetPedIntoVehicle(p,v,-1) return "spawned"' % (x0, y0, x0, y0, (F.HDEG + 90.0) % 360), 40)
+        x, y = W(u1, v1); r = lua(GDRIVE_STEP % (x, y, 4.0, 4.0), 40).split('|')
+        res[name] = {'reached': r[0] in ('true', '1'), 'collisions': int(r[1])}
+        lua('local p=PlayerPedId() TaskLeaveVehicle(p,_G.__gv,16) Wait(1500) if _G.__gv then DeleteEntity(_G.__gv) end return "gone"', 20)
+    return res, res['open plaza']['collisions'] == 0 and res['planted wall']['collisions'] > 0
 STAIR_ROUTE = []
 def stair():
     """L1 lobby -> the stair door -> both flights of each storey -> L3 landing -> out into pubA (and on to L5)."""

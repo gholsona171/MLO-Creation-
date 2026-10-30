@@ -31,7 +31,7 @@ STONE = {'granite': srgb_mean('ko_gv_wall'), 'cream': srgb_mean('mc_wall_0001')}
 GRASS = srgb_mean('im_grass10deepb'); ROOF = srgb_mean('im_roof04_big')
 SIDEWALK = (0.62, 0.60, 0.57)
 COL = {'win': (0.11, 0.13, 0.15), 'ribbon': (0.13, 0.11, 0.09), 'punch': (0.11, 0.13, 0.15), 'arcade': (0.10, 0.09, 0.08), 'slot': (0.16, 0.15, 0.14),
-       'vent': (0.07, 0.07, 0.075), 'curtain': (0.30, 0.36, 0.40), 'garage': (0.12, 0.12, 0.12)}
+       'vent': (0.07, 0.07, 0.075), 'curtain': (0.30, 0.36, 0.40), 'garage': (0.12, 0.12, 0.12), 'door': (0.12, 0.14, 0.15)}   # door: the atrium entrances (dark glass leaves)
 PPM = 6.0                                                         # atlas pixels per metre
 def face_img(k, face):
     """one face of building k rasterised: (image HxWx3, s0, z0) - s along the face over its full extent (corners included)."""

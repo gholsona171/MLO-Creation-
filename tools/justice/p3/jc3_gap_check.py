@@ -18,6 +18,7 @@ sys.path.insert(0, str(P3.parent)); import jc_frame as F
 OUT = P3 / 'out'
 L = json.load(open(OUT / 'jc3_layout.json'))
 PLANT = sys.argv[sys.argv.index('--plant') + 1] if '--plant' in sys.argv else None
+ONLY = set(sys.argv[sys.argv.index('--rooms') + 1].split(',')) if '--rooms' in sys.argv else None   # (debugging: just these rooms)
 import jc3_tower as JT
 def lot(T):
     x, y = T[..., 0] - F.OX, T[..., 1] - F.OY; c, s = math.cos(F.H), math.sin(F.H)
@@ -93,7 +94,9 @@ def in_room(u, v):
 def in_room(u, v):
     return (JP.UA0 < u < JP.UA1 and JP.VA0 < v < JP.VA1) or (JP.UB0 < u < JP.UB1 and JP.VB0 < v < JP.VB1)
 D1 = dirs(300); down = np.array([[0, 0, -1.0]]); kept = 0; per = {}
+SAMPLE = {}
 for room, zs in L['zones'].items():
+    if ONLY and room not in ONLY: continue
     setup(room, PLANT); n0 = len(GAPS)
     for u0, u1, v0, v1, z0, z1 in zs:
         for u in np.arange(u0 + 0.5, u1 - 0.3, 2.0 if room != 'galleria' else 2.5):
@@ -102,10 +105,11 @@ for room, zs in L['zones'].items():
                     o = np.array((u, v, z))
                     if not (hit_tris(o, down)[0] < (o[2] - z0) + 0.05) or inside_solid(o): continue   # not over the floor / inside a solid
                     kept += 1; probe(o, D1, room)
-    per[room] = len(GAPS) - n0
+    per[room] = len(GAPS) - n0; SAMPLE[room] = GAPS[n0:n0 + 40]
 # pass 2: the galleria's seam scan along every lining
-setup('galleria', PLANT); n2 = 0
-for w, (axis, (lo, hi), a0, a1, b) in JP.WALLS.items():
+n2 = 0
+if not ONLY: setup('galleria', PLANT)
+for w, (axis, (lo, hi), a0, a1, b) in (JP.WALLS.items() if not ONLY else []):
     face = hi if (axis == 'u' and lo < 0) or w == 'police' else lo; inward = 1 if face == hi else -1
     for a in np.arange(a0 + 0.1, a1 - 0.05, 0.5):
         for z in np.arange(JP.G + 0.3, JP.PORTAL_Z - 0.2, 1.0):
@@ -118,7 +122,7 @@ for w, (axis, (lo, hi), a0, a1, b) in JP.WALLS.items():
                 ds.append([out * math.cos(r), math.sin(r), 0.0] if axis == 'u' else [math.sin(r), out * math.cos(r), 0.0])
             n2 += probe(o, np.array(ds), 'seam')
 res = {'grid_points': kept, 'rays': kept * len(D1), 'gaps': len(GAPS), 'seam_gaps': n2, 'per_room': per}
-json.dump({'summary': res, 'gaps': GAPS[:500]}, open(OUT / (f'gap_check_plant_{PLANT}.json' if PLANT else 'gap_check.json'), 'w'), indent=1)
+json.dump({'summary': res, 'gaps': GAPS[:500], 'per_room_samples': SAMPLE}, open(OUT / (f'gap_check_plant_{PLANT}.json' if PLANT else 'gap_check_rooms.json' if ONLY else 'gap_check.json'), 'w'), indent=1)
 if PLANT == 'galleria':
     near = [g for g in GAPS if g['pass'] == 'galleria' and g['from'][1] > JP.VB1 - 6.0]
     assert near, 'PLANTED HOLE NOT FOUND: the gap check is broken'

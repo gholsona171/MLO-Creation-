@@ -56,6 +56,22 @@ BOLLARDS = []
 for (u, v0, v1) in ((EAST + 2.15, -34.5, -26.5), (EAST + 2.15, 16.5, 27.5), (-48.0, -53.5, -46.5)):
     n = int((v1 - v0) / 1.6); BOLLARDS += [(u, v0 + (v1 - v0) * i / n) for i in range(n + 1)]
 YARD_WALLS = [(-44.6, -44.0, -24.5, -7.0, 3.6), (-4.8, -4.2, -24.5, -7.2, 3.6)]            # (u0, u1, v0, v1, height) granite
+# area 3 (Antonio 2026-10-29): a driveway from each police garage door to Innocence Blvd - Rockstar's concrete at the doors' threshold
+# height (slab + 5 cm), a dipped kerb (the strip runs on 0.8 m past the lot edge, down to the road), prop_bollard_04 along both sides
+KERB_OUT, KERB_DROP = 0.4, 0.012                                         # the last 0.4 m eases from +5 to +3.8 cm: over the cross check s 3 cm, never
+                                                                          # its plane (the road kerb's own dip: from its measured line, OUTSTANDING)
+DRIVEWAYS = []
+for gk in ('police_in', 'police_out'):
+    d0, d1 = PL.GARAGES[gk]['s']; strip = box(PL.B['police']['box'][1], d0 - 0.3, 90.0, d1 + 0.3).intersection(LOT)
+    edge = strip.bounds[2]                                                # the lot edge (Innocence Blvd's back of kerb) at this strip
+    DRIVEWAYS.append({'door': gk, 'v': (d0 - 0.3, d1 + 0.3), 'u0': PL.B['police']['box'][1], 'edge': edge})
+_bl = sorted({round(DRIVEWAYS[0]['v'][0] - 0.3, 2), round((DRIVEWAYS[0]['v'][1] + DRIVEWAYS[1]['v'][0]) / 2, 2), round(DRIVEWAYS[1]['v'][1] + 0.3, 2)})
+for v_ in _bl:                                                            # three lines: south, the pier's middle, north
+    u_ = PL.B['police']['box'][1] + 0.9
+    while u_ < DRIVEWAYS[0]['edge'] - 0.5: BOLLARDS.append((round(u_, 3), v_)); u_ += 1.7
+for _w in YARD_WALLS:                                                                      # a wall meeting the atrium's glass meets a stone bay
+    if abs(_w[3] - PL.rects('atrium')[0][2]) < 1e-6 and PL.rects('atrium')[0][0] <= _w[0] <= PL.rects('atrium')[0][1]:
+        assert any(c0 <= _w[0] and _w[1] <= c1 for c0, c1 in PL.ATRIUM_SOLID['S0']), 'a yard wall ends on the atrium glass: add it to p2_plan.ATRIUM_SOLID'
 YARD_GATE = ('W', -16.5, 1.4)                                                              # pedestrian gate in the west wall: centre v, width
 POLICE_WALL = (55.0, 55.6, -31.0, -21.0, 0.95)                                            # the low pink granite wall with the bronze letters
 PORTAL = dict(u=47.0, v0=1.0, h=8.0, r=0.42)                                               # our own bent dark tube on the plaza's NW end
@@ -67,7 +83,7 @@ def main():
     parts = lambda g: [poly(p) for p in (g.geoms if hasattr(g, 'geoms') else [g]) if p.area > 0.5]
     out = {'G': G, 'slab': PL.SLAB, 'inset': INSET, 'east': EAST, 'podium': PODIUM, 'bands_v': BANDS_V, 'band_w': BAND_W,
            'steps': steps(), 'step': [STEP_N, STEP_GO], 'lawn': parts(LAWN), 'walk': parts(WALK), 'inner': list(INNER.coords),
-           'outer': [list(c) for c in IN.exterior.coords], 'bollards': BOLLARDS, 'yard_walls': YARD_WALLS, 'yard_gate': YARD_GATE,
+           'outer': [list(c) for c in IN.exterior.coords], 'bollards': BOLLARDS, 'driveways': DRIVEWAYS, 'kerb_out': KERB_OUT, 'kerb_drop': KERB_DROP, 'yard_walls': YARD_WALLS, 'yard_gate': YARD_GATE,
            'police_wall': POLICE_WALL, 'portal': PORTAL, 'benches': BENCHES, 'flags': FLAGS, 'trees': [t for t in TREES if LAWN.contains(Point(t))],
            'walk_line': WALK_LINE}
     json.dump(out, open(F.J / 'plan/p2_site.json', 'w'), indent=1)

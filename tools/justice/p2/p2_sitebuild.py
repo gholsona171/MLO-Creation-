@@ -53,6 +53,26 @@ def surface(poly, zfun, grid=2.0):
         ids = [idx[v] for v in f.verts]; a, b, c = (Vector(out_v[i]) for i in ids)
         out_f.append(tuple(ids) if (b - a).cross(c - a).z > 0 else tuple(reversed(ids)))
     bm.free(); return out_v, out_f
+def driveways(key):
+    """area 3: the police garage driveways (p2_site DRIVEWAYS): Rockstar's concrete at the doors' threshold (slab + 5 cm) from the face to
+    the lot edge, then the dipped kerb down KERB_DROP over KERB_OUT to the road; side skirts down to the slab; collision = the mesh."""
+    import jc_frame as F
+    for d in S['driveways']:
+        v0, v1 = d['v']; u0, e = d['u0'], d['edge']; ko, kd = S['kerb_out'], S['kerb_drop']
+        def z(u, v, e=e, ko=ko, kd=kd):
+            return F.slab_z(*F.W(u, v)) + 0.05 - kd * min(1.0, max(0.0, (u - (e - ko)) / ko))
+        e -= 0.02                                                         # (ends just inside the lot edge)
+        poly = [(u0, v0), (e, v0), (e, v1), (u0, v1)]
+        V, Fc = surface(poly, z, grid=1.0); TK.mesh(key, V, Fc, 'conc', False, 'driveway'); col_mesh(V, Fc, 'concrete')
+        for vv, s_ in ((v0, -1), (v1, 1)):                                # the side skirts (the strip stands 5 cm over the slab)
+            us = [u0 + i * 1.0 for i in range(int((e - u0) / 1.0))] + [e]
+            for a_, b_ in zip(us, us[1:]):
+                Q = [(a_, vv, z(a_, vv)), (b_, vv, z(b_, vv)), (b_, vv, z(b_, vv) - 0.25), (a_, vv, z(a_, vv) - 0.25)]
+                TK.mesh(key, Q, [(0, 1, 2, 3) if s_ < 0 else (3, 2, 1, 0)], 'conc', False, 'driveway_side')
+        vs_ = [v0 + i * 0.5 for i in range(int((v1 - v0) / 0.5))] + [v1]          # the street end's skirt (its 1.5 cm lip)
+        for a_, b_ in zip(vs_, vs_[1:]):
+            Q = [(e, a_, z(e, a_)), (e, a_, z(e, a_) - 0.25), (e, b_, z(e, b_) - 0.25), (e, b_, z(e, b_))]
+            TK.mesh(key, Q, [(0, 1, 2, 3)], 'conc', False, 'driveway_end')
 def lawn(key):
     for poly in S['lawn']:
         V, Fc = surface(poly, SP.lawn_z); TK.mesh(key, V, Fc, 'grass', False, 'lawn'); col_mesh(V, Fc, 'grass')
@@ -94,7 +114,26 @@ def walls(key):
             TK.box(key, (u0 - 0.06, a, PL.SLAB + h), (u1 + 0.06, b, PL.SLAB + h + 0.12), 'kerb', col=False); col_box((u0 - 0.06, a, PL.SLAB + h), (u1 + 0.06, b, PL.SLAB + h + 0.12), 'stone')
     u0, u1, v0, v1, h = S['police_wall']
     TK.box(key, (u0, v0, G - 0.05), (u1, v1, G + h), 'granite', col=False); col_box((u0, v0, G), (u1, v1, G + h), 'stone')
-    TK.sign(key, (u1, (v0 + v1) / 2, G + h * 0.55), '+u', 8.6, 0.42, ['CLEVELAND POLICE HEADQUARTERS'], 'JC police wall', bg=(176, 140, 118), fg=(52, 32, 10), emis=False)
+    bb = letters(key, 'CLEVELAND POLICE HEADQUARTERS', u1, (v0 + v1) / 2, G + h * 0.55, 0.30, 0.025, max_w=(v1 - v0) - 1.0)
+    col_box((u1, bb[0], bb[2]), (u1 + 0.025, bb[1], bb[3]), 'metal')                       # the letters' band: raised letters collide too
+def letters(key, text, u_face, v_c, z_c, cap, depth, max_w=None):
+    """raised bronze letters on a +u facing wall (the real plaza wall's bronze letters on pink granite): Blender's own font turned
+    into a mesh, cap height `cap`, `depth` proud of the wall, centred at (v_c, z_c); Rockstar's brass recipe (TK 'brass', from
+    ba_trad_rails). No sign panel behind them: the granite shows between the letters."""
+    cu = bpy.data.curves.new('jc_letters', 'FONT'); cu.body = text; cu.size = 1.0; cu.extrude = 0.5; cu.align_x = 'CENTER'; cu.align_y = 'CENTER'
+    ob = bpy.data.objects.new('jc_letters', cu); bpy.context.scene.collection.objects.link(ob); bpy.context.view_layer.update()
+    me = ob.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
+    V = [v.co.copy() for v in me.vertices]; zs = [p.y for p in V]; k = cap / 0.72          # Blender's default font: caps ~0.72 of size
+    xs = [p.x for p in V]; cx = (min(xs) + max(xs)) / 2; cy = (min(zs) + max(zs)) / 2
+    if max_w: k = min(k, max_w / (max(xs) - min(xs)))                                        # never wider than its wall stretch
+    # font frame: x along the text, y up, z out of the wall -> lot frame (a cyclic swap: faces keep their winding): u = the wall + z,
+    # v = +x (a reader on the +u side looking -u has +v on his right), z = y
+    verts = [(u_face + (p.z + 0.5) * depth, v_c + (p.x - cx) * k, z_c + (p.y - cy) * k) for p in V]
+    faces = [tuple(p.vertices) for p in me.polygons]
+    TK.mesh(key, verts, faces, 'brass', False, 'letters')
+    vs_ = [p[1] for p in verts]; zs_ = [p[2] for p in verts]
+    ob.to_mesh_clear(); bpy.data.objects.remove(ob); bpy.data.curves.remove(cu)
+    return (min(vs_), max(vs_), min(zs_), max(zs_))
 def portal(key):
     """our own model of the bent dark tube: one continuous round tube (16 sides) along a smooth path in a vertical plane - a leg up,
     the top bar with rounded bends, the other leg slanting down and running along the ground. Collision: square beams along it."""

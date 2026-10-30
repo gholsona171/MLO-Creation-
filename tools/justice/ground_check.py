@@ -38,7 +38,11 @@ if P2:
     sys.path.insert(0, str(W / 'p2')); import p2_plan as PL, p2_site_plan as SPL
     MASS = []                                                                 # lot rects (u0, u1, v0, v1) of every building's solid mass
     for _k in PL.B:
+        if _k == 'atrium' and PL.MLO_BUILT['atrium']: continue              # the galleria MLO (phase 3) has a floor: its cells are tested
         _voids = PL.arcade_voids(_k) + [(g['room'][0] - 0.6, g['room'][1] + 0.6, g['room'][2], g['room'][3], -1e9, 1e9) for g in PL.GARAGES.values() if g['face'][0] == _k]
+        if _k == 'tower':                                                    # the tower lobby (an MLO floor) is tested; its core + shaft stay mass
+            _shafts = [(c[0] - 0.11, c[1] + 0.11, c[2] - 0.11, c[3] + 0.11, -1e9, 1e9) for c in (PL.TOWER_CORE, PL.TOWER_SECLIFT)]   # with the lobby's 0.1 lining on them (walls, not ground)
+            _voids += [c for w in PL.mlo_voids(_k) if abs(w[4] - PL.G) < 1e-6 for c in PL.box_minus((w[0] + 0.31, w[1] - 0.31, w[2] + 0.31, w[3] - 0.31, -1e9, 1e9), _shafts)]   # (its 0.3 m linings are walls)
         for _r in PL.rects(_k): MASS += [c[:4] for c in PL.box_minus((_r[0], _r[1], _r[2], _r[3], 0.0, 1.0), [(a, b, c, d, 0.0, 1.0) for a, b, c, d, *_ in _voids])]
     STEPS = []
     for ax, at, s0, s1, o, zl, zt in SPL.S['steps']:
@@ -46,6 +50,7 @@ if P2:
         STEPS.append((a, b, s0, s1) if ax == 'u' else (s0, s1, a, b))
     RISER = (PL.G - PL.SLAB) / SPL.S['step'][0]
     LOW = [v_[:4] for _k in PL.B for v_ in PL.arcade_voids(_k)] + [g['room'] for g in PL.GARAGES.values()]
+    if PL.SEE_OUT['tower']: LOW += [w[:4] for w in PL.mlo_voids('tower') if abs(w[4] - PL.G) < 1e-6]   # the tower lobby: floors over it (L3, L5) are not its ground
     LOWZ = 33.9                                                               # under every colonnade soffit (34.3+) and bay ceiling (34.3+)
 def in_mass(u, v): return P2 and any(a <= u <= b and c <= v <= d for a, b, c, d in MASS)
 def in_low(u, v): return P2 and any(a <= u <= b and c <= v <= d for a, b, c, d in LOW)
@@ -59,6 +64,7 @@ def live_names(names):
         pick = fam['lr_'] if fam['lr_'] in names else fam[''] if fam[''] in names else fam['hei_']
         if n == pick: out.append(n)
     return out
+MLO_LOCAL = {'jc_courts'}                                                     # phase 3 interior bounds (MLO-local, placed at the lot origin)
 def walked(vanilla=False):
     """vanilla=True: the game's own files only (none of ours) - the reference a cell outside the lot is compared with"""
     shipped = [] if vanilla else sorted(STREAM.glob('*.ybn')); sn = {f.stem.lower() for f in shipped}
@@ -71,6 +77,9 @@ def walked(vanilla=False):
     T_, src = [], []
     for k, f in enumerate(files):
         t, m, kd, pr = ybnx.read(XD / (f.name + '.xml'))
+        if f.stem.lower() in MLO_LOCAL and len(t):                            # an interior bound is in its MLO's frame (= the lot frame): to world
+            c_, s_ = math.cos(F.H), math.sin(F.H); t = t.copy(); x_, y_ = t[..., 0].copy(), t[..., 1].copy()
+            t[..., 0] = F.OX + x_ * c_ - y_ * s_; t[..., 1] = F.OY + x_ * s_ + y_ * c_
         if PLANT and not vanilla and f.stem.lower() == 'jc_lot_col':
             c = t.mean(1); uv = np.array([F.L(x, y) for x, y in c[:, :2]])
             hole = (np.abs(uv[:, 0] - PH[0]) < 1.5) & (np.abs(uv[:, 1] - PH[1]) < 1.5)
@@ -101,6 +110,8 @@ def drawn(dump=True):
     if P2:
         for f in sorted((W / 'p2/out').glob('tris_jc_*.npy')):
             if f.stem.endswith('_emi'): continue
+            T = np.load(f).astype(np.float64); parts.append(T); mids.append(np.full(len(T), len(names2))); names2.append(f.stem[5:])
+        for f in sorted((W / 'p3/out').glob('tris_jc_*.npy')):                # phase 3 interiors (world space, as the exteriors')
             T = np.load(f).astype(np.float64); parts.append(T); mids.append(np.full(len(T), len(names2))); names2.append(f.stem[5:])
     return np.concatenate(parts), np.concatenate(mids), names2, len(nm)
 def cast(Tr, X0, Y0, NX, NY):
