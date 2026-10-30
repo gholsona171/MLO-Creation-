@@ -180,55 +180,63 @@ def route():
     return legs, ok_all
 def drive(models=None, plant=False):
     """the test player drives each vehicle from Macdonald St straight into the sally port to its stop and backs it straight out to the
-    street (a player's line: the bay is one straight drive along the door's centre line). The vehicle is spawned by script facing the
-    door, engine on, the server's key given (c9_vehiclekeys.GiveKeysByPlate: the server blocks keyless driving); the player ped drives it
-    with temp actions (23 gas / 22 reverse / 1 brake, short pulses: the AI route planner would leave the bay for the street's nodes).
-    Logged: impacts (wall / door / kerb faces, debounced - not floor contact), body health, the nose stop against the planned stop (it
-    must stop short of the platform kerb), the final position, and the roll-up's physical opening going in and backing out.
-    plant=True: the same drive 4.5 m off the centre line - it must hit the wall beside the door."""
+    street. The ROLL-UP IS OPENED THROUGH THE DOOR SYSTEM BOTH WAYS, held open for the whole run of each car and shut + released after
+    it (Antonio 2026-10-29: "client add locks" - the server's lock system runs this door; the game's own auto-open fired for the first
+    car only, rig 2026-10-30). Each car: the spawn spot is cleared of vehicles first and the car must stand on the door's centre line
+    facing the door before it moves (a leftover car from the previous run pushed police3 8 m off the line); it is deleted for certain
+    afterwards (DeleteVehicle, then checked). Logged: impacts (wall / door / kerb faces, debounced - not floor contact) going in and
+    backing out, with the first five impacts' spot and normal; body health; the nose stop (short of the platform kerb); the final spot;
+    the roll-up's physical opening on each leg. plant=True: the same drive 4.5 m off the centre line - it must hit the wall."""
     out = []; ok_all = True; h_in = (270.0 + F.HDEG) % 360                 # facing +u (into the bay)
     dv = J.DRIVE_V + (-4.5 if plant else 0.0)
+    rux, ruy = W(J.JBOX[0] + 0.275, J.DRIVE_V); ruz = J.SALLY_Z + J.ROLLUP[2] / 2
+    door = ('local DH=GetHashKey("jjdrive_rollup") local function dsys(open) if not IsDoorRegisteredWithSystem(DH) then '
+            'AddDoorToSystem(DH,GetHashKey("%s"),%.3f,%.3f,%.3f,false,false,false) end if open then DoorSystemSetDoorState(DH,0,false,true) '
+            'DoorSystemSetOpenRatio(DH,1.0,false,true) DoorSystemSetHoldOpen(DH,true) else DoorSystemSetHoldOpen(DH,false) DoorSystemSetOpenRatio(DH,0.0,false,true) '
+            'DoorSystemSetDoorState(DH,1,false,true) Wait(4500) DoorSystemSetDoorState(DH,0,false,true) RemoveDoorFromSystem(DH) end end ') % (J.ROLLUP[0], rux, ruy, ruz)
     for m in (models or J.DRIVE_TEST):
         L_ = J.VEHICLES.get({'police': 'police4', 'police3': 'police4'}.get(m, m), (2.0, 1.6, 5.0))[2]
-        sx, sy = W(J.JBOX[0] - 9.0 - L_ / 2, dv)
+        su = J.JBOX[0] - 9.0 - L_ / 2; sx, sy = W(su, dv)
         revive(); stand(J.JBOX[0] - 16.0, J.DRIVE_V + 4.0, J.SALLY_Z); time.sleep(1)
-        plate = lua(('local h=GetHashKey("%s") RequestModel(h) local t=GetGameTimer() while not HasModelLoaded(h) and GetGameTimer()-t<8000 do Wait(50) end '
-                     'local v=CreateVehicle(h,%.3f,%.3f,%.3f,%.1f,true,false) SetVehicleOnGroundProperly(v) SetEntityAsMissionEntity(v,true,true) '
-                     'SetVehicleEngineOn(v,true,true,false) _G.__jjv=v Wait(300) return GetVehicleNumberPlateText(v)') % (m, sx, sy, J.SALLY_Z + 0.5, h_in), 30)
-        r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh srv "$0" 20', "return tostring(exports.c9_vehiclekeys:GiveKeysByPlate(1,'%s',true))" % plate.strip()], capture_output=True, text=True, timeout=60)
+        sp = lua(('local h=GetHashKey("%s") RequestModel(h) local t=GetGameTimer() while not HasModelLoaded(h) and GetGameTimer()-t<8000 do Wait(50) end '
+                  'ClearAreaOfVehicles(%.3f,%.3f,%.3f,12.0,false,false,false,false,false) Wait(500) '
+                  'local v=CreateVehicle(h,%.3f,%.3f,%.3f,%.1f,true,false) SetEntityAsMissionEntity(v,true,true) SetVehicleOnGroundProperly(v) '
+                  'SetEntityHeading(v,%.1f) SetVehicleEngineOn(v,true,true,false) _G.__jjv=v Wait(800) local c=GetEntityCoords(v) '
+                  'return GetVehicleNumberPlateText(v)..";"..string.format("%%.2f;%%.2f;%%.1f",c.x,c.y,GetEntityHeading(v))')
+                 % (m, sx, sy, J.SALLY_Z, sx, sy, J.SALLY_Z + 0.5, h_in, h_in), 30).split(';')
+        plate = sp[0].strip(); cu, cv = F.L(float(sp[1]), float(sp[2])); hd = abs(((float(sp[3]) - h_in) + 540.0) % 360.0 - 180.0)
+        if abs(cv - dv) > 0.4 or abs(cu - su) > 0.6 or hd > 3.0:
+            lua('local v=_G.__jjv if v and DoesEntityExist(v) then SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) end return "x"')
+            raise SystemExit(f'PROBE: {m} did not spawn on the line ({cu:.2f}, {cv:.2f}, heading off {hd:.1f}) - nothing was tested')
+        r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh srv "$0" 20', "return tostring(exports.c9_vehiclekeys:GiveKeysByPlate(1,'%s',true))" % plate], capture_output=True, text=True, timeout=60)
         if 'true' not in r.stdout: raise SystemExit('PROBE: the server gave no key - nothing was tested: ' + r.stdout[-200:])
-        # nose target: the stop; tail target out: the car's centre back on the street. IMPACTS, not contact: a frame counts only when the
-        # last hit's normal is not the ground's (|n.z| < 0.6: a wall, a door, a kerb face) and 0.6 s after the previous impact (rig
-        # 2026-10-29: HasEntityCollidedWithAnything alone counted ~2300 frames of rolling on the floor). The roll-up's state is read
-        # PHYSICALLY (its object's offset + pitch from its placement) while the car is within 4 m of it, going in and coming out.
-        rux, ruy = W(J.JBOX[0] + 0.275, J.DRIVE_V); ruz = J.SALLY_Z + J.ROLLUP[2] / 2
-        r = lua(('local p=PlayerPedId() local v=_G.__jjv TaskWarpPedIntoVehicle(p,v,-1) Wait(1500) local b0=GetVehicleBodyHealth(v) local hits,last,hin=0,0,0 '
-                 'local O=vector2(%.3f,%.3f) local Hd=vector2(math.cos(math.rad(%.4f)),math.sin(math.rad(%.4f))) local function u() local c=GetEntityCoords(v) local d=vector2(c.x,c.y)-O return d.x*Hd.x+d.y*Hd.y end '
-                 'local half=%.2f local ud=%.3f local door=GetClosestObjectOfType(%.3f,%.3f,%.3f,3.0,GetHashKey("%s"),false,false,false) '
-                 'local dp0=door~=0 and GetEntityCoords(door) or vector3(0,0,0) local dr0=door~=0 and GetEntityRotation(door,2) or vector3(0,0,0) local dIn,dOut=0.0,0.0 '
-                 'local function dopen() if door==0 then return -1.0 end local r_=GetEntityRotation(door,2) return #(GetEntityCoords(door)-dp0)+math.abs(r_.x-dr0.x)/30.0+math.abs(r_.y-dr0.y)/30.0 end '
-                 'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then hits=hits+1 last=GetGameTimer() end end end '
+        # the lock system opens the door for the arriving car and keeps it open until the car is back on the street (dsys)
+        r = lua((door + 'local p=PlayerPedId() local v=_G.__jjv TaskWarpPedIntoVehicle(p,v,-1) Wait(1500) local b0=GetVehicleBodyHealth(v) local hits,last,hin=0,0,0 local imp={} '
+                 'local O=vector2(%.3f,%.3f) local Hd=vector2(math.cos(math.rad(%.4f)),math.sin(math.rad(%.4f))) local Nm=vector2(-Hd.y,Hd.x) '
+                 'local function uv() local c=GetEntityCoords(v) local d=vector2(c.x,c.y)-O return d.x*Hd.x+d.y*Hd.y, d.x*Nm.x+d.y*Nm.y end local function u() local a=uv() return a end '
+                 'local half=%.2f local ud=%.3f local dobj=GetClosestObjectOfType(%.3f,%.3f,%.3f,3.0,GetHashKey("%s"),false,false,false) '
+                 'local dp0=dobj~=0 and GetEntityCoords(dobj) or vector3(0,0,0) local dr0=dobj~=0 and GetEntityRotation(dobj,2) or vector3(0,0,0) local dIn,dOut=0.0,0.0 '
+                 'local function dopen() if dobj==0 then return -1.0 end local r_=GetEntityRotation(dobj,2) return #(GetEntityCoords(dobj)-dp0)+math.abs(r_.x-dr0.x)/30.0+math.abs(r_.y-dr0.y)/30.0 end '
+                 'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then '
+                 'hits=hits+1 last=GetGameTimer() if #imp<5 then local a,b=uv() imp[#imp+1]=string.format("%%.2f/%%.2f/%%.2f/%%.2f/%%.2f",a,b,n.x,n.y,n.z) end end end end '
                  'local function drive(action,ms) TaskVehicleTempAction(p,v,action,ms) local t=GetGameTimer() while GetGameTimer()-t<ms do Wait(0) tick() end end '
+                 'dsys(true) Wait(3500) '
                  'local t0=GetGameTimer() while GetGameTimer()-t0<45000 do local rem=%.3f-(u()+half) if rem<=0.0 then break end '
                  'if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end local want=math.max(0.7,math.min(2.5,rem*0.35)) drive(GetEntitySpeed(v)<want and 23 or 6,250) end '
-                 'drive(1,2000) hin=hits local cin=GetEntityCoords(v) '
-                 # the way out: the roll-up is opened through the DOOR SYSTEM and held open while the car is near - exactly what the server's
-                 # lock script does (Antonio 2026-10-29: "client add locks"; the game's own auto-open serves the arriving car only)
-                 'local DH=GetHashKey("jjdrive_rollup") if not IsDoorRegisteredWithSystem(DH) then AddDoorToSystem(DH,GetHashKey("%s"),%.3f,%.3f,%.3f,false,false,false) end '
-                 'DoorSystemSetDoorState(DH,0,false,true) DoorSystemSetOpenRatio(DH,1.0,false,true) DoorSystemSetHoldOpen(DH,true) '
-                 'local t1=GetGameTimer() local paused=false '
-                 'while GetGameTimer()-t1<60000 and u() > %.3f do local rear=u()-half '
-                 'if not paused and rear-ud < 2.5 then drive(1,1500) local tp=GetGameTimer() while GetGameTimer()-tp<3000 do Wait(0) dOut=math.max(dOut,dopen()) end paused=true end '
-                 'if math.abs(rear-ud)<4.0 then dOut=math.max(dOut,dopen()) end drive(GetEntitySpeed(v)<1.8 and 22 or 6,250) end '
-                 'drive(1,2000) DoorSystemSetHoldOpen(DH,false) DoorSystemSetOpenRatio(DH,0.0,false,true) Wait(4000) RemoveDoorFromSystem(DH) '
-                 'local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) DeleteEntity(v) '
-                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin)')
-                % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, rux, ruy, ruz, J.ROLLUP[0], J.DRIVE_STOP, J.ROLLUP[0], rux, ruy, ruz, J.JBOX[0] - 8.0), 180).split(':')
-        hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6])); d_in, d_out = float(r[7]), float(r[8]); h_in = int(r[9])
+                 'drive(1,2000) hin=hits local cin=GetEntityCoords(v) local t1=GetGameTimer() '
+                 'while GetGameTimer()-t1<60000 and u() > %.3f do local rear=u()-half if math.abs(rear-ud)<4.0 then dOut=math.max(dOut,dopen()) end '
+                 'drive(GetEntitySpeed(v)<1.8 and 22 or 6,250) end '
+                 'drive(1,2000) local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
+                 'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys(false) '
+                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone))..table.concat(imp,",")')
+                % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, rux, ruy, ruz, J.ROLLUP[0], J.DRIVE_STOP, J.JBOX[0] - 8.0), 200).split(':')
+        hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6]))
+        d_in, d_out, h_in_ = float(r[7]), float(r[8]), int(r[9]); gone = r[10] in ('true', '1'); imps = [x for x in r[11].split(',') if x]
         nose = ui + L_ / 2
-        good = hits == 0 and b1 >= b0 - 1.0 and J.DRIVE_STOP - 1.0 < nose < J.PLATFORM[0] - 0.3 and uo < J.JBOX[0] - 5.0
-        out.append({'vehicle': m, 'impacts': hits, 'impacts_going_in': h_in, 'impacts_backing_out': hits - h_in, 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,
-                    'platform_kerb_u': J.PLATFORM[0], 'stop_v': round(vi, 2), 'out_uv': [round(uo, 2), round(vo, 2)],
+        good = hits == 0 and b1 >= b0 - 1.0 and J.DRIVE_STOP - 1.0 < nose < J.PLATFORM[0] - 0.3 and uo < J.JBOX[0] - 5.0 and gone
+        out.append({'vehicle': m, 'spawn_uv': [round(cu, 2), round(cv, 2)], 'impacts': hits, 'impacts_going_in': h_in_, 'impacts_backing_out': hits - h_in_,
+                    'first_impacts_u_v_nx_ny_nz': imps, 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,
+                    'platform_kerb_u': J.PLATFORM[0], 'stop_v': round(vi, 2), 'out_uv': [round(uo, 2), round(vo, 2)], 'car_deleted': gone,
                     'rollup_open_going_in': round(d_in, 2), 'rollup_open_backing_out': round(d_out, 2), 'ok': good})
         ok_all &= good
     return out, ok_all

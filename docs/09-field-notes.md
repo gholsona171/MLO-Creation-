@@ -527,3 +527,7 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   gave "syntax error near unexpected token" at a line that was fine. Edit, then start a fresh run.
 - **No sit tests for client builds (Antonio, 2026-10-30):** clients likely run no sit script. Seats are still built to sensible heights
   (chairs 0.45-0.50, benches / stools ~0.45, bunks 0.48), but there is no sit probe or sit sheet in the rig runs.
+- **Drive tests with several cars in a row:** clear the spawn spot of vehicles (ClearAreaOfVehicles), require the car on the line and
+  heading before it moves (abort "nothing was tested" otherwise), delete it for certain (mission entity + DeleteVehicle + check) - a
+  leftover car from the previous run pushed the next one 8 m off the line and the third 100 m away. A garage door the client's lock
+  system runs is opened through the door system for BOTH legs in the test: the game's own auto-open fired for the first car only.
