@@ -534,11 +534,14 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   the same frames: CLOSE (0.9 m, 0.45 at doors), HUG (rays both sides at camera and body height: nearer >= 1.2 m or centred in the
   middle 30 %), STATIC (< 0.25 m/s and < 5 deg/s for > 2 s); each proven on a plant. A rail under the camera narrows a stair: measure
   the space across at body height too, or the check pushes the camera into the mid wall.
-- Closing doors through the door system: hold them LOCKED at ratio 0 and poll the leaves physically (every 0.5 s, re-driving the ones
-  not shut) until every leaf is shut, and only then release them to the map default - then read again. A fixed wait then release
-  left 50 of 51 open (rig 2026-10-30): a released map door has no spring and stops wherever it was swinging. The sim mocks doors that
-  swing 10 deg/s and stay put when released; the old close fails there (51 of 51 open). Mock GetHashKey must hash strings distinctly,
-  or every door-system hash collides and only one door moves.
+- Never LOCK a door that is not physically shut: a locked door-system door freezes at its current angle, and ratio 0 cannot bring it
+  home (rig 2026-10-30: 14 doors locked part-open at ~10 / 30 / 46 deg, every close and hold failed on the same 14). Unlock, ratio 0
+  (forced), poll the leaves physically and drive again; nudge a leaf still open after 8 s (its heading set to the placement while
+  unlocked); only when every leaf is shut LOCK (hold) or release (close), then read again. A released map door has no spring.
+- Door work needs the doors streamed in: after a restart the player is far away and 0 of 51 objects are found. Stand the player in
+  the building, put the focus on the doors' centre, poll until every object is found (20 s max), then clear the focus and put the
+  player back. The sim mocks both (locked = frozen, objects only near the focus after 3 s); the old door control fails there exactly
+  as on the rig. Mock locals must be declared before the functions that use them, or the catch-all stub answers (0 is truthy in Lua).
 - Photos with a map garage door in view: release to the map default and it opens by itself near the player (the 23:00 pair shots
   showed the sally roll-up open). Hold every door LOCKED shut in the door system for the shots (jj_doorctl.py hold) and release in
   the step's exit trap.

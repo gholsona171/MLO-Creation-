@@ -29,23 +29,36 @@ local DOOR = {base = nil, reg = false, locked = false, ratio = 0.0}
 -- swings toward its target at 10 deg/s (locked = shut); released, it stays where it is (a map door has no spring)
 DOORP, SD = false, false   -- real keys in _G (the catch-all stub would answer a missing one with a function)
 local LINK, LOCK, RATIO = {}, {}, {}
+local streamed   -- defined with the streaming block below; declared here so the lookups above it see the local, not the catch-all stub
 local function nearestDoor(x, y, z, r) if not DOORP then return nil end local best, bd = nil, r or 1.6
     for i, d in ipairs(DOORP) do local dd = math.sqrt((d[1] - x) ^ 2 + (d[2] - y) ^ 2 + (d[3] - z) ^ 2) if dd <= bd then best, bd = i, dd end end return best end
-function GetClosestObjectOfType(x, y, z, r) if DOORP then local i = nearestDoor(x, y, z, r) return i and (100 + i) or 0 end
+function GetClosestObjectOfType(x, y, z, r) if DOORP then local i = nearestDoor(x, y, z, r) return (i and streamed(i)) and (100 + i) or 0 end
     if not DOOR.base then DOOR.base = vector3(x, y, z) end return 7 end
 function AddDoorToSystem(h, m, x, y, z) if DOORP then LINK[h] = nearestDoor(x, y, z, 1.6) return end DOOR.reg = true end
 function RemoveDoorFromSystem(h) if DOORP then LINK[h] = nil LOCK[h] = nil RATIO[h] = nil return end DOOR.reg, DOOR.locked = false, false end
 function IsDoorRegisteredWithSystem(h) if DOORP then return LINK[h] ~= nil end return DOOR.reg end
 function DoorSystemSetDoorState(h, st) if DOORP then LOCK[h] = (st == 1) return end DOOR.locked = (st == 1) end
 function DoorSystemSetOpenRatio(h, r) if DOORP then RATIO[h] = r return end DOOR.ratio = r end
+-- (rig 2026-10-30 debug: 14 doors LOCKED part-open stayed there) a LOCKED leaf is frozen where it is; an unlocked one swings toward its
+-- ratio; a door with SD[i].stuck ignores the ratio (only a heading set brings it home)
 local function stepDoors(dt) if not DOORP then return end
-    for h, i in pairs(LINK) do local tgt = (LOCK[h] and 0.0) or (RATIO[h] or 0.0) * 90.0 local a = SD[i].ang
-        if a < tgt then SD[i].ang = math.min(tgt, a + 10.0 * dt) elseif a > tgt then SD[i].ang = math.max(tgt, a - 10.0 * dt) end end end
+    for h, i in pairs(LINK) do if not LOCK[h] and not SD[i].stuck then local tgt = (RATIO[h] or 0.0) * 90.0 local a = SD[i].ang
+        if a < tgt then SD[i].ang = math.min(tgt, a + 10.0 * dt) elseif a > tgt then SD[i].ang = math.max(tgt, a - 10.0 * dt) end end end end
+-- streaming (rig 2026-10-30, after a restart: 0 of 51 found): with STREAMING set, a door object exists only within 80 m of the focus
+-- (SetFocusPosAndVel, or the player moved by SetEntityCoords) and 3 s after it got there
+STREAMING, FOC, FOCT = false, false, 0
+function SetFocusPosAndVel(x, y, z) FOC = vector3(x, y, z) FOCT = T end
+function ClearFocus() FOC = POS[1] or false FOCT = T end
+streamed = function(i) if not STREAMING then return true end local d = DOORP[i]
+    return FOC and math.sqrt((FOC.x - d[1]) ^ 2 + (FOC.y - d[2]) ^ 2 + (FOC.z - d[3]) ^ 2) < 80.0 and T - FOCT >= 3000 end
+-- test helpers: a door LOCKED in the door system at an angle (as the rig left 14), a door stuck open
+function __mock_locked_open(i, ang) local h = GetHashKey("jjfilm_" .. i) LINK[h] = i LOCK[h] = true SD[i].ang = ang end
+function __mock_stuck(i, ang) SD[i].ang = ang SD[i].stuck = true end
 local function doorOpen() if not DOOR.reg then return 1.0 end if DOOR.locked then return 0.0 end return (DOOR.ratio > 0) and 1.0 or 0.0 end
 function GetEntityCoords(e) if DOORP and e >= 100 and DOORP[e - 100] then local d = DOORP[e - 100] return vector3(d[1], d[2], d[3]) end if e == 7 and DOOR.base then return DOOR.base + vector3(0.0, 0.0, 2.6 * doorOpen()) end return POS[e] or vector3(300.0, -1660.0, 29.0) end
-function SetEntityCoords(e, x, y, z) POS[e] = vector3(x, y, z) end
+function SetEntityCoords(e, x, y, z) if e >= 100 and DOORP then return end POS[e] = vector3(x, y, z) if e == 1 and rawget(_G, 'STREAMING') then FOC = POS[e] FOCT = T end end
 function CreateVehicle(h, x, y, z, hd) local e = 1000 + math.random(1, 999) POS[e] = vector3(x, y, z) HD[e] = hd or 0.0 CREATED[e] = T SPAWNP[e] = vector3(x, y, z) return e end
-function SetEntityHeading(e, h) HD[e] = h end
+function SetEntityHeading(e, h) if DOORP and e >= 100 and DOORP[e - 100] then SD[e - 100].ang = math.fmod(h - DOORP[e - 100][4] + 720.0, 360.0) return end HD[e] = h end
 function GetEntityHeading(e) if DOORP and e >= 100 and DOORP[e - 100] then return math.fmod(DOORP[e - 100][4] + SD[e - 100].ang, 360.0) end return HD[e] or 0.0 end
 function GetEntityRotation(e) return vector3(0.0, 0.0, 0.0) end
 -- a new car rests against something at its spawn (rig 2026-10-30: contacts logged AT the spawn, normals like (-0.35, -0.94)) until it
@@ -212,13 +225,23 @@ if __name__ == '__main__':
         if not dr.get('ok'): bad.append(f"drive: not ok in the mock (impacts {dr.get('impacts')}, stop {dr.get('stop_nose_u')}, out {dr.get('out_uv')})")
     except SystemExit as e: bad.append(f'drive stopped: {str(e)[:160]}')
     except Exception as e: bad.append(f'drive: {type(e).__name__}: {e}')
-    def doors_in(ang):
+    def doors_in(ang, rig_state=False):
         reset(); _rt.execute('DOORP = {%s} SD = {}' % ','.join('{%.3f,%.3f,%.3f,%.2f}' % d[1:] for d in D.doors))
-        _rt.execute('for i = 1, #DOORP do SD[i] = {ang = %.1f} end' % ang)
-    for mode, ang in (('open', 0.0), ('close', 90.0), ('hold', 90.0), ('release', 0.0)):
-        doors_in(ang); res = run(D.code(mode)); e = check_result(res)
+        _rt.execute('for i = 1, #DOORP do SD[i] = {ang = %.1f} end STREAMING = true' % ang)
+        if rig_state:                                        # the 14 the rig left LOCKED part-open (2026-10-30 debug), and two stuck open
+            for k, nm in enumerate(['sally_lock', 'hold1', 'hold2', 'hold4', 'cell_w108', 'cell_w109', 'cell_w208', 'cell_w209', 'cell_e106', 'cell_e108', 'cell_e109', 'cell_e206', 'cell_e208', 'cell_e209']):
+                _rt.execute('__mock_locked_open(%d, %.1f)' % (D.names.index(nm) + 1, (10.6, 29.7, 46.1)[k % 3]))
+            for nm in ('book_prop', 'cell_e101'): _rt.execute('__mock_stuck(%d, 40.0)' % (D.names.index(nm) + 1))
+    for mode, ang, rig in (('open', 0.0, False), ('close', 0.0, True), ('hold', 0.0, True), ('release', 0.0, False)):
+        doors_in(ang, rig); res = run(D.code(mode)); e = check_result(res)
         if e: bad.append(f'doorctl {mode}: {e}')
-        ok_, line = D.verdict(mode, res); print(f'  doorctl {mode} (doors start {ang:.0f} deg, swing 10 deg/s):', line)
+        ok_, line = D.verdict(mode, res); print(f'  doorctl {mode} (streamed out at the start{", 14 doors LOCKED part-open + 2 stuck open" if rig else ""}):', line)
         if not ok_ or 'WARN' in line: bad.append(f'doorctl {mode}: {line}')
+    # plant: locking a part-open door freezes it - lock first, then ratio 0, and it must still read open 10 s later
+    doors_in(0.0); _rt.execute('STREAMING = false __mock_locked_open(1, 29.7)')
+    pl = run('local d=DOORP[1] local h=GetHashKey("jjfilm_1") DoorSystemSetOpenRatio(h,0.0,false,true) DoorSystemSetDoorState(h,1,false,true) Wait(10000) '
+             'return tostring(GetEntityHeading(GetClosestObjectOfType(d[1],d[2],d[3],1.6,0)))')
+    assert abs(float(pl) - (D.doors[0][4] + 29.7) % 360) < 0.1, 'the mock let a LOCKED part-open door swing home'
+    print('  plant: a door LOCKED part-open stays at 29.7 deg under ratio 0 (as on the rig)')
     for b in bad: print(' ', b)
     print(f'chunks executed: {len(seen) + 2}'); print('JJ_LUASIM_PASS' if not bad else 'JJ_LUASIM_FAIL'); sys.exit(1 if bad else 0)
