@@ -13,7 +13,12 @@ has no spring: 50 of 51 left open after the fly, 14 after a second close). Repor
 as soon as the player is near - the 23:00 pair shots of 2026-10-29 show it open); 'release' hands every door back to the map default.
 'close' is ALWAYS safe to run (also when nothing was opened) - jj_rig_tests.sh runs it in a trap after the fly; the pairs step runs
 'hold' before its shots and 'release' in its exit trap.
-Run: py -3 jj_doorctl.py open|close|hold|release   ->  DOORCTL_OK <mode> <n> ... | DOORCTL_FAIL ... (exit 1)"""
+'debug' (read only, rig 2026-10-30: close / hold left the same 14 doors 'not shut' every time): per door the object found at its spot,
+whether its model is the door's, its coords and heading against the placement (dh, dp), the distance from the object to the nearest
+OTHER placement of the same model (a lookup that picked a neighbour shows here), frozen, and the door-system state; writes
+<out>/doordebug.json and photographs every door that is not shut (camera 2.2 m in front of the leaf's middle, both sides) into
+shots/p4_jail_doordebug/.
+Run: py -3 jj_doorctl.py open|close|hold|release|debug   ->  DOORCTL_OK <mode> <n> ... | DOORCTL_FAIL ... (exit 1)"""
 import json, re, subprocess, sys
 from pathlib import Path
 JL = Path(__file__).resolve().parent; sys.path[:0] = [str(JL), str(JL.parent)]
@@ -41,6 +46,12 @@ def code(mode):
         lua += ('for i,d in ipairs(D) do drive(i,d,true) end local t0=GetGameTimer() local f,b,l=read(false) '
                 'while b>0 and GetGameTimer()-t0<15000 do Wait(500) f,b,l=read(false) end '
                 'return tostring(#D)..":"..tostring(f)..":"..tostring(b)..":"..tostring(GetGameTimer()-t0)..":"..table.concat(l,",")')
+    elif mode == 'debug':
+        lua += ('local R={} for i,d in ipairs(D) do local o=obj(d) local rec if o==0 then rec=tostring(i)..",0" else local c=GetEntityCoords(o) '
+                'local dh=math.abs(math.fmod((GetEntityHeading(o)-d[5])+540.0,360.0)-180.0) local dp=#(c-vector3(d[2],d[3],d[4])) '
+                'local st=IsDoorRegisteredWithSystem(H[i]) and DoorSystemGetDoorState(H[i]) or -1 '
+                'rec=string.format("%d,%d,%s,%.3f,%.3f,%.3f,%.2f,%.2f,%.3f,%s,%d",i,o,tostring(GetEntityModel(o)==GetHashKey(d[1])),c.x,c.y,c.z,GetEntityHeading(o),dh,dp,tostring(IsEntityPositionFrozen(o)),st) end '
+                'R[#R+1]=rec end return table.concat(R,";")')
     elif mode == 'release':
         lua += ('local f=0 for i,d in ipairs(D) do if IsDoorRegisteredWithSystem(H[i]) then DoorSystemSetDoorState(H[i],0,false,true) RemoveDoorFromSystem(H[i]) end '
                 'if obj(d)~=0 then f=f+1 end end return tostring(#D)..":"..tostring(f)..":0:0:"')
@@ -52,6 +63,37 @@ def code(mode):
             lua += 'if b==0 then for i=1,#D do DoorSystemSetDoorState(H[i],0,false,true) RemoveDoorFromSystem(H[i]) end Wait(2000) f,b,l=read(true) end '
         lua += 'return tostring(#D)..":"..tostring(f)..":"..tostring(b)..":"..tostring(ms)..":"..table.concat(l,",")'
     return lua
+def debug(res):
+    """the per-door records -> (rows, the doors not shut); writes <out>/doordebug.json."""
+    import math
+    rows = []
+    for rec in (res or '').split(';'):
+        f = rec.split(',')
+        if len(f) < 2: continue
+        i = int(f[0]) - 1; d = doors[i]
+        if f[1] == '0': rows.append({'door': names[i], 'found': False}); continue
+        x, y, z, hd, dh, dp = map(float, f[3:9])
+        others = [math.dist((x, y, z), e[1:4]) for j, e in enumerate(doors) if j != i and e[0] == d[0]]
+        rows.append({'door': names[i], 'found': True, 'handle': int(f[1]), 'model_matches': f[2] in ('true', '1'), 'obj': [round(x, 3), round(y, 3), round(z, 3)],
+                     'placement': [round(v, 3) for v in d[1:4]], 'heading': hd, 'placement_heading': round(d[4], 2), 'dh_deg': dh, 'dp_m': dp,
+                     'nearest_other_same_model_m': round(min(others), 2) if others else None, 'frozen': f[9] in ('true', '1'), 'door_system_state': int(f[10]),
+                     'shut': dh <= 3.0 and dp <= 0.15})
+    (JL / OD / 'doordebug.json').write_text(json.dumps(rows, indent=1))
+    return rows, [r for r in rows if not r.get('shut')]
+def photos(bad):
+    """one frame of each door not shut, from 2.2 m in front of its closed leaf's middle on both sides (tcshot.sh, 13:00)."""
+    import math
+    SD = JL.parent.parent / 'shots' / 'p4_jail_doordebug'; SD.mkdir(parents=True, exist_ok=True); out = []
+    for r in bad:
+        if not r.get('found'): continue
+        i = names.index(r['door']); _, x, y, z, h = doors[i]; a = math.radians(h)
+        mx, my = x - 0.65 * math.cos(a), y - 0.65 * math.sin(a); nx, ny = -math.sin(a), math.cos(a); fz = z - J.LEAF_H / 2
+        for k, side in ((1, 'a'), (-1, 'b')):
+            cx, cy = mx + k * 2.2 * nx, my + k * 2.2 * ny; png = SD / f'{r["door"]}_{side}.png'
+            subprocess.run([GB, '-c', 'cd /c/C9Test && HOUR=13 bash tcshot.sh "$0" %.3f %.3f %.3f %.3f %.3f %.3f 60 4' % (cx, cy, fz + 1.6, mx, my, fz + 1.1), str(png)], capture_output=True, text=True, timeout=120)
+            out.append(str(png))
+    subprocess.run([GB, '-c', 'cd /c/C9Test && bash tcshot_off.sh'], capture_output=True, text=True, timeout=60)
+    return out
 def verdict(mode, res):
     """(ok, line) from the Lua's answer."""
     m = re.search(r'(\d+):(\d+):(\d+):(\d+):([\d,]*)', res or '')
@@ -64,9 +106,15 @@ def verdict(mode, res):
     if mode == 'open' and bad: return True, f'DOORCTL_WARN open: {bad} of {n} doors did not swing open in {ms / 1000:.1f} s, e.g. {which}'
     return True, f'DOORCTL_OK {mode} {n} doors' + (f' (all shut by physical check, settled in {ms / 1000:.1f} s, released to the map default and still shut 2 s later)' if mode == 'close' else f' (all open in {ms / 1000:.1f} s)')
 if __name__ == '__main__':
-    mode = sys.argv[1]; assert mode in ('open', 'close', 'hold', 'release'), 'usage: jj_doorctl.py open|close|hold|release'
+    mode = sys.argv[1]; assert mode in ('open', 'close', 'hold', 'release', 'debug'), 'usage: jj_doorctl.py open|close|hold|release|debug'
     lua = code(mode)
     if '--dry' in sys.argv: print(lua); sys.exit(0)                             # the Lua only
     r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh cl 1 "$0" 60', lua], capture_output=True, text=True, timeout=120)
     m = re.search(r'"result":"([^"]*)"', r.stdout)
+    if mode == 'debug':
+        if not m: print('DOORCTL_FAIL debug: no answer from the rig: ' + (r.stdout + r.stderr)[-300:]); sys.exit(1)
+        rows, bad = debug(m.group(1))
+        for b in bad: print('  NOT SHUT', json.dumps(b))
+        shots = photos(bad) if '--no-photos' not in sys.argv else []
+        print(f'DOORCTL_DEBUG {len(rows)} doors read, {len(bad)} not shut; {OD}/doordebug.json; {len(shots)} photos in shots/p4_jail_doordebug/'); sys.exit(0)
     ok, line = verdict(mode, m.group(1) if m else r.stdout + r.stderr); print(line); sys.exit(0 if ok else 1)
