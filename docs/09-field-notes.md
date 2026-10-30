@@ -525,3 +525,5 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   p2_plan: a module-level import is circular).
 - **Never edit a shell script while it runs:** bash reads the file by offset as it goes; inserting lines into build_p1.sh mid-run
   gave "syntax error near unexpected token" at a line that was fine. Edit, then start a fresh run.
+- **No sit tests for client builds (Antonio, 2026-10-30):** clients likely run no sit script. Seats are still built to sensible heights
+  (chairs 0.45-0.50, benches / stools ~0.45, bunks 0.48), but there is no sit probe or sit sheet in the rig runs.
