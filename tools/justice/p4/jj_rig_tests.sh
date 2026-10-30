@@ -64,7 +64,8 @@ fly)     for pl in --plant --plant-hug --plant-static; do                       
          HOUR=13 bash jj_fly.sh $V/p4_jail_fly_intake.mp4 $JL/fly_route.txt | tee logs/rig_fly.log
          HOUR=13 bash jj_fly.sh $V/p4_jail_fly_cellblock.mp4 $JL/fly_block.txt | tee -a logs/rig_fly.log
          [ $(grep -c JJ_FLY_OK logs/rig_fly.log) = 2 ] && res fly PASS "videos in $V (review the frames: py -3 MLO-Creation/tools/video_review.py)" || res fly FAIL "$(grep JJ_FLY_FAIL logs/rig_fly.log | head -2)" ;;
-pairs)   py -3 jj_doorctl.py close | grep -q DOORCTL_OK || { res pairs FAIL "could not put the doors in their normal (shut) state"; exit 1; }
+pairs)   trap 'py -3 $JL/jj_doorctl.py release; bash /c/C9Test/tc_release.sh > /dev/null 2>&1' EXIT      # the doors go back to the map default whatever happens
+         py -3 jj_doorctl.py hold | tee logs/rig_doors_hold.log | grep -q DOORCTL_OK || { res pairs FAIL "doors not held shut for the shots: $(tail -1 logs/rig_doors_hold.log)"; exit 1; }   # the roll-up opens by itself near the player
          CAMS=$JL/out/cams_jail.txt bash ../jc_pair.sh $S/p4_jail_game night > logs/rig_pairs.log 2>&1
          py -3 jj_pairs.py $S/p4_jail_game $S/p4_jail_pairs.jpg $S/p4_jail_preview > logs/rig_pairsheet.log 2>&1      # Blender preview | 13:00 | 23:00
          grep -q PAIRS logs/rig_pairsheet.log && res pairs PASS "$(cat logs/rig_pairsheet.log)" || res pairs FAIL "a shot is missing: see logs/rig_pairs.log" ;;

@@ -215,7 +215,7 @@ if __name__ == '__main__':
     def doors_in(ang):
         reset(); _rt.execute('DOORP = {%s} SD = {}' % ','.join('{%.3f,%.3f,%.3f,%.2f}' % d[1:] for d in D.doors))
         _rt.execute('for i = 1, #DOORP do SD[i] = {ang = %.1f} end' % ang)
-    for mode, ang in (('open', 0.0), ('close', 90.0)):
+    for mode, ang in (('open', 0.0), ('close', 90.0), ('hold', 90.0), ('release', 0.0)):
         doors_in(ang); res = run(D.code(mode)); e = check_result(res)
         if e: bad.append(f'doorctl {mode}: {e}')
         ok_, line = D.verdict(mode, res); print(f'  doorctl {mode} (doors start {ang:.0f} deg, swing 10 deg/s):', line)
