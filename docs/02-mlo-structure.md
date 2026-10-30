@@ -404,7 +404,9 @@ Tools: `tools/justice/p3/` (copies; the project runs from `JusticeCenter/work/p3
   plus a seam scan along every lining. Proven on a planted 0.6 m floor slit along the north glass (189 gap rays) before the clean run (0).
 
 ## Interior vertex colours: measure Rockstar's, per surface (2026-10-28)
-tc_kit writes every interior Colour0 as (0, 0.2, 0) through `.color` (linear: G ends up 123/255), and exteriors as 1.0. Rockstar's
+Since 2026-10-29 tc_kit writes these itself: `init(vcol={room: 'glazed' | 'enclosed'})` + `VCOL_INT`, exteriors `VCOL_EXT` (field notes
+'tower-city-night-glow', gate `tools/towercity/vcol_check.py`). Before that it wrote every interior Colour0 as (0, 0.2, 0) through
+`.color` (linear: G ends up 123/255), and exteriors as 1.0. Rockstar's
 interiors, measured with `tools/justice/p3/vcol_stats.py` on CodeWalker XML (median per floor / wall / ceiling and shader):
 | Room kind | R (natural ambient) | G (artificial ambient) | B |
 |---|---|---|---|

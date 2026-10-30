@@ -55,6 +55,14 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `hang_check.py` | Every hung / mounted fitting meets its support within 8 cm (lamps, pendants, chandeliers, hanging-sign rods, flag wires) | `py -3 hang_check.py --list` |
 | `upper_gap_check.py` | Upper floors' light-gap audit; now reads the window list (piers and raised sills included) from the layout | `blender -b --python upper_gap_check.py` |
 
+### Night glow: vertex colours (Tower City, 2026-10-29) - in `towercity/`
+| Tool | What it does | Example |
+|---|---|---|
+| `vcol_check.py` | Gate: Colour0 of every built drawable via CodeWalker XML. Fails on non-emissive G >= 250, an unclassed interior colour, or an emissive below 255 | `py -3 tools/vcol_check.py [--xml dir]` |
+| `ydr_xml_dir.ps1` | Every ydr in a folder -> CodeWalker XML | `-InDir stream -OutDir xml [-Pattern tc_*.ydr]` |
+| `tc_glow_shots.sh` | Rig: the standard exteriors + 500 m / 1 km + 3 interiors at a held hour | `bash tc_glow_shots.sh after 23` |
+| `tc_glow_flyby.sh` | Rig: eased night orbit video round both lots | `bash tc_glow_flyby.sh out.mp4 23 36` |
+
 ### Counter kit: Rockstar props cut into modules (C9 DJ, 2026-10-25) - in `counter_kit/` (doc 11)
 | Tool | What it does | Example |
 |---|---|---|

@@ -8,7 +8,7 @@ $names = @'
 '@ -split "`r?`n" | Where-Object { $_ }
 $set = @{}; foreach ($n in $names) { $set[$n.ToLower()] = 1 }
 $family = '@@FAMILY@@'
-function Get-Res($path) { $d = Split-Path $path; while ($d -and -not (Test-Path (Join-Path $d 'fxmanifest.lua')) -and -not (Test-Path (Join-Path $d '__resource.lua'))) { $d = Split-Path $d }; if ($d) { Split-Path $d -Leaf } else { '(no manifest)' } }
+function Get-Res($path) { $d = Split-Path $path; while ($d -and -not (Test-Path -LiteralPath (Join-Path $d 'fxmanifest.lua')) -and -not (Test-Path -LiteralPath (Join-Path $d '__resource.lua'))) { $d = Split-Path $d }; if ($d) { Split-Path $d -Leaf } else { '(no manifest)' } }
 $files = Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '@@SKIP@@' }
 $hits = foreach ($f in $files) {
   $n = $f.Name.ToLower()

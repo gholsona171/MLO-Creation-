@@ -423,3 +423,36 @@ night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings
   over the street's road nodes and left the bay; `SetControlNormal` did nothing in the harness thread.
 - **Rig tests are run by main, not by agents (Antonio, 2026-10-29).** An agent hands over one unattended runner per area
   (`tools/justice/p4/jj_rig_tests.sh <test>`: deploy check first, each test ends with one `JJ_TEST <name> PASS|FAIL` line).
+
+## tower-city-night-glow (Tower City, 2026-10-29)
+
+The Justice Center's 23:00 glow (exterior-vertex-colours above) was in Tower City too, because both come from the same kit. At 23:00
+the tower and mall walls were evenly lit pink. From 1 km the tower was a solid orange block over a dark city. Offline it was the
+same: every non-emissive face of tc_tower_ext / tc_mall_ext / tc_garage_ext / tc_ug_ext was Colour0 255/255/255. Interiors were
+0/124/0 (the workshop kit's `(0, .2, 0)` through `.color`), emissive faces too.
+
+**Measure the neighbours, not a far model.** The downtown blocks round the site (dt1_05_build1_h, dt1_06_build1_1 / build2_1,
+dt1_07_building2, dt1_09_building_01, dt1_10_build1: 134k vertices) give Colour0 by surface: up 174/7/0, wall 132/30/0,
+down (soffits) 84/12/0. G stays under about 45 on walls. B is 0 on two thirds of them.
+
+**The fix lives in the kit, not on top of it.** tc_kit.export_all now writes `VCOL_EXT` per face normal (up / wall / down) on every
+exterior model. `init(vcol={room: 'glazed' | 'enclosed'})` writes `VCOL_INT` per room: glazed 153/107/255 floor, 115/115/255
+wall, 102/115/255 ceiling; enclosed 0/158/0, 0/153/0, 0/163/0. Every room must be classed or init asserts. Emissive-shader faces
+get 1.0. All of it is written with `color_srgb`. Builds that pass no `vcol` (Justice Center p3, which writes its own colours in a
+`new_drawable` wrapper) keep their interiors as they were. JC p2 overwrites the exterior colours in its own POST_EXT pass.
+
+**Gate on the built files:** `tools/towercity/vcol_check.py` turns the stream into CodeWalker XML (`ydr_xml_dir.ps1`; shader names
+come back as joaat hashes: emissive.sps = hash_9D183303, emissivenight.sps = hash_557DB6E4). It fails on:
+- any non-emissive vertex with G >= 250;
+- an interior colour that is not a VCOL_INT class;
+- an emissive vertex below 255.
+It runs in build_east / build_west / build_l0 after ground_check, before deploy. It was proven three ways: on the old build
+(fail: 4 exteriors + every room), on one planted 255 vertex in the new tc_tower_ext (fail: 1 vertex), and on the clean build
+(pass, 786,831 vertices). A half rebuild (west only) fails it on the east lot's old files, as it should.
+
+**The rebuild changes colours only:** 81 of 84 drawables have identical positions / normals / UVs / indices, and the other 3 have the same
+vertices to 1 cm. Our ytyps and ymaps are byte-identical, so the archetype bounds are unchanged.
+
+**Rig shots (C9Test):** `tc_glow_shots.sh <tag> <hour> [ext|far|int]` takes the 6 standard exterior views, 500 m / 1 km / 500 m north,
+and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.sh <out.mp4> [hour] [secs]` is an eased
+(smoothstep) night orbit round both lots.
