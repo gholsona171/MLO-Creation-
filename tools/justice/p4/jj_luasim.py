@@ -20,7 +20,7 @@ VM.__len = function(a) return math.sqrt(a.x * a.x + a.y * a.y + (a.z or 0) * (a.
 function vector2(x, y) return vec(x, y, nil) end
 function vector3(x, y, z) return vec(x, y, z or 0.0) end
 local T = 0
-local POS, HD, CREATED, ENG, SEAT, WANT, VEL, ACT, CAP = {}, {}, {}, {}, {}, {}, {}, {}, {}   -- every table a mock function uses, declared before any of them
+local POS, HD, CREATED, ENG, SEAT, WANT, VEL, ACT, CAP, COLL = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}   -- every table a mock function uses, declared before any of them
 -- the roll-up as the rig has it (2026-10-30): a map garage door that opens by itself while the player is near, unless the door system
 -- holds it (registered + locked -> shut; registered + unlocked -> the set ratio). Object 7 at the first spot asked for; opening = 2.6 m up.
 local DOOR = {base = nil, reg = false, locked = false, ratio = 0.0}
@@ -37,13 +37,14 @@ function CreateVehicle(h, x, y, z, hd) local e = 1000 + math.random(1, 999) POS[
 function SetEntityHeading(e, h) HD[e] = h end
 function GetEntityHeading(e) return HD[e] or 0.0 end
 function GetEntityRotation(e) return vector3(0.0, 0.0, 0.0) end
-function GetCollisionNormalOfLastHitForEntity(e) return vector3(0.0, 0.0, 1.0) end
+function GetCollisionNormalOfLastHitForEntity(e) if COLL[e] and COLL[e] >= T - 1000 and WALL then local h = math.rad(WALL.hd) return vector3(-math.cos(h), -math.sin(h), 0.0) end return vector3(0.0, 0.0, 1.0) end
+function HasEntityCollidedWithAnything(e) return (COLL[e] or -1) >= T end
 function GetVehicleNumberPlateText(v) return "TEST1234" end
 function GetGamePool(n) return {} end
 function GetHashKey(s) return 12345 end
 function PlayerPedId() return 1 end
 function DoesEntityExist(e) return POS[e] ~= nil end
-function DeleteVehicle(e) POS[e] = nil SEAT[e] = nil VEL[e] = nil ACT[e] = nil CAP[e] = nil end
+function DeleteVehicle(e) POS[e] = nil SEAT[e] = nil VEL[e] = nil ACT[e] = nil CAP[e] = nil COLL[e] = nil end
 -- the c9_vehiclekeys guard (disableAutoStart, rig 2026-10-30): with a player in the driver's seat the engine runs only when the
 -- keys script wants it (its ToggleEngine); a raw SetVehicleEngineOn is switched off again the next frame
 
@@ -71,24 +72,34 @@ exports = setmetatable({c9_vehiclekeys = {CanDrive = function(self, v) return tr
                                           ToggleEngine = function(self) local v = _G.__jjv local on = not GetIsVehicleEngineRunning(v) WANT[v] = on ENG[v] = on end}},
                        {__index = function() return setmetatable({}, {__index = function() return function() return true end end}) end})
 -- gas / reverse move the car 0.5 m per call along its heading (GTA forward = (-sin h, cos h)) when the engine runs
--- motion over game time (rig 2026-10-30): a temp action drives only when issued for >= 300 ms (200 ms slices left the car standing) and
--- the engine runs (the keys guard); 23 gas +5.5 m/s2 (from the rig self-test: 26-27 m on 8 gas + 4 brake slices), 22 reverse -4 m/s2,
--- 1 brake 6 m/s2 toward 0, no action = coasting 1.0 m/s2;
--- SetEntityMaxSpeed caps the speed, and a cap under 3 m/s keeps a standing car standing (rig: cap 2.8 -> 0.01 m/s at the spawn)
+-- motion over game time, fitted to the rig (2026-10-30 self-test, 300 ms slices: speeds 1.05, 3.01, 5.65, 2.99, 0.1, ...): a temp action
+-- acts from ~one slice after it is issued until ~one slice after it ends (lag), gas +8 m/s2, reverse -6 m/s2, brake 9 m/s2 toward 0,
+-- no action = coasting 1 m/s2; only actions issued for >= 300 ms drive (200 ms slices left the car standing); a SetEntityMaxSpeed cap
+-- under 3 m/s keeps a standing car standing; SetVehicleForwardSpeed sets the speed outright. WALL (the jail's west face, set by reset()
+-- from the plan): a car whose nose (2.5 m ahead) crosses it outside the sally opening stops there and has collided (COLL).
 local LAST = 0
 local function step()
     local dt = (T - LAST) / 1000.0 LAST = T
     if dt <= 0 then return end
     for v, pos in pairs(POS) do
         local a = ACT[v] if a and T > a.untl then ACT[v] = nil a = nil end
+        if a and T < a.from then a = nil end
         local vel = VEL[v] or 0.0 local run = GetIsVehicleEngineRunning(v)
         local stuck = CAP[v] and CAP[v] < 3.0 and math.abs(vel) < 0.1
-        if a and run and a.a == 23 and not stuck then vel = vel + 5.5 * dt
-        elseif a and run and a.a == 22 and not stuck then vel = vel - 4.0 * dt
-        else local dec = (a and a.a == 1) and 6.0 or 1.0 if vel > 0 then vel = math.max(0.0, vel - dec * dt) else vel = math.min(0.0, vel + dec * dt) end end
+        if a and run and a.a == 23 and not stuck then vel = vel + 8.0 * dt
+        elseif a and run and a.a == 22 and not stuck then vel = vel - 6.0 * dt
+        else local dec = (a and a.a == 1) and 9.0 or 1.0 if vel > 0 then vel = math.max(0.0, vel - dec * dt) else vel = math.min(0.0, vel + dec * dt) end end
         if CAP[v] then vel = math.max(-CAP[v], math.min(CAP[v], vel)) end
         VEL[v] = vel
-        if vel ~= 0.0 then local h = math.rad(HD[v] or 0.0) POS[v] = vector3(pos.x - math.sin(h) * vel * dt, pos.y + math.cos(h) * vel * dt, pos.z) end
+        if vel ~= 0.0 then
+            local h = math.rad(HD[v] or 0.0) local np = vector3(pos.x - math.sin(h) * vel * dt, pos.y + math.cos(h) * vel * dt, pos.z)
+            if WALL and vel > 0 then
+                local hw = math.rad(WALL.hd) local function uvw(p) local dx, dy = p.x - WALL.ox, p.y - WALL.oy return dx * math.cos(hw) + dy * math.sin(hw), -dx * math.sin(hw) + dy * math.cos(hw) end
+                local u0 = uvw(pos) local u1, v1 = uvw(np)
+                if u0 + 2.5 <= WALL.face and u1 + 2.5 > WALL.face and (v1 - 1.0 < WALL.s0 or v1 + 1.0 > WALL.s1) then np = pos VEL[v] = 0.0 COLL[v] = T + 300 end
+            end
+            POS[v] = np
+        end
     end
 end
 function GetGameTimer() T = T + 50 step() return T end
@@ -97,8 +108,9 @@ function GetEntitySpeed(e) return math.abs(VEL[e] or 0.0) end
 function SetEntityMaxSpeed(e, c) CAP[e] = c end
 function TaskVehicleTempAction(p, v, a, ms)
     if not POS[v] or (ms or 0) < 300 then return end
-    ACT[v] = {a = a, untl = T + ms}
+    ACT[v] = {a = a, from = T + 300, untl = T + ms + 300}
 end
+function SetVehicleForwardSpeed(v, sp) if POS[v] then VEL[v] = sp end end
 function IsDoorRegisteredWithSystem(h) return false end
 
 function tostring_(x) return tostring(x) end
@@ -107,7 +119,9 @@ setmetatable(_G, {__index = function(t, k) return function() return 0 end end}) 
 _rt = None
 def reset():
     global _rt
+    import jj_plan as JP, jc_frame as FR
     _rt = lupa.LuaRuntime(); _rt.execute(MOCK)
+    _rt.execute('WALL = {ox = %.3f, oy = %.3f, hd = %.4f, face = %.3f, s0 = %.3f, s1 = %.3f}' % (FR.OX, FR.OY, FR.HDEG, JP.JBOX[0], *JP.SALLY['s']))
 def run(code):
     """execute one chunk the way t.sh does (as a function body) and return its result as the string the rig would send back."""
     global _rt
@@ -136,7 +150,13 @@ if __name__ == '__main__':
           'for i=1,10 do TaskVehicleTempAction(1,v,23,%d) Wait(%d) end return tostring(#(GetEntityCoords(v)-c0))')
     reset(); assert float(run(MV % ('', 200, 200))) == 0.0, 'the mock moved the car on 200 ms slices (an unproven drive method)'
     reset(); assert float(run(MV % ('SetEntityMaxSpeed(v,2.8)', 300, 300))) == 0.0, 'the mock moved a standing car under a 2.8 m/s cap'
-    reset(); assert float(run(MV % ('', 300, 300))) > 2.0, 'the mock did not move the car on the proven 300 ms slices'
+    reset(); assert float(run(MV % ('', 300, 300))) > 2.0, 'the mock did not move the car on 300 ms slices'
+    # the old slice cruise (gas below want-0.8, brake above want+1.0, coast between) must swing far outside 1.5-3.5 under the rig's lag
+    reset(); sw = run('local v=CreateVehicle(1,0.0,0.0,0.0,0.0) _G.__jjv=v Wait(2000) TaskWarpPedIntoVehicle(1,v,-1) exports.c9_vehiclekeys:ToggleEngine() local lo,hi=99,0 '
+                      'for i=1,40 do local sp=GetEntitySpeed(v) if i>8 then lo=math.min(lo,sp) hi=math.max(hi,sp) end local a=0 if sp<1.7 then a=23 elseif sp>3.5 then a=1 end '
+                      'if a~=0 then TaskVehicleTempAction(1,v,a,300) end Wait(300) end return string.format("%.2f:%.2f",lo,hi)')
+    lo_, hi_ = map(float, sw.split(':')); print(f'  plant: the old slice cruise swings {lo_:.2f}-{hi_:.2f} m/s in the rig-fitted mock (rig: 0.0-5.75)')
+    assert lo_ < 1.5 and hi_ > 3.5, 'the rig-fitted mock lets the old slice cruise hold its speed'
     reset()   # plant: the old raw engine start (spawn engine on, warp, SetVehicleEngineOn) must leave the car dead under the keys guard
     assert run('local v=CreateVehicle(1,0.0,0.0,0.0,0.0) SetVehicleEngineOn(v,true,true,false) Wait(2000) TaskWarpPedIntoVehicle(1,v,-1) SetVehicleEngineOn(v,true,true,false) '
                'local c0=GetEntityCoords(v) TaskVehicleTempAction(1,v,23,300) return tostring(#(GetEntityCoords(v)-c0))') == '0.0', 'the mock keys guard did not stop a raw engine start'
@@ -159,8 +179,9 @@ if __name__ == '__main__':
         st = P.drive_selftest()[0]; print('  drive_selftest:', str(st)[:300])
         print('  self-test cruise held 5 s:', st.get('cruise_2_5_held_5s'), 'speeds per slice:', st.get('speeds_per_slice', [])[:40])
         if st.get('moved_m', 0) < 2.0: bad.append(f"drive_selftest: the car did not move in the mock ({st.get('moved_m')} m)")
-        if not st.get('ok'): bad.append(f"drive_selftest: not ok in the mock (roll-up {st.get('rollup_shut_open_shut')}, cruise held {st.get('cruise_2_5_held_5s')}, speeds {st.get('speeds_per_slice', [])[:12]})")
-        print('  drive_plant (same Lua state, straight after the self-test as on the rig):', str(P.drive_plant()[0])[:200])
+        if not st.get('ok'): bad.append(f"drive_selftest: not ok in the mock (roll-up {st.get('rollup_shut_open_shut')}, speed held {st.get('cruise_2_5_held_5s')}, speeds {st.get('speeds_per_slice', [])[:12]})")
+        pl = P.drive_plant()[0][0]; print('  drive_plant (same Lua state, straight after the self-test as on the rig): impacts', pl['impacts'], pl['first_impacts_u_v_nx_ny_nz'][:2])
+        if pl['impacts'] < 1: bad.append('drive_plant: no impact registered while the governor set the speed (the plant must hit the wall)')
     except SystemExit as e: bad.append(f'drive_selftest stopped: {str(e)[:160]}')
     except Exception as e: bad.append(f'drive_selftest: {type(e).__name__}: {e}')
     for name in ('walk_plant', 'rooms', 'models'):

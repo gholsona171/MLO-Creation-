@@ -195,19 +195,22 @@ def _rollup():
             'elseif mode=="shut" then reg() DoorSystemSetHoldOpen(DH,false) DoorSystemSetOpenRatio(DH,0.0,false,true) DoorSystemSetDoorState(DH,1,false,true) Wait(5000) '
             'else if IsDoorRegisteredWithSystem(DH) then DoorSystemSetDoorState(DH,0,false,true) RemoveDoorFromSystem(DH) end end end ') % (rux, ruy, ruz, J.ROLLUP[0])
     return lua_
-# ONE driving method for the self-test, the plant and the drive. Rig 2026-10-30: TaskVehicleTempAction in 300 ms slices moved the car
-# 27 m, 200 ms slices left it standing; and with SetEntityMaxSpeed at 2.8 the gas slices could not start the car at all (trace: speed
-# 0.01-0.02 at the spawn) - so NO speed cap: the speed is held by the slices themselves. cruise(v, want, rev): below want-0.8 a gas slice
-# (23, or 22 reversing), above want+1.0 a brake slice (1), in between a coast slice (no action). A slice is SLICE_MS, never shorter;
-# the band follows the car: the rig self-test (26-27 m on 8 gas + 4 brake slices) puts low-speed gas at ~5.5 m/s2, so ONE 300 ms gas
-# slice adds ~1.65 m/s and no slice loop can hold +-0.7; at 2.5 it holds ~1.6-3.4.
-# meanwhile tk() runs every frame. Steering = heading hold on the drive line: a drift over 1.5 deg is set back to the line heading (the
-# plant starts 4.5 m off the line and holds the same heading, so it drives straight into the wall). No AI drive task. The self-test
-# proves this exact loop: cruise at 2.5 m/s held within 1.5-3.5 for 5 s, every slice's speed logged.
+# ONE driving method for the self-test, the plant and the drive: a per-frame SPEED GOVERNOR. Rig 2026-10-30: temp-action gas slices could
+# not hold a speed - each 300 ms gas slice kept pulling about one slice longer and each brake slice nearly stopped the car (2.5 wanted,
+# 0.0-5.75 m/s seen); 200 ms slices and a SetEntityMaxSpeed cap left it standing. govern(v, h, rev, want_fn, tk, tmax): every frame
+# want_fn() gives the target speed (nil = done), the speed steps toward it at most +2.0 / -3.0 m/s2 and is SET with
+# SetVehicleForwardSpeed (negative reversing); the heading hold runs every 250 ms (a drift over 1.5 deg is set back to the line
+# heading; the plant starts 4.5 m off the line with the same heading, so it drives straight into the wall); tk() runs every frame and
+# returning true (a new impact) stops the push - physics still resolves the hit, and the governor must not keep ramming. Ends at 0.
+# slice(v, a, tk): one 300 ms temp action, kept only for the brake (1) that parks the car. The engine stays on (the keys script).
+# The self-test proves the governor itself: 2.5 m/s held within +-0.7 for 5 s, every 300 ms speed logged.
 SLICE_MS = 300
-DRV = ('local function slice(v,a,tk) if a~=0 then TaskVehicleTempAction(PlayerPedId(),v,a,%d) end local t=GetGameTimer() while GetGameTimer()-t<%d do Wait(0) if tk then tk() end end end '
-       'local function cruise(v,want,rev,tk) local sp=GetEntitySpeed(v) local a=0 if sp<math.max(0.2,want-0.8) then a=rev and 22 or 23 elseif sp>want+1.0 then a=1 end slice(v,a,tk) return a end '
+DRV = ('local function slice(v,a,tk) TaskVehicleTempAction(PlayerPedId(),v,a,%d) local t=GetGameTimer() while GetGameTimer()-t<%d do Wait(0) if tk then tk() end end end '
        'local drift=0.0 local function hold(v,h) local d=math.abs(math.fmod((GetEntityHeading(v)-h)+540.0,360.0)-180.0) if d>drift then drift=d end if d>1.5 then SetEntityHeading(v,h) end end '
+       'local function govern(v,h,rev,want_fn,tk,tmax) local s=GetEntitySpeed(v) local t0=GetGameTimer() local tl,th=t0,t0 '
+       'while GetGameTimer()-t0<tmax do Wait(0) local now=GetGameTimer() local dt=math.min(0.1,(now-tl)/1000.0) tl=now local w=want_fn() if w==nil then break end '
+       'local d=w-s if d>2.0*dt then d=2.0*dt elseif d<-3.0*dt then d=-3.0*dt end s=math.max(0.0,s+d) SetVehicleForwardSpeed(v,rev and -s or s) '
+       'if now-th>=250 then hold(v,h) th=now end if tk and tk() then break end end SetVehicleForwardSpeed(v,0.0) return s end '
        % (SLICE_MS, SLICE_MS))
 # every vehicle near the bay goes before a test car is made - mission entities too (ClearAreaOfVehicles leaves those: a car left by an
 # earlier run blocked two test cars at their spawn, rig 2026-10-30). Returns how many were removed and how many are still there.
@@ -267,20 +270,21 @@ def _spawn(m, su, sv, h_in):
 def drive_selftest():
     """each piece of the drive test on its own (rig 2026-10-30: the first two cars never moved, the roll-up read 0 while a car drove
     under it): (1) the roll-up read-back through the door system: forced shut (locked) ~0, opened > 1.0, shut again ~0, then released; (2) a car spawned in the cleared
-    street on the line, driven by the drive's own speed loop (DRV cruise), holds 2.5 m/s within 1.5-3.5 for 5 s; (3) it is deleted for certain."""
+    street on the line, driven by the drive's own speed governor (DRV govern), holds 2.5 m/s within +-0.7 for 5 s; (3) it is deleted for certain."""
     h_in = (270.0 + F.HDEG) % 360; res = {}
     r = lua((_rollup() + 'dsys("shut") local a=dopen() dsys("open") local b=dopen() dsys("shut") local c=dopen() dsys("release") return string.format("%.2f:%.2f:%.2f",a,b,c)'), 60).split(':')
     a, b, c = map(float, r); res['rollup_shut_open_shut'] = [a, b, c]; door_ok = a >= 0 and a < 0.3 and b > 1.0 and c < 0.3
     su = J.JBOX[0] - 16.0; purged, eng = _spawn('police', su, J.DRIVE_V, h_in)
-    # the shared method (DRV) itself: cruise at 2.5 m/s on the line heading (the roll-up held open by the door system meanwhile) until the
-    # speed has stayed within 1.5-3.5 for 5 s (at most 25 s and 25 m: the nose stays short of the stop), then brake; the engine is read
-    # every slice (the keys guard)
+    # the shared method (DRV) itself: the governor at 2.5 m/s on the line heading (the roll-up held open by the door system meanwhile) until
+    # the speed has stayed within 1.8-3.2 for 5 s (at most 25 s and 25 m: the nose stays short of the stop), then the brake; the engine
+    # and the speed are read every 300 ms
     r = lua((_rollup() + DRV + 'local p=PlayerPedId() local v=_G.__jjv local c0=GetEntityCoords(v) local off=0 dsys("open") '
-             'local ws=nil local held=false local sps={} local t0=GetGameTimer() '
-             'while GetGameTimer()-t0<25000 and #(GetEntityCoords(v)-c0)<25.0 do cruise(v,2.5,false) hold(v,%.1f) local sp=GetEntitySpeed(v) '
+             'local ws=nil local held=false local sps={} local tt=0 '
+             'local function w() if #(GetEntityCoords(v)-c0)>=25.0 then return nil end if GetGameTimer()-tt>=300 then tt=GetGameTimer() local sp=GetEntitySpeed(v) '
              'if not GetIsVehicleEngineRunning(v) then off=off+1 end if #sps<90 then sps[#sps+1]=string.format("%%.2f",sp) end '
-             'if sp>=1.5 and sp<=3.5 then ws=ws or GetGameTimer() if GetGameTimer()-ws>=5000 then held=true break end else ws=nil end end '
-             'for i=1,6 do slice(v,1) end local d=#(GetEntityCoords(v)-c0) local fr=IsEntityPositionFrozen(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
+             'if sp>=1.8 and sp<=3.2 then ws=ws or GetGameTimer() if GetGameTimer()-ws>=5000 then held=true return nil end else ws=nil end end return 2.5 end '
+             'govern(v,%.1f,false,w,nil,25000) '
+             'for i=1,5 do slice(v,1) end local d=#(GetEntityCoords(v)-c0) local fr=IsEntityPositionFrozen(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
              'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys("shut") dsys("release") '
              'return string.format("%%.2f:%%s:%%s:%%d:%%.1f:%%s:",d,tostring(fr),tostring(gone),off,drift,tostring(held))..table.concat(sps,",")') % h_in, 90).split(':')
     moved, frozen, gone, off, held = float(r[0]), r[1], r[2] in ('true', '1'), int(r[3]), r[5] in ('true', '1')
@@ -292,8 +296,8 @@ def drive(models=None, plant=False):
     """the test player drives each vehicle from Macdonald St straight into the sally port to its stop and backs it straight out to the
     street. The roll-up is opened through the DOOR SYSTEM for the car's whole run (in and out), as the client's lock system will (Antonio
     2026-10-29: "client add locks"), then shut and released. Every car starts on a purged street, on the line, keyed, engine on
-    (_spawn) and must be seen moving; it is driven by the shared method DRV (cruise: gas / coast / brake slices, no speed cap; heading hold); the stop: the speed tapers with the distance left and the brakes go on in time (rig 2026-10-30:
-    the van overshot to -28.02). Logged: impacts (wall / door / kerb faces, debounced - not floor contact) going in and backing out
+    (_spawn) and must be seen moving; it is driven by the shared speed governor DRV govern (target 2.5 m/s tapering with the distance left to 0.3, set every frame; heading
+    hold; an impact stops the push), parked by the brake (rig 2026-10-30: the van overshot to -28.02 under slice control). Logged: impacts (wall / door / kerb faces, debounced - not floor contact) going in and backing out
     with the first five impacts' spot and normal; body health; the nose stop; the final spot; the roll-up's opening on each leg
     (read from the door object found anew each time, against its placement). plant=True: 4.5 m off the line - it must hit the wall."""
     out = []; ok_all = True; h_in = (270.0 + F.HDEG) % 360
@@ -306,16 +310,15 @@ def drive(models=None, plant=False):
                  'local function uv() local c=GetEntityCoords(v) local d=vector2(c.x,c.y)-O return d.x*Hd.x+d.y*Hd.y, d.x*Nm.x+d.y*Nm.y end local function u() local a=uv() return a end '
                  'local half=%.2f local ud=%.3f local dIn,dOut=0.0,0.0 local u0=u() '
                  'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then '
-                 'hits=hits+1 last=GetGameTimer() if #imp<5 then local a,b=uv() imp[#imp+1]=string.format("%%.2f/%%.2f/%%.2f/%%.2f/%%.2f",a,b,n.x,n.y,n.z) end end end end '
+                 'hits=hits+1 last=GetGameTimer() if #imp<5 then local a,b=uv() imp[#imp+1]=string.format("%%.2f/%%.2f/%%.2f/%%.2f/%%.2f",a,b,n.x,n.y,n.z) end return true end end return false end '
                  'local Hh=%.1f local tr={} local want=0.0 local function trace(tag) if #tr<90 then local a,b=uv() tr[#tr+1]=string.format("%%s/%%.2f/%%.2f/%%.2f/%%d/%%.1f",tag,a,b,GetEntitySpeed(v),GetIsVehicleEngineRunning(v) and 1 or 0,want) end end '
                  'dsys("open") local dPre=dopen() '
-                 'trace("s") local t0=GetGameTimer() while GetGameTimer()-t0<50000 do local rem=%.3f-(u()+half) local sp=GetEntitySpeed(v) '
-                 'if rem<=0.25+sp*0.5 then break end if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end '
-                 'want=math.max(0.6,math.min(2.5,rem*0.3)) cruise(v,want,false,tick) hold(v,Hh) trace("i") end '
-                 'for i=1,8 do slice(v,1,tick) end hin=hits local cin=GetEntityCoords(v) local moved=u()-u0 local t1=GetGameTimer() '
-                 'while GetGameTimer()-t1<60000 and u() > %.3f do local rear=u()-half if math.abs(rear-ud)<4.0 then dOut=math.max(dOut,dopen()) end '
-                 'want=1.8 cruise(v,want,true,tick) hold(v,Hh) trace("o") end '
-                 'for i=1,7 do slice(v,1,tick) end local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
+                 'trace("s") local tt=0 local function win() local rem=%.3f-(u()+half) if rem<=0.05 then return nil end want=math.max(0.3,math.min(2.5,rem*0.6)) '
+                 'if GetGameTimer()-tt>=300 then tt=GetGameTimer() if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end trace("i") end return want end '
+                 'govern(v,Hh,false,win,tick,50000) for i=1,5 do slice(v,1,tick) end hin=hits local cin=GetEntityCoords(v) local moved=u()-u0 '
+                 'local function wout() if u() <= %.3f then return nil end want=1.8 '
+                 'if GetGameTimer()-tt>=300 then tt=GetGameTimer() if math.abs(u()-half-ud)<4.0 then dOut=math.max(dOut,dopen()) end trace("o") end return want end '
+                 'govern(v,Hh,true,wout,tick,60000) for i=1,5 do slice(v,1,tick) end local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
                  'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys("shut") dsys("release") '
                  'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:%%.2f:%%.2f:%%.1f:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone),dPre,moved,drift)..table.concat(imp,",")..":"..table.concat(tr,",")')
                 % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, h_in, J.DRIVE_STOP, J.JBOX[0] - 8.0), 220).split(':')
