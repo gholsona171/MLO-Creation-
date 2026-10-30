@@ -183,7 +183,8 @@ def drive(models=None, plant=False):
     street (a player's line: the bay is one straight drive along the door's centre line). The vehicle is spawned by script facing the
     door, engine on, the server's key given (c9_vehiclekeys.GiveKeysByPlate: the server blocks keyless driving); the player ped drives it
     with temp actions (23 gas / 22 reverse / 1 brake, short pulses: the AI route planner would leave the bay for the street's nodes).
-    Logged: collisions (HasEntityCollidedWithAnything every frame), body health before / after, the stop and the final positions.
+    Logged: impacts (wall / door / kerb faces, debounced - not floor contact), body health, the nose stop against the planned stop (it
+    must stop short of the platform kerb), the final position, and the roll-up's physical opening going in and backing out.
     plant=True: the same drive 4.5 m off the centre line - it must hit the wall beside the door."""
     out = []; ok_all = True; h_in = (270.0 + F.HDEG) % 360                 # facing +u (into the bay)
     dv = J.DRIVE_V + (-4.5 if plant else 0.0)
@@ -196,24 +197,38 @@ def drive(models=None, plant=False):
                      'SetVehicleEngineOn(v,true,true,false) _G.__jjv=v Wait(300) return GetVehicleNumberPlateText(v)') % (m, sx, sy, J.SALLY_Z + 0.5, h_in), 30)
         r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh srv "$0" 20', "return tostring(exports.c9_vehiclekeys:GiveKeysByPlate(1,'%s',true))" % plate.strip()], capture_output=True, text=True, timeout=60)
         if 'true' not in r.stdout: raise SystemExit('PROBE: the server gave no key - nothing was tested: ' + r.stdout[-200:])
-        # nose target: the stop; tail target out: the car's centre back on the street
-        r = lua(('local p=PlayerPedId() local v=_G.__jjv TaskWarpPedIntoVehicle(p,v,-1) Wait(1500) local b0=GetVehicleBodyHealth(v) local hits=0 '
+        # nose target: the stop; tail target out: the car's centre back on the street. IMPACTS, not contact: a frame counts only when the
+        # last hit's normal is not the ground's (|n.z| < 0.6: a wall, a door, a kerb face) and 0.6 s after the previous impact (rig
+        # 2026-10-29: HasEntityCollidedWithAnything alone counted ~2300 frames of rolling on the floor). The roll-up's state is read
+        # PHYSICALLY (its object's offset + pitch from its placement) while the car is within 4 m of it, going in and coming out.
+        rux, ruy = W(J.JBOX[0] + 0.275, J.DRIVE_V); ruz = J.SALLY_Z + J.ROLLUP[2] / 2
+        r = lua(('local p=PlayerPedId() local v=_G.__jjv TaskWarpPedIntoVehicle(p,v,-1) Wait(1500) local b0=GetVehicleBodyHealth(v) local hits,last=0,0 '
                  'local O=vector2(%.3f,%.3f) local Hd=vector2(math.cos(math.rad(%.4f)),math.sin(math.rad(%.4f))) local function u() local c=GetEntityCoords(v) local d=vector2(c.x,c.y)-O return d.x*Hd.x+d.y*Hd.y end '
-                 'local half=%.2f local t0=GetGameTimer() '
-                 'while GetGameTimer()-t0<40000 and u()+half < %.3f do TaskVehicleTempAction(p,v,(GetEntitySpeed(v)<2.5) and 23 or 6,300) local t=GetGameTimer() while GetGameTimer()-t<300 do Wait(0) if HasEntityCollidedWithAnything(v) then hits=hits+1 end end end '
-                 'TaskVehicleTempAction(p,v,1,2000) local tb=GetGameTimer() while GetGameTimer()-tb<2000 do Wait(0) if HasEntityCollidedWithAnything(v) then hits=hits+1 end end '
-                 'local cin=GetEntityCoords(v) local t1=GetGameTimer() '
-                 'while GetGameTimer()-t1<40000 and u() > %.3f do TaskVehicleTempAction(p,v,(GetEntitySpeed(v)<2.0) and 22 or 6,300) local t=GetGameTimer() while GetGameTimer()-t<300 do Wait(0) if HasEntityCollidedWithAnything(v) then hits=hits+1 end end end '
-                 'TaskVehicleTempAction(p,v,1,2000) Wait(2000) local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) DeleteEntity(v) '
-                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f",hits,b0,b1,cin.x,cin.y,c2.x,c2.y)') % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.DRIVE_STOP, J.JBOX[0] - 8.0), 150).split(':')
-        hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6]))
-        good = hits == 0 and b1 >= b0 - 1.0 and ui + L_ / 2 > J.DRIVE_STOP - 1.0 and uo < J.JBOX[0] - 5.0
-        out.append({'vehicle': m, 'collisions': hits, 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(ui + L_ / 2, 2), 'stop_v': round(vi, 2), 'out_uv': [round(uo, 2), round(vo, 2)], 'ok': good})
+                 'local half=%.2f local ud=%.3f local door=GetClosestObjectOfType(%.3f,%.3f,%.3f,3.0,GetHashKey("%s"),false,false,false) '
+                 'local dp0=door~=0 and GetEntityCoords(door) or vector3(0,0,0) local dr0=door~=0 and GetEntityRotation(door,2) or vector3(0,0,0) local dIn,dOut=0.0,0.0 '
+                 'local function dopen() if door==0 then return -1.0 end local r_=GetEntityRotation(door,2) return #(GetEntityCoords(door)-dp0)+math.abs(r_.x-dr0.x)/30.0+math.abs(r_.y-dr0.y)/30.0 end '
+                 'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then hits=hits+1 last=GetGameTimer() end end end '
+                 'local function drive(action,ms) TaskVehicleTempAction(p,v,action,ms) local t=GetGameTimer() while GetGameTimer()-t<ms do Wait(0) tick() end end '
+                 'local t0=GetGameTimer() while GetGameTimer()-t0<45000 do local rem=%.3f-(u()+half) if rem<=0.0 then break end '
+                 'if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end local want=math.max(0.7,math.min(2.5,rem*0.35)) drive(GetEntitySpeed(v)<want and 23 or 6,250) end '
+                 'drive(1,2000) local cin=GetEntityCoords(v) local t1=GetGameTimer() local paused=false '
+                 'while GetGameTimer()-t1<60000 and u() > %.3f do local rear=u()-half '
+                 'if not paused and rear-ud < 2.5 then drive(1,1500) local tp=GetGameTimer() while GetGameTimer()-tp<3000 do Wait(0) dOut=math.max(dOut,dopen()) end paused=true end '
+                 'if math.abs(rear-ud)<4.0 then dOut=math.max(dOut,dopen()) end drive(GetEntitySpeed(v)<1.8 and 22 or 6,250) end '
+                 'drive(1,2000) local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) DeleteEntity(v) '
+                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut)')
+                % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, rux, ruy, ruz, J.ROLLUP[0], J.DRIVE_STOP, J.JBOX[0] - 8.0), 180).split(':')
+        hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6])); d_in, d_out = float(r[7]), float(r[8])
+        nose = ui + L_ / 2
+        good = hits == 0 and b1 >= b0 - 1.0 and J.DRIVE_STOP - 1.0 < nose < J.PLATFORM[0] - 0.3 and uo < J.JBOX[0] - 5.0
+        out.append({'vehicle': m, 'impacts': hits, 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,
+                    'platform_kerb_u': J.PLATFORM[0], 'stop_v': round(vi, 2), 'out_uv': [round(uo, 2), round(vo, 2)],
+                    'rollup_open_going_in': round(d_in, 2), 'rollup_open_backing_out': round(d_out, 2), 'ok': good})
         ok_all &= good
     return out, ok_all
 def drive_plant():
     res, ok = drive(models=['police'], plant=True)                      # aimed 2 m past the stop and 4 m to the side: into the platform / ramp
-    return res, any(r['collisions'] > 0 or r['body_after'] < r['body_before'] - 1.0 for r in res)
+    return res, any(r['impacts'] > 0 for r in res)                     # proof: an off-line drive must register an IMPACT (not just contact)
 if __name__ == '__main__':
     fails = 0
     try:

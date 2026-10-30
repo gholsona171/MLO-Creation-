@@ -480,3 +480,8 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   filming door opener had failed to close). Plant a target inside the building's solid hull, and count "arrived" only with the root ~1 m
   over the target floor (never on another level).
 - Lua sent to the rig is compiled offline first (`jj_luacheck.py`, lupa's Lua runtime, proven on a planted syntax error).
+- **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
+  run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous
+  impact; prove it on an off-line drive into a wall. Read a garage door PHYSICALLY (object offset + pitch from its placement) while the
+  car is near it: the sally-port roll-up (map door flags) opened for a car arriving from the street, then the cars reversing out stopped
+  with their rears on its line - it had closed behind them.
