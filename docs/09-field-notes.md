@@ -414,3 +414,12 @@ night-light (emissive) models keep 1.0. Check at 23:00 next to vanilla buildings
   `_manifest.ymf`, run its stream gate and the deploy check. Never assemble half-built outputs to get one MLO out.
 - **Windows Python + bash paths:** pass `cygpath -w` paths to py -3. A `/c/...` path is read as `C:\c\...`, and a check that cannot
   find its files must fail, never pass.
+- **A roll-up in an outer-wall opening as a plain map entity needs Rockstar's MAP DOOR flags (1572864)**, not the plain entity default
+  (32) a generic ymap writer puts on everything: with 32 the jail's sally-port roll-up stood as a wall and three test cars stopped
+  nose-on against it (the drive test's collision log + video). Tower City's parking roll-ups were written with 1572864 explicitly.
+- **Driving a test vehicle on a server with a keys resource:** keyless cars won't start (c9_vehiclekeys holds the engine off): spawn it
+  with the engine on, give the player the key on the server (`exports.c9_vehiclekeys:GiveKeysByPlate(src, plate, true)`), then drive
+  with short `TaskVehicleTempAction` pulses (23 gas, 22 reverse, 1 brake) along a straight line. `TaskVehicleDriveToCoord` re-routes
+  over the street's road nodes and left the bay; `SetControlNormal` did nothing in the harness thread.
+- **Rig tests are run by main, not by agents (Antonio, 2026-10-29).** An agent hands over one unattended runner per area
+  (`tools/justice/p4/jj_rig_tests.sh <test>`: deploy check first, each test ends with one `JJ_TEST <name> PASS|FAIL` line).
