@@ -24,6 +24,10 @@ for d in L['doors']:                                                       # (ga
     e.update({'street': True, 'stand_outside': W(u + 1.5, v, zf), 'stand_inside': W(u - 1.5, v, zf)})
     if d['name'] in ROLLUPS: e['lock'] = 'garage door: the buyer adds it to the server door-lock config (it does not open for a car by itself)'
     doors.append(e)
+import jc3_pgarage as JGAR
+GARAGE = {'level': 'B1', 'floor_z': JGAR.ZB, 'clear_height_m': round(JGAR.CEIL_B - 0.02 - JGAR.ZB, 2), 'bays': len(JGAR.bays()),
+          'sized_for': "patrol cars (design vehicle police3 / police4, %.2f x %.2f m); the transport van uses Jail I's sally port" % JGAR.VEHICLES['police3'],
+          'doors': ['pramp_in_rollup (IN, south)', 'pramp_out_rollup (OUT, north)'], 'one_way': 'IN ramp -> loop -> OUT ramp'}
 seats = [{'pos': W(*s[:3]), 'heading': H(s[3]), 'scenario': 'PROP_HUMAN_SEAT_BENCH', 'model': JP.BENCH, 'tested': False} for s in L['seats']]
 zones = {k: [{'min': W(r[0], r[2], r[4]), 'max': W(r[1], r[3], r[5]), 'lot_box': r} for r in rs] for k, rs in L['zones'].items()}
 ia = [{'kind': 'security_desk', 'pos': W(JP.DESK['u'][0] - 0.95, 0.0, JP.G), 'heading': H(270.0)},
@@ -32,6 +36,6 @@ for i, (bv, dv) in enumerate(JP.LANES):
     ia += [{'kind': 'xray_belt', 'lane': i + 1, 'load': W(JP.SCREEN_U + 1.9, bv, JP.G), 'collect': W(JP.SCREEN_U - 1.9, bv, JP.G)},
            {'kind': 'metal_detector', 'lane': i + 1, 'in': W(JP.SCREEN_U + 1.0, dv, JP.G), 'out': W(JP.SCREEN_U - 1.0, dv, JP.G)}]
 out = {'mlo': L['mlo'], 'origin': L['origin'], 'heading': L['heading'], 'note': 'phase 3 courts + Police HQ (jc_courts): world coordinates, GTA headings; street_doors = every door to outside',
-       'street_doors': doors, 'interior_doors': inner, 'seats': seats, 'zones': zones, 'interactions': ia, 'floors': {'galleria': JP.G}}
+       'street_doors': doors, 'interior_doors': inner, 'police_garage': GARAGE, 'seats': seats, 'zones': zones, 'interactions': ia, 'floors': {'galleria': JP.G}}
 d = P3 / 'out/mlo-data'; d.mkdir(parents=True, exist_ok=True); json.dump(out, open(d / 'jc_courts.json', 'w'), indent=1)
 print('JC3_MLO_DATA', len(doors), 'street doors', len(inner), 'interior doors', len(seats), 'seats', len(ia), 'interactions')

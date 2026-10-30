@@ -11,7 +11,7 @@ against its placement (position offset + pitch / roll).
   gdrive_selftest  both read-backs read shut / open / shut; a car on the IN lane moves >= 2 m on 8 gas slices; it is deleted
   gdrive_control   the open IN lane (u 62 -> 50, nothing built in it: jc3_corridor.py) arrives with 0 impacts; a run into the solid
                    stone at v -46.1 (target inside the building) does NOT arrive and counts impacts
-  gdrive / _van    police3 / policet: IN door -> ramp -> loop -> nose into a row-4 bay -> back out -> U-turn -> OUT ramp -> OUT door"""
+  gdrive           police3 (the garage is for patrol cars): IN door -> ramp -> loop -> nose into a row-4 bay -> back out -> U-turn -> OUT ramp -> OUT door"""
 import json, math, sys, subprocess
 from pathlib import Path
 P3 = Path(__file__).resolve().parent; WK = P3.parent; sys.path[:0] = [str(P3), str(WK), str(WK / 'jail')]
@@ -168,4 +168,3 @@ def gdrive(model='police3'):
     return {'vehicle': model, 'purged_before_spawn': purged, 'engine_fuel': eng, 'doors_open_before': pre, 'door_in_open_at_car': din,
             'door_out_open_at_car': dout, 'doors_after_shut': post, 'deleted': gone, 'impacts': sum(l['impacts'] for l in legs),
             'legs_done': f'{len(legs)}/{len(pts) - 1}', 'legs': legs, 'ok': ok}, ok
-def gdrive_van(): return gdrive('policet')

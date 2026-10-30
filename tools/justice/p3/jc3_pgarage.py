@@ -46,18 +46,19 @@ OPEN_U = (U_FOOT, U_TOP)                                                  # L1's
 # ---------------- the loop on B1 ----------------
 UT_R = 5.5                                                                # the U-turn / IN turn radius (path centre line); 6.0 put the
                                                                           # U-turn 2.5 m off the IN lane once the lane cleared the lining
-# the test vehicles (jj_plan.VEHICLES sizes): width, length
-VEHICLES = {'police3': (2.05, 5.05), 'policet': (2.30, 6.20)}
-DRIVE_VEHICLES = ('police3',)          # the loop is gated for the patrol car; the van (policet) does not fit the loop (2026-10-30 sweep):
-                                       # Antonio decides (main asked) - jc3_drive_sweep.py prints its result as information
+# the garage is sized for PATROL CARS (Antonio 2026-10-30: the transport van uses Jail I's sally port - a 6.2 m van does not fit this
+# loop's turns at the ramp feet). The design vehicle (jj_plan.VEHICLES' police4 = police3): width, length
+VEHICLES = {'police3': (2.05, 5.05)}
 MARG = 0.15                                                               # clearance kept round the body (the swept-path gate's margin)
-def swing(r, veh='policet'):
+def swing(r, veh='police3'):
     """how far a vehicle's corners reach past its path line on a turn of radius r: the drive probe turns the body about its centre
     (heading set, jj_probe's heading hold), so the outer corners sweep a circle of hypot(r + w/2, l/2) (+ the margin)."""
-    w, l = VEHICLES[veh]; return math.hypot(r + w / 2 + MARG, l / 2 + MARG) - r
+    w, l = VEHICLES[veh]; return math.hypot(r + w / 2 + MARG, l / 2 + MARG) - r + STEER
+STEER = 0.3                                                               # the probe drives chords between the arc's waypoints and turns at
+                                                                          # most 0.9 deg a frame: its corners run up to ~0.3 m wider than the arc
 IN_R = 6.0                                                                # the IN turn (W -> N) at the ramp foot
-IN_X = CLEAR[0] + swing(IN_R)                                             # 13.14: the IN lane's line up the west aisle - the turn's swing off the
-                                                                          # LINING's face (11.95 from the wall line: the van pressed the lining)
+IN_X = CLEAR[0] + swing(IN_R)                                             # 12.81: the IN lane's line up the west aisle - the turn's swing off the
+                                                                          # LINING's face (11.95 from the wall line: the cars pressed the lining)
 IN_S = max(IN_C, CLEAR[2] + swing(IN_R))                                  # the deck approach to the IN turn: the lane, unless the swing needs more
 WEST_AISLE = (B1[0], 17.35)                                               # IN northbound (west half) + the U-turn's west edge
 RET_V = OUT_C + 2 * UT_R                                                  # -38.0: the return aisle's centre line
@@ -98,7 +99,7 @@ PARALLEL = (B1[1] - 2.2, B1[1], -36.0, NORTH_AISLE[0] - 1.0)          # parallel
 COLUMNS = [(u, v) for u in (WEST_AISLE[1] + BAY_D, MID_AISLE[1], EAST_AISLE[0] - BAY_D) for v in (-35.0, -27.2, -19.4)]
 # ---------------- the drive loop (one definition: the plan test, the plan drawing, the rig drive and the swept-path gate) ----------------
 RC = 6.0                                                                  # the loop's corner radius (path centre line)
-NORTH_V = CLEAR[3] - swing(RC)                                            # -10.24: the north aisle's line, the corners' swing off the north wall
+NORTH_V = CLEAR[3] - swing(RC)                                            # -9.91: the north aisle's line, the corners' swing off the north wall
 EAST_U = (EAST_AISLE[0] + PARALLEL[0]) / 2                                # 40.3: the east aisle's lane, beside the parallel bays
 def _arc(c, r, a0, a1, n, spd):
     return [(c[0] + r * math.cos(a0 + (a1 - a0) * k / n), c[1] + r * math.sin(a0 + (a1 - a0) * k / n), spd) for k in range(1, n + 1)]

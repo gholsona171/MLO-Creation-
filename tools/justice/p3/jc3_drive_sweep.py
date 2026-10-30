@@ -4,10 +4,10 @@ length, + MARGIN each side) is moved along the drive probe's own route (jc3_gdri
 centre on the polyline, heading = the travel direction, tail first on reverse legs) every STEP m, and tested against:
   * every built triangle of the garage rooms (pdeck, pramp_in, pramp_out) and the street (phase 2 police + site drawn, exterior
     collision, the lot slab) that is not a driving surface (near-horizontal faces at or under the floor there are skipped), whose height overlaps the body (floor + 0.15 .. floor +
-    height - no roof margin: B1's lamps hang 2 cm over the 2.70 m van, the ceiling plate 8 cm - the floor taken where the obstacle stands; floor = B1 / the ramp profile / the street);
+    height - no roof margin - the floor taken where the obstacle stands; floor = B1 / the ramp profile / the street);
   * every placed prop in the garage rooms (its survey bounding box, turned by its heading, at its base);
   * the driveway bollards (p2_site.BOLLARDS, 0.25 m square).
-Gated: jc3_pgarage.DRIVE_VEHICLES; any other vehicle's result is printed as INFO (not a pass / fail).
+The vehicles: jc3_pgarage.VEHICLES (the garage is sized for patrol cars).
 Proof: --plant puts a 0.6 m column on the route at the IN turn; it must be found. Run: py -3 jc3_drive_sweep.py [--plant]
 Prints DRIVE_SWEEP_PASS / DRIVE_SWEEP_FAIL (per vehicle: hits with the route position, the thing hit and its source)."""
 import json, math, sys
@@ -68,7 +68,7 @@ def poses(pts):
         a = math.atan2(v1 - v0, u1 - u0) + (math.pi if spd < 0 else 0.0)
         for k in range(max(1, int(d / STEP))): t = k * STEP / d; out.append((u0 + (u1 - u0) * t, v0 + (v1 - v0) * t, a))
     return out
-HEIGHT = {'police3': 1.60, 'policet': 2.70}                                # jj_plan.VEHICLES heights (police3 = police4's)
+HEIGHT = {'police3': 1.60}                                                 # jj_plan.VEHICLES' police4 height
 def sweep(model, obs, tree, route):
     w, l = VEH[model]; h = HEIGHT[model]; hits = {}
     for u, v, a in poses(route):
@@ -88,8 +88,7 @@ def main():
         if plant:
             assert any(k[0] == 'PLANT' for k in hits), f'{m}: the planted column on the IN turn was not found - the sweep is broken'
             continue
-        gated = m in G.DRIVE_VEHICLES; print(f'{"" if gated else "INFO (not gated) "}{m} ({VEH[m][0]} x {VEH[m][1]} m + {MARGIN}): {len(hits)} hit(s)')
-        bad += len(hits) if gated else 0
+        print(f'{m} ({VEH[m][0]} x {VEH[m][1]} m + {MARGIN}): {len(hits)} hit(s)'); bad += len(hits)
         for (lab, x, y), at in list(hits.items())[:12]: print(f'   {lab:28s} at ({x}, {y})  car at u, v, heading {at}')
     if plant: print('DRIVE_SWEEP_PLANT_FOUND'); return 0
     print('DRIVE_SWEEP_PASS' if not bad else 'DRIVE_SWEEP_FAIL'); return 1 if bad else 0

@@ -12,6 +12,17 @@ CEIL_PLATE = 0.02                                                         # the 
 RAMP_CEIL = P.P2 - 0.4                                                    # 31.6: the ramps' ceiling = the underside of L2's slab
 def deck_region():
     return TK.rects_minus(*G.B1, [(G.U_FOOT, G.B1[1], G.B1[2], G.TRENCH[1]), P.STAIR_B])
+def ramp_collision(room, us, c0, c1):
+    """a ramp's collision: one open, welded surface strip (shared vertices at every section, up-facing), no faces under it. Prisms
+    with their own collision left a vertical end face under every 0.5 m seam, flush with the surface: a car climbing the OUT ramp
+    caught three of them (rig 2026-10-30; jc3_ramp_seams.py reads the compiled bound and fails on any such riser)."""
+    import bpy
+    from mathutils import Vector
+    V = [Vector((u, v, G.ramp_z(u))) for u in us for v in (c0, c1)]
+    F = [(2 * i, 2 * i + 2, 2 * i + 3, 2 * i + 1) for i in range(len(us) - 1)]   # (u, c0) -> (u+, c0) -> (u+, c1) -> (u, c1): normal +z
+    me = bpy.data.meshes.new('col'); me.from_pydata(V, [], F); me.update()
+    assert all(p.normal.z > 0.9 for p in me.polygons), 'the ramp collision surface must face up'
+    me.materials.append(TK.colmat(room)); o = bpy.data.objects.new('col', me); TK.coll().objects.link(o); TK._sink(room, o)
 def build():
     R = {}; holes = TB.opening_boxes()
     # ---------------- the B1 deck ----------------
@@ -44,8 +55,9 @@ def build():
         lane = (G.U_FOOT, P.EI, l0, l1); R[k] = [lane]
         c0, c1 = l0 + 0.2, l1 - 0.2                                       # the clear lane, inside its 0.2 linings (the lanes do not touch)
         us = [G.U_FOOT + i * 0.5 for i in range(int((G.U_TOP - G.U_FOOT) / 0.5))] + [G.U_TOP]
-        for a, b in zip(us, us[1:]):                                      # the ramp: a solid under its surface, smooth collision
-            TK.prism(k, a, b, c0, c1, lambda u: G.ZB - 0.4, G.ramp_z, 'conc')
+        for a, b in zip(us, us[1:]):                                      # the ramp: a solid under its surface (drawn only) ...
+            TK.prism(k, a, b, c0, c1, lambda u: G.ZB - 0.4, G.ramp_z, 'conc', col=False)
+        ramp_collision(k, us, c0, c1)                                     # ... and ONE welded collision surface over its whole length
         TK.box(k, (G.U_FOOT, l0, RAMP_CEIL - CEIL_PLATE), (P.EI, l1, RAMP_CEIL), 'conc', col=False)
         door = [(P.EI - 0.5, P.EI + 0.5, *G.DOORS['in' if k == 'pramp_in' else 'out'], G.ZD - 0.1, G.ZD + G.ROLLUP[2] + 0.1)]
         foot = [(G.U_FOOT - 0.05, G.U_FOOT + 0.3, l0 + 0.2, l1 - 0.2, G.ZB, G.CEIL_B - CEIL_PLATE)]   # through the west wall only, the clear lane

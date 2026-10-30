@@ -646,3 +646,14 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
 - **Colonnade floor slabs over a basement:** phase 2's 0.5 m colonnade slab (28.3 .. 28.8) hung 8 cm under B1's ceiling (28.38),
   drawn and colliding. Phase 2 now cuts everything it builds against `p2_plan.below_mlo(k)` (B1 + walls up to its ceiling).
   (A first, wrong read blamed the colonnade floor height - PL.G is the colonnade FLOOR, 28.8; check what a z means before rebuilding.)
+- **A ramp's collision is ONE welded surface, never per-slice boxes** (rig 2026-10-30: police3 climbing the OUT ramp counted impacts
+  at exactly the 0.5 m slice boundaries; going down it rolled over them). Prisms with their own collision leave a vertical end face
+  flush under every seam, and wheels climbing a slope catch its top edge. Draw the slices; build the collision as one open, up-facing
+  strip with shared vertices. Gate: `tools/justice/p3/jc3_ramp_seams.py` reads the compiled bound (CodeWalker XML; GeometryBVH
+  vertices are relative to GeometryCenter) and fails on any riser reaching the driving surface inside a lane (found 360 on the old
+  build). A geometry sweep cannot find this, because nothing stands above the surface.
+- **Size the garage for the vehicles that will use it, and say so:** Antonio 2026-10-30: B1 is for patrol cars; the transport van uses
+  the sally port. The plan holds the design vehicle (`jc3_pgarage.VEHICLES`); lane lines = the lining face + the body's turn swing +
+  0.3 m for the probe's chord steering (the van's larger swing had hidden that allowance); mlo-data `police_garage` and the buyer
+  README state it.
+- Side-by-side hand-back sheet: `tools/justice/p3/jc3_sheet.py` (Blender | 13:00 | 23:00 per view, labelled).

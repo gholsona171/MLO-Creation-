@@ -212,7 +212,7 @@ def stair():
         legs.append({'to': [u, v], 'arrived': ok, 'z_end': round(log[-1][2], 2) if log else None, 'bad_states': states}); ok_all &= ok and states == 0
     zend = legs[-1]['z_end'] or 0
     return legs, ok_all and abs(zend - (JT.F5 + 1.0)) < 0.3
-from jc3_gdrive import gdrive, gdrive_van, gdrive_control, gdrive_selftest    # the garage drive probes (jc-jail's driving method)
+from jc3_gdrive import gdrive, gdrive_control, gdrive_selftest    # the garage drive probes (jc-jail's driving method)
 if __name__ == '__main__':
     fails = 0
     try:
