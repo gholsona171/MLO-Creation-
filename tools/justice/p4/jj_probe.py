@@ -202,6 +202,8 @@ def _rollup():
 # SetVehicleForwardSpeed (negative reversing); the heading hold runs every 250 ms (a drift over 1.5 deg is set back to the line
 # heading; the plant starts 4.5 m off the line with the same heading, so it drives straight into the wall); tk() runs every frame and
 # returning true (a new impact) stops the push - physics still resolves the hit, and the governor must not keep ramming. Ends at 0.
+# The drive's tk() ignores contacts until the car has moved 0.5 m or 1 s has passed in that leg: those are spawn contacts (counted
+# apart; rig 2026-10-30: a resting contact at the spawn tripped the stop on the first frame and the car never moved).
 # slice(v, a, tk): one 300 ms temp action, kept only for the brake (1) that parks the car. The engine stays on (the keys script).
 # The self-test proves the governor itself: 2.5 m/s held within +-0.7 for 5 s, every 300 ms speed logged.
 SLICE_MS = 300
@@ -304,34 +306,43 @@ def drive(models=None, plant=False):
     dv = J.DRIVE_V + (-4.5 if plant else 0.0)
     for m in (models or J.DRIVE_TEST):
         L_ = J.VEHICLES.get({'police': 'police4', 'police3': 'police4'}.get(m, m), (2.0, 1.6, 5.0))[2]
-        purged, eng = _spawn(m, J.JBOX[0] - 9.0 - L_ / 2, dv, h_in)
+        purged, eng = _spawn(m, J.JBOX[0] - 13.5 - L_ / 2, dv, h_in)   # nose 13.5 m out: the self-test's street spot (rig 2026-10-30: at 9 m out the
+                                                                          # car spawned touching something - 4 contacts AT the spawn - and never moved)
         r = lua((_rollup() + DRV + 'local p=PlayerPedId() local v=_G.__jjv local b0=GetVehicleBodyHealth(v) local hits,last,hin=0,0,0 local imp={} '
                  'local O=vector2(%.3f,%.3f) local Hd=vector2(math.cos(math.rad(%.4f)),math.sin(math.rad(%.4f))) local Nm=vector2(-Hd.y,Hd.x) '
                  'local function uv() local c=GetEntityCoords(v) local d=vector2(c.x,c.y)-O return d.x*Hd.x+d.y*Hd.y, d.x*Nm.x+d.y*Nm.y end local function u() local a=uv() return a end '
                  'local half=%.2f local ud=%.3f local dIn,dOut=0.0,0.0 local u0=u() '
-                 'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then '
+                 'local gu,gt,sci=0.0,0,0 local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then '
+                 'if math.abs(u()-gu)<0.5 and GetGameTimer()-gt<1000 then sci=sci+1 last=GetGameTimer() return false end '
                  'hits=hits+1 last=GetGameTimer() if #imp<5 then local a,b=uv() imp[#imp+1]=string.format("%%.2f/%%.2f/%%.2f/%%.2f/%%.2f",a,b,n.x,n.y,n.z) end return true end end return false end '
                  'local Hh=%.1f local tr={} local want=0.0 local function trace(tag) if #tr<90 then local a,b=uv() tr[#tr+1]=string.format("%%s/%%.2f/%%.2f/%%.2f/%%d/%%.1f",tag,a,b,GetEntitySpeed(v),GetIsVehicleEngineRunning(v) and 1 or 0,want) end end '
                  'dsys("open") local dPre=dopen() '
+                 'local sh=HasEntityCollidedWithAnything(v) local sn=GetCollisionNormalOfLastHitForEntity(v) local sm=GetLastMaterialHitByEntity(v) local so={} local cv=GetEntityCoords(v) '
+                 'for _,o in ipairs(GetGamePool("CObject")) do local oc=GetEntityCoords(o) local dd=#(oc-cv) if dd<4.5 and #so<8 then local d=vector2(oc.x,oc.y)-O '
+                 'so[#so+1]=string.format("%%d/%%.2f/%%.2f/%%.2f",GetEntityModel(o),d.x*Hd.x+d.y*Hd.y,d.x*Nm.x+d.y*Nm.y,dd) end end '
+                 'local spawn=string.format("%%s/%%.2f/%%.2f/%%.2f/%%d",tostring(sh),sn.x,sn.y,sn.z,math.floor(sm or 0)).."|"..table.concat(so,",") '
                  'trace("s") local tt=0 local function win() local rem=%.3f-(u()+half) if rem<=0.05 then return nil end want=math.max(0.3,math.min(2.5,rem*0.6)) '
                  'if GetGameTimer()-tt>=300 then tt=GetGameTimer() if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end trace("i") end return want end '
-                 'govern(v,Hh,false,win,tick,50000) for i=1,5 do slice(v,1,tick) end hin=hits local cin=GetEntityCoords(v) local moved=u()-u0 '
+                 'gu=u() gt=GetGameTimer() govern(v,Hh,false,win,tick,50000) for i=1,5 do slice(v,1,tick) end hin=hits local cin=GetEntityCoords(v) local moved=u()-u0 '
                  'local function wout() if u() <= %.3f then return nil end want=1.8 '
                  'if GetGameTimer()-tt>=300 then tt=GetGameTimer() if math.abs(u()-half-ud)<4.0 then dOut=math.max(dOut,dopen()) end trace("o") end return want end '
-                 'govern(v,Hh,true,wout,tick,60000) for i=1,5 do slice(v,1,tick) end local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
+                 'gu=u() gt=GetGameTimer() govern(v,Hh,true,wout,tick,60000) for i=1,5 do slice(v,1,tick) end local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
                  'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys("shut") dsys("release") '
-                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:%%.2f:%%.2f:%%.1f:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone),dPre,moved,drift)..table.concat(imp,",")..":"..table.concat(tr,",")')
+                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:%%.2f:%%.2f:%%.1f:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone),dPre,moved,drift)..table.concat(imp,",")..":"..table.concat(tr,",")..":"..spawn..":"..sci')
                 % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, h_in, J.DRIVE_STOP, J.JBOX[0] - 8.0), 220).split(':')
         hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6]))
         d_in, d_out, h_in_ = float(r[7]), float(r[8]), int(r[9]); gone = r[10] in ('true', '1'); d_pre, moved = float(r[11]), float(r[12])
         drift = float(r[13]); imps = [x for x in r[14].split(',') if x]; nose = ui + L_ / 2
         trace = [dict(zip(('leg', 'u', 'v_off', 'speed', 'engine', 'want'), [t.split('/')[0]] + [float(x) for x in t.split('/')[1:]])) for t in r[15].split(',') if t]
-        (JL / OD / f'probe_drive_trace_{m}{"_plant" if plant else ""}.json').write_text(json.dumps({'vehicle': m, 'plant': plant, 'engine_fuel': eng, 'moved': moved, 'trace': trace}, indent=1))
-        if moved < 2.0: raise SystemExit(f'PROBE: {m} never moved ({moved:.2f} m; engine {eng}; first slices u/v_off/speed/engine/want: '
+        sh, so = r[16].split('|'); shf = sh.split('/')
+        spawn = {'touching': shf[0] in ('true', '1'), 'normal': [float(x) for x in shf[1:4]], 'material': int(shf[4]),
+                 'objects_within_4_5m_model_u_v_dist': [o.split('/') for o in so.split(',') if o], 'contacts_ignored_at_leg_start': int(r[17])}
+        (JL / OD / f'probe_drive_trace_{m}{"_plant" if plant else ""}.json').write_text(json.dumps({'vehicle': m, 'plant': plant, 'engine_fuel': eng, 'moved': moved, 'spawn_contact': spawn, 'trace': trace}, indent=1))
+        if moved < 2.0: raise SystemExit(f'PROBE: {m} never moved ({moved:.2f} m; engine {eng}; spawn contact {spawn}; first slices u/v_off/speed/engine/want: '
                                          f'{[(t["u"], t["v_off"], t["speed"], int(t["engine"]), t["want"]) for t in trace[:5]]}; trace in {OD}/probe_drive_trace_{m}{"_plant" if plant else ""}.json) - nothing was tested')
         good = hits == 0 and b1 >= b0 - 1.0 and J.DRIVE_STOP - 1.0 < nose < J.PLATFORM[0] - 0.3 and uo < J.JBOX[0] - 5.0 and gone and d_pre > 1.0
         out.append({'vehicle': m, 'purged_before_spawn': purged, 'impacts': hits, 'impacts_going_in': h_in_, 'impacts_backing_out': hits - h_in_,
-                    'first_impacts_u_v_nx_ny_nz': imps, 'max_heading_drift_deg': drift, 'slices': len(trace), 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,
+                    'first_impacts_u_v_nx_ny_nz': imps, 'max_heading_drift_deg': drift, 'slices': len(trace), 'spawn_contact': spawn, 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,
                     'pass_window': [round(J.DRIVE_STOP - 1.0, 2), round(J.PLATFORM[0] - 0.3, 2)], 'stop_v': round(vi, 2), 'out_uv': [round(uo, 2), round(vo, 2)],
                     'car_deleted': gone, 'rollup_open_before_driving': round(d_pre, 2), 'rollup_open_going_in': round(d_in, 2), 'rollup_open_backing_out': round(d_out, 2), 'ok': good})
         ok_all &= good

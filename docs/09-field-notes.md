@@ -521,6 +521,12 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   pushing on a new impact (physics still resolves the hit). Brake slices only to park. The self-test proves the governor (2.5 held
   +-0.7 for 5 s). The sim is fitted to the rig's slice response (one-slice lag, gas 8, brake 9 m/s2) so the old slice loop fails there,
   and has the jail's west face as a wall so the plant's impact must register while the speed is being set.
+- A freshly spawned test car can report a contact before it moves (rig 2026-10-30: contacts AT the spawn, horizontal normals); an
+  impact counter that stops the drive on the first hit then stops it on frame one, and only the probe that ignores impacts (the
+  self-test) ever moved. Contacts before the car has moved 0.5 m and within 1 s of a leg's start are spawn contacts: count them apart,
+  log what the car touches (flag, normal, material, objects within 4.5 m). Spawn in open street, 2 m clear all round.
+- A mock clock must tick per frame (Wait(0) = 16 ms), not per GetGameTimer call: a 50 ms tick per call made the mock time outrun a
+  per-frame governor. With the frame clock the mock's ramp matched the rig's speeds slice for slice.
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous

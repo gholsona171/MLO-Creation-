@@ -20,7 +20,7 @@ VM.__len = function(a) return math.sqrt(a.x * a.x + a.y * a.y + (a.z or 0) * (a.
 function vector2(x, y) return vec(x, y, nil) end
 function vector3(x, y, z) return vec(x, y, z or 0.0) end
 local T = 0
-local POS, HD, CREATED, ENG, SEAT, WANT, VEL, ACT, CAP, COLL = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}   -- every table a mock function uses, declared before any of them
+local POS, HD, CREATED, ENG, SEAT, WANT, VEL, ACT, CAP, COLL, SPAWNP = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}   -- every table a mock function uses, declared before any of them
 -- the roll-up as the rig has it (2026-10-30): a map garage door that opens by itself while the player is near, unless the door system
 -- holds it (registered + locked -> shut; registered + unlocked -> the set ratio). Object 7 at the first spot asked for; opening = 2.6 m up.
 local DOOR = {base = nil, reg = false, locked = false, ratio = 0.0}
@@ -33,18 +33,21 @@ function DoorSystemSetOpenRatio(h, r) DOOR.ratio = r end
 local function doorOpen() if not DOOR.reg then return 1.0 end if DOOR.locked then return 0.0 end return (DOOR.ratio > 0) and 1.0 or 0.0 end
 function GetEntityCoords(e) if e == 7 and DOOR.base then return DOOR.base + vector3(0.0, 0.0, 2.6 * doorOpen()) end return POS[e] or vector3(300.0, -1660.0, 29.0) end
 function SetEntityCoords(e, x, y, z) POS[e] = vector3(x, y, z) end
-function CreateVehicle(h, x, y, z, hd) local e = 1000 + math.random(1, 999) POS[e] = vector3(x, y, z) HD[e] = hd or 0.0 CREATED[e] = T return e end
+function CreateVehicle(h, x, y, z, hd) local e = 1000 + math.random(1, 999) POS[e] = vector3(x, y, z) HD[e] = hd or 0.0 CREATED[e] = T SPAWNP[e] = vector3(x, y, z) return e end
 function SetEntityHeading(e, h) HD[e] = h end
 function GetEntityHeading(e) return HD[e] or 0.0 end
 function GetEntityRotation(e) return vector3(0.0, 0.0, 0.0) end
-function GetCollisionNormalOfLastHitForEntity(e) if COLL[e] and COLL[e] >= T - 1000 and WALL then local h = math.rad(WALL.hd) return vector3(-math.cos(h), -math.sin(h), 0.0) end return vector3(0.0, 0.0, 1.0) end
-function HasEntityCollidedWithAnything(e) return (COLL[e] or -1) >= T end
+-- a new car rests against something at its spawn (rig 2026-10-30: contacts logged AT the spawn, normals like (-0.35, -0.94)) until it
+-- has moved 0.3 m: a contact flag with a horizontal normal
+local function resting(e) return SPAWNP[e] and POS[e] and #(POS[e] - SPAWNP[e]) < 0.3 end
+function GetCollisionNormalOfLastHitForEntity(e) if resting(e) and not (COLL[e] and COLL[e] >= T - 1000) then return vector3(-0.35, -0.94, 0.0) end if COLL[e] and COLL[e] >= T - 1000 and WALL then local h = math.rad(WALL.hd) return vector3(-math.cos(h), -math.sin(h), 0.0) end return vector3(0.0, 0.0, 1.0) end
+function HasEntityCollidedWithAnything(e) return (COLL[e] or -1) >= T or resting(e) == true end
 function GetVehicleNumberPlateText(v) return "TEST1234" end
 function GetGamePool(n) return {} end
 function GetHashKey(s) return 12345 end
 function PlayerPedId() return 1 end
 function DoesEntityExist(e) return POS[e] ~= nil end
-function DeleteVehicle(e) POS[e] = nil SEAT[e] = nil VEL[e] = nil ACT[e] = nil CAP[e] = nil COLL[e] = nil end
+function DeleteVehicle(e) POS[e] = nil SEAT[e] = nil VEL[e] = nil ACT[e] = nil CAP[e] = nil COLL[e] = nil SPAWNP[e] = nil end
 -- the c9_vehiclekeys guard (disableAutoStart, rig 2026-10-30): with a player in the driver's seat the engine runs only when the
 -- keys script wants it (its ToggleEngine); a raw SetVehicleEngineOn is switched off again the next frame
 
@@ -102,8 +105,10 @@ local function step()
         end
     end
 end
-function GetGameTimer() T = T + 50 step() return T end
-function Wait(ms) T = T + (ms or 0) step() end
+-- the clock: Wait(0) is one 16 ms frame, Wait(ms) at least one frame; GetGameTimer only ticks 1 ms (so no loop can hang) - a governor
+-- ramping per frame sees real frame times (a 50 ms tick per GetGameTimer call made the mock clock outrun the car)
+function GetGameTimer() T = T + 1 step() return T end
+function Wait(ms) T = T + math.max(16, ms or 0) step() end
 function GetEntitySpeed(e) return math.abs(VEL[e] or 0.0) end
 function SetEntityMaxSpeed(e, c) CAP[e] = c end
 function TaskVehicleTempAction(p, v, a, ms)
@@ -190,7 +195,9 @@ if __name__ == '__main__':
         except SystemExit as e: print(f'  {name}: probe stopped (expected with mock values): {str(e)[:90]}')
         except Exception as e: bad.append(f'{name}: {type(e).__name__}: {e}')
     reset()
-    try: print('  drive:', str(P.drive(models=['police']))[:300])
+    try:
+        dr = P.drive(models=['police'])[0][0]; print('  drive:', str(dr)[:300])
+        if not dr.get('ok'): bad.append(f"drive: not ok in the mock (impacts {dr.get('impacts')}, stop {dr.get('stop_nose_u')}, out {dr.get('out_uv')})")
     except SystemExit as e: bad.append(f'drive stopped: {str(e)[:160]}')
     except Exception as e: bad.append(f'drive: {type(e).__name__}: {e}')
     for mode in ('open', 'close'):
