@@ -124,6 +124,7 @@ if __name__ == '__main__':
     assert static_check('x = lua("return string.format(\\"%%.2f\\", 1)")'), 'the static check did not catch its planted %%'
     for f in ('jj_probe.py', 'jj_doorctl.py'): bad += [f'{f} {e}' for e in static_check((JL / f).read_text(encoding='utf-8'))]
     import jj_probe as P, jj_doorctl as D
+    import tempfile; P.OD = tempfile.mkdtemp(prefix='jj_luasim_')   # the probe's json files from the mock run never land in out/
     seen = []
     def lua(code, timeout=60):
         res = run(code); e = check_result(res); seen.append((code[:60], res[:80]))

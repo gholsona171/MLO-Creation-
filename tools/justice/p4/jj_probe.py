@@ -226,13 +226,13 @@ def _spawn(m, su, sv, h_in):
               'local h=GetHashKey("%s") RequestModel(h) t=GetGameTimer() while not HasModelLoaded(h) and GetGameTimer()-t<8000 do Wait(50) end '
               'local n,left=purge(%.3f,%.3f,%.3f,30.0) '
               'local v=CreateVehicle(h,%.3f,%.3f,%.3f,%.1f,true,false) SetEntityAsMissionEntity(v,true,true) SetVehicleOnGroundProperly(v) SetEntityHeading(v,%.1f) '
-              'FreezeEntityPosition(v,false) SetVehicleUndriveable(v,false) _G.__jjv=v t=GetGameTimer() '
+              'FreezeEntityPosition(v,false) SetVehicleUndriveable(v,false) local reused=(_G.__jjv_last==v) _G.__jjv=v _G.__jjv_last=v t=GetGameTimer() '
               'while GetGameTimer()-t<4000 and not (NetworkGetEntityIsNetworked(v) and NetworkHasControlOfEntity(v)) do NetworkRequestControlOfEntity(v) Wait(50) end '
               'local net=NetworkGetEntityIsNetworked(v) and NetworkHasControlOfEntity(v) Wait(300) local c=GetEntityCoords(v) '
-              'return GetVehicleNumberPlateText(v)..";"..string.format("%%.2f;%%.2f;%%.1f;%%d;%%d;",c.x,c.y,GetEntityHeading(v),n,left)..tostring(rdy)..";"..tostring(net)')
+              'return GetVehicleNumberPlateText(v)..";"..string.format("%%.2f;%%.2f;%%.1f;%%d;%%d;",c.x,c.y,GetEntityHeading(v),n,left)..tostring(rdy)..";"..tostring(net)..";"..tostring(reused)')
              % (m, bx, by, J.SALLY_Z, sx, sy, J.SALLY_Z + 0.5, h_in, h_in), 40).split(';')
     plate = sp[0].strip(); cu, cv = F.L(float(sp[1]), float(sp[2])); hd = abs(((float(sp[3]) - h_in) + 540.0) % 360.0 - 180.0); purged, left = int(sp[4]), int(sp[5])
-    rdy, net = sp[6].strip() in ('true', '1'), sp[7].strip() in ('true', '1')
+    rdy, net, reused = sp[6].strip() in ('true', '1'), sp[7].strip() in ('true', '1'), sp[8].strip() in ('true', '1')
     def gone(why):
         lua('local v=_G.__jjv if v and DoesEntityExist(v) then SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) end return "x"')
         raise SystemExit(f'PROBE: {why} - nothing was tested')
@@ -258,7 +258,7 @@ def _spawn(m, su, sv, h_in):
     if not can: gone('the keys script says the player cannot drive it (CanDrive false)')
     if not run: gone('the engine is not running 1.5 s after the keys script started it')
     if fuel <= 0: gone(f'fuel {fuel:.1f} (state bag {fs})')
-    return purged, {'engine': run, 'fuel': fuel, 'fuel_state': fs, 'seat_tries': f'{tries} {how}'.strip()}
+    return purged, {'engine': run, 'fuel': fuel, 'fuel_state': fs, 'seat_tries': f'{tries} {how}'.strip(), 'handle_reused': reused}
 def drive_selftest():
     """each piece of the drive test on its own (rig 2026-10-30: the first two cars never moved, the roll-up read 0 while a car drove
     under it): (1) the roll-up read-back through the door system: forced shut (locked) ~0, opened > 1.0, shut again ~0, then released; (2) a car spawned in the cleared
@@ -295,25 +295,28 @@ def drive(models=None, plant=False):
                  'local half=%.2f local ud=%.3f local dIn,dOut=0.0,0.0 local u0=u() '
                  'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then '
                  'hits=hits+1 last=GetGameTimer() if #imp<5 then local a,b=uv() imp[#imp+1]=string.format("%%.2f/%%.2f/%%.2f/%%.2f/%%.2f",a,b,n.x,n.y,n.z) end end end end '
-                 'local Hh=%.1f '
+                 'local Hh=%.1f local tr={} local cap=0.0 local function trace(tag) if #tr<90 then local a,b=uv() tr[#tr+1]=string.format("%%s/%%.2f/%%.2f/%%.2f/%%d/%%.1f",tag,a,b,GetEntitySpeed(v),GetIsVehicleEngineRunning(v) and 1 or 0,cap) end end '
                  'dsys("open") local dPre=dopen() '
-                 'local t0=GetGameTimer() while GetGameTimer()-t0<50000 do local rem=%.3f-(u()+half) local sp=GetEntitySpeed(v) '
+                 'trace("s") local t0=GetGameTimer() while GetGameTimer()-t0<50000 do local rem=%.3f-(u()+half) local sp=GetEntitySpeed(v) '
                  'if rem<=0.25+sp*0.5 then break end if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end '
-                 'local want=math.max(0.6,math.min(2.5,rem*0.3)) SetEntityMaxSpeed(v,want+0.3) slice(v,sp<want and 23 or 1,tick) hold(v,Hh) end '
+                 'local want=math.max(0.6,math.min(2.5,rem*0.3)) cap=want+0.3 SetEntityMaxSpeed(v,cap) slice(v,sp<want and 23 or 1,tick) hold(v,Hh) trace("i") end '
                  'for i=1,8 do slice(v,1,tick) end hin=hits local cin=GetEntityCoords(v) local moved=u()-u0 local t1=GetGameTimer() SetEntityMaxSpeed(v,2.0) '
                  'while GetGameTimer()-t1<60000 and u() > %.3f do local rear=u()-half if math.abs(rear-ud)<4.0 then dOut=math.max(dOut,dopen()) end '
-                 'slice(v,GetEntitySpeed(v)<1.8 and 22 or 1,tick) hold(v,Hh) end '
+                 'slice(v,GetEntitySpeed(v)<1.8 and 22 or 1,tick) hold(v,Hh) trace("o") end '
                  'for i=1,7 do slice(v,1,tick) end SetEntityMaxSpeed(v,500.0) local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
                  'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys("shut") dsys("release") '
-                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:%%.2f:%%.2f:%%.1f:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone),dPre,moved,drift)..table.concat(imp,",")')
+                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:%%.2f:%%.2f:%%.1f:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone),dPre,moved,drift)..table.concat(imp,",")..":"..table.concat(tr,",")')
                 % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, h_in, J.DRIVE_STOP, J.JBOX[0] - 8.0), 220).split(':')
         hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6]))
         d_in, d_out, h_in_ = float(r[7]), float(r[8]), int(r[9]); gone = r[10] in ('true', '1'); d_pre, moved = float(r[11]), float(r[12])
         drift = float(r[13]); imps = [x for x in r[14].split(',') if x]; nose = ui + L_ / 2
-        if moved < 2.0: raise SystemExit(f'PROBE: {m} never moved ({moved:.2f} m; engine {eng}) - nothing was tested')
+        trace = [dict(zip(('leg', 'u', 'v_off', 'speed', 'engine', 'cap'), [t.split('/')[0]] + [float(x) for x in t.split('/')[1:]])) for t in r[15].split(',') if t]
+        (JL / OD / f'probe_drive_trace_{m}{"_plant" if plant else ""}.json').write_text(json.dumps({'vehicle': m, 'plant': plant, 'engine_fuel': eng, 'moved': moved, 'trace': trace}, indent=1))
+        if moved < 2.0: raise SystemExit(f'PROBE: {m} never moved ({moved:.2f} m; engine {eng}; first slices u/v_off/speed/engine/cap: '
+                                         f'{[(t["u"], t["v_off"], t["speed"], int(t["engine"]), t["cap"]) for t in trace[:5]]}; trace in {OD}/probe_drive_trace_{m}{"_plant" if plant else ""}.json) - nothing was tested')
         good = hits == 0 and b1 >= b0 - 1.0 and J.DRIVE_STOP - 1.0 < nose < J.PLATFORM[0] - 0.3 and uo < J.JBOX[0] - 5.0 and gone and d_pre > 1.0
         out.append({'vehicle': m, 'purged_before_spawn': purged, 'impacts': hits, 'impacts_going_in': h_in_, 'impacts_backing_out': hits - h_in_,
-                    'first_impacts_u_v_nx_ny_nz': imps, 'max_heading_drift_deg': drift, 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,
+                    'first_impacts_u_v_nx_ny_nz': imps, 'max_heading_drift_deg': drift, 'slices': len(trace), 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,
                     'pass_window': [round(J.DRIVE_STOP - 1.0, 2), round(J.PLATFORM[0] - 0.3, 2)], 'stop_v': round(vi, 2), 'out_uv': [round(uo, 2), round(vo, 2)],
                     'car_deleted': gone, 'rollup_open_before_driving': round(d_pre, 2), 'rollup_open_going_in': round(d_in, 2), 'rollup_open_backing_out': round(d_out, 2), 'ok': good})
         ok_all &= good
