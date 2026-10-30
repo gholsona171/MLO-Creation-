@@ -499,6 +499,13 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   plant car straight after the self-test did not take). The sim runs the plant in the same Lua state right after the self-test and
   mocks a car that takes a ped only 1.5 s after it is created; the single-warp probe fails there with the rig's message. Mock tables
   must be declared before the first mock function that uses them, or Lua reads a nil global (here: the stub function).
+- One driving method for every drive probe (rig 2026-10-30): TaskVehicleTempAction gas (23) / reverse (22) / brake (1) in 300 ms
+  slices re-issued back to back moved the car 27 m; the same actions in 200 ms slices left it standing (-0.01 m). The self-test, the
+  plant and the drive now share one Lua helper (DRV in jj_probe.py: slice + heading hold on the line, speed capped with
+  SetEntityMaxSpeed), so the self-test proves the exact method the test uses. The sim moves its car only on that method (a 200 ms slice
+  is planted and must not move it); the pre-fix probe fails there with the rig's "never moved". Lua that is %-formatted twice must
+  not hold a Lua % operator: use math.fmod.
+- Read ox_fuel's state bag only after it has seen the driver (a server round trip): wait for Entity(v).state.fuel up to 3 s.
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous

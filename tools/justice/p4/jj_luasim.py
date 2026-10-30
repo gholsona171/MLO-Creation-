@@ -63,8 +63,10 @@ exports = setmetatable({c9_vehiclekeys = {CanDrive = function(self, v) return tr
                                           ToggleEngine = function(self) local v = _G.__jjv local on = not GetIsVehicleEngineRunning(v) WANT[v] = on ENG[v] = on end}},
                        {__index = function() return setmetatable({}, {__index = function() return function() return true end end}) end})
 -- gas / reverse move the car 0.5 m per call along its heading (GTA forward = (-sin h, cos h)) when the engine runs
+-- ONLY the proven driving method moves the car (rig 2026-10-30: 300 ms gas slices moved it 27 m, 200 ms slices -0.01 m): a gas /
+-- reverse temp action of at least 300 ms; any other drive task (shorter slices, AI drive tasks: stubs) leaves it standing
 function TaskVehicleTempAction(p, v, a, ms)
-    if not GetIsVehicleEngineRunning(v) or not POS[v] or (a ~= 23 and a ~= 22) then return end
+    if not GetIsVehicleEngineRunning(v) or not POS[v] or (a ~= 23 and a ~= 22) or (ms or 0) < 300 then return end
     local h = math.rad(HD[v] or 0.0) local s = (a == 23) and 0.5 or -0.5
     POS[v] = vector3(POS[v].x - math.sin(h) * s, POS[v].y + math.cos(h) * s, POS[v].z)
 end
@@ -102,6 +104,10 @@ def static_check(src):
 if __name__ == '__main__':
     bad = []
     assert check_result(run('return string.format("%%.2f", 1)')), 'the simulator did not catch its planted unfilled format'
+    reset()   # plant: a 200 ms gas slice (the old drive method) must not move the mock car; a 300 ms one must
+    assert run('local v=CreateVehicle(1,0.0,0.0,0.0,0.0) _G.__jjv=v Wait(2000) TaskWarpPedIntoVehicle(1,v,-1) exports.c9_vehiclekeys:ToggleEngine() local c0=GetEntityCoords(v) '
+               'TaskVehicleTempAction(1,v,23,200) local a=#(GetEntityCoords(v)-c0) TaskVehicleTempAction(1,v,23,300) local b=#(GetEntityCoords(v)-c0) '
+               'return tostring(a==0 and b>0)') == 'true', 'the mock moved the car on an unproven drive method'
     reset()   # plant: the old raw engine start (spawn engine on, warp, SetVehicleEngineOn) must leave the car dead under the keys guard
     assert run('local v=CreateVehicle(1,0.0,0.0,0.0,0.0) SetVehicleEngineOn(v,true,true,false) Wait(2000) TaskWarpPedIntoVehicle(1,v,-1) SetVehicleEngineOn(v,true,true,false) '
                'local c0=GetEntityCoords(v) TaskVehicleTempAction(1,v,23,300) return tostring(#(GetEntityCoords(v)-c0))') == '0.0', 'the mock keys guard did not stop a raw engine start'
