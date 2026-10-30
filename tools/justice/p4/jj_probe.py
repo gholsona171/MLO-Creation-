@@ -106,17 +106,27 @@ WALK = {   # the prisoner's way in Jail I, legs on clear aisles: from the van's 
                  (J.ST_BASE1 - 0.6, ln, J.L2), (-22.6, ln, J.L2), (-22.6, 23.4, J.L2), (-23.6, 40.2, J.L2), (-23.6, 44.9, J.TIER2), (-29.1, 44.9, J.TIER2),
                  (-29.1, 24.0, J.TIER2), (-29.1, 44.9, J.TIER2), (-23.6, 44.9, J.TIER2), (-23.6, 40.2, J.L2), (-22.6, 23.4, J.L2)],
 }
-def walk():
+WALK_SPEED = 1.1                                                    # m/s the walker keeps at speed 1.0 (rig: ~1.2-1.4); time limit per leg
+def leg_time(a, b):
+    """the time a leg may take: its length at WALK_SPEED, x1.5, + 6 s to start and turn (rig 2026-10-29: a flat 20 s cut the 36 m tunnel
+    leg short - the walker was still walking; the next leg arrived)."""
+    return 6.0 + 1.5 * math.dist(a[:2], b[:2]) / WALK_SPEED
+WALK_PLANT = [(-17.0, 9.0, G), (-28.6, 3.0, G)]                      # booking -> straight through the property room's wall (blocked)
+def walk(walks=None):
     out = {}; ok_all = True
-    for name, pts in WALK.items():
-        revive(); stand(*pts[0]); time.sleep(1.5); legs = []
+    for name, pts in (walks or WALK).items():
+        revive(); stand(*pts[0]); time.sleep(1.5); legs = []; prev = pts[0]
         for u, v, z in pts[1:]:
-            ok, log = walk_to(u, v, z, 20.0)
+            ok, log = walk_to(u, v, z, leg_time(prev, (u, v))); prev = (u, v, z)
             bad = sum(1 for e in log if e[3] != '000'); zmin = min((e[2] for e in log), default=0)
             zf = min(z, legs[-1]['z'] if legs else pts[0][2]); good = ok and bad == 0 and zmin > zf + 0.6; ok_all &= good     # the root (~1 m up) never sinks under the floor
             legs.append({'to': [u, v], 'z': z, 'arrived': ok, 'bad_states': bad, 'zmin_root': round(zmin, 2), 'ok': good})
         out[name] = legs
     return out, ok_all
+def walk_plant():
+    """proof: a leg into a wall (booking -> through the property room's wall) must NOT arrive within its scaled time."""
+    res, ok = walk({'plant': WALK_PLANT})
+    return res, not res['plant'][0]['arrived']
 def lift_b1():
     """on screen, like a player (jc-interiors' lifts probe): stood on the B1 landing, walk into the secure cab, [E] (a real key press),
     click L3 in ox_lib's menu, arrive in the L3 cab; then back L3 -> B1. Control: [E] on the landing (outside the cab) opens nothing.
@@ -148,8 +158,9 @@ def route():
     deliver the ped to the L3 cab. Needs the secure bank's B1 stop deployed (lifts.json)."""
     legs = []; ok_all = True
     revive(); pts = WALK['intake']; stand(*pts[0]); time.sleep(1.5)
+    prev = pts[0]
     for u, v, z in pts[1:] + [(J.CAB_C, J.SEC_CAB[2] + 1.1, J.B1)]:
-        ok, log = walk_to(u, v, z, 25.0); bad = sum(1 for e in log if e[3] != '000'); good = ok and bad == 0; ok_all &= good
+        ok, log = walk_to(u, v, z, leg_time(prev, (u, v))); prev = (u, v, z); bad = sum(1 for e in log if e[3] != '000'); good = ok and bad == 0; ok_all &= good
         legs.append({'to': [round(u, 2), round(v, 2)], 'z': z, 'arrived': ok, 'bad_states': bad, 'ok': good})
     banks = json.load(open('C:/C9Test/live/resources/[localtest]/justice_center/lifts.json'))
     b = next(b for b in banks if b['bank'] == 'secure'); fl = {f['name']: f for f in b['floors']}
@@ -159,8 +170,9 @@ def route():
     e = lua('local c=GetEntityCoords(PlayerPedId()) return string.format("%.2f:%.2f:%.2f",c.x,c.y,c.z)', 10).split(':')
     tx, ty, tz = fl['L3']['cabs'][0]; arrived = math.hypot(float(e[0]) - tx, float(e[1]) - ty) < 1.1 and abs(float(e[2]) - (tz + 1.0)) < 0.4
     legs.append({'lift': 'B1 -> L3', 'click': r[-40:], 'arrived': arrived, 'ok': arrived}); ok_all &= arrived
+    prev = F.L(tx, ty)
     for u, v in ROUTE_L3:
-        ok, log = walk_to(u, v, tz, 20.0); bad = sum(1 for e_ in log if e_[3] != '000'); good = ok and bad == 0; ok_all &= good
+        ok, log = walk_to(u, v, tz, leg_time(prev, (u, v))); prev = (u, v); bad = sum(1 for e_ in log if e_[3] != '000'); good = ok and bad == 0; ok_all &= good
         legs.append({'to': [u, v], 'z': tz, 'arrived': ok, 'bad_states': bad, 'ok': good})
     return legs, ok_all
 def drive(models=None, plant=False):

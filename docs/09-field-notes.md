@@ -456,3 +456,20 @@ vertices to 1 cm. Our ytyps and ymaps are byte-identical, so the archetype bound
 **Rig shots (C9Test):** `tc_glow_shots.sh <tag> <hour> [ext|far|int]` takes the 6 standard exterior views, 500 m / 1 km / 500 m north,
 and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.sh <out.mp4> [hour] [secs]` is an eased
 (smoothstep) night orbit round both lots.
+- **Fly-through paths are checked offline before anyone records them** (`tools/justice/p4/jj_flycheck.py`): sample the camera's own
+  Catmull-Rom spline every 0.2 m and measure to every built triangle - >= 0.9 m from any face, 0.45 m only within 1.2 m of a doorway;
+  no hold > 3 s. The first jail paths hugged block walls for 25 s and came within 2 cm of a counter. Keep the camera >= 1.5 m above
+  stair treads (perpendicular distance on a 36 deg flight is only 0.8 x the vertical), add a waypoint at the top of each flight, and give
+  doorway legs two aligned points either side (the spline overshoots into the jamb otherwise). Record exactly the path's time
+  (sum of len / speed): a padded duration left a 25 s static ending.
+- **Recordings stopped from Git bash must flush continuously:** ffmpeg cannot be told to quit (its stdin is not a console); a hard-killed
+  x264 / matroska recording "ended prematurely" or wrote nothing. Use `-tune zerolatency -flush_packets 1 -movflags
+  +frag_keyframe+empty_moov` with a keyframe a second, remux to a plain mp4 and check its duration with ffprobe (proven on a testsrc
+  recording killed at 6 s: 6.0 s valid).
+- **Walk probe time limits scale with the leg** (6 s + 1.5 x length / 1.1 m/s): a flat 20 s failed a 36 m tunnel leg the walker was still
+  walking. Prove the walk check on a planted leg into a wall (it must not arrive).
+- **Sit-sheet cameras are picked, not fixed:** "2 m in front of the sitter" put the camera inside a counter, and for a chair facing a
+  wall outside the building. Try spots round the sitter and take the first that is in the seat's room, outside every fitting, >= 0.9 m
+  from other sitters and with a line of sight over the fittings (a booth's chairs: from behind, through its glass).
+- **Filming door opener: close in a trap** - a fly that failed before its close left the roll-up open in the next pair shots; the close
+  drives every door shut, reads each ratio back and only then removes them; the pair shots run it first.

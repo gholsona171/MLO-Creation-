@@ -5,7 +5,11 @@
 # The camera rides a Catmull-Rom spline through the points (no corners), each leg eased in and out (smoothstep), and the aim is
 # blended between legs (playbook: smooth and cinematic, slow at doors, sweeping turns). Justice Center lot: OX 335.87 OY -1640.11, 50 deg.
 # Holds the clock (HOUR, default 13). Run tc_release.sh after (the caller's trap does).
-cd /c/C9Test; OUT=$1; PF=$2
+[ -f "$2" ] || { echo "JJ_FLY_FAIL path file not found: $2"; exit 2; }
+# both paths absolute (Windows form for the Windows python and ffmpeg) BEFORE the cd to the rig (2026-10-29: a relative path file was
+# looked up in C:\C9Test, python failed, ffmpeg got an empty -t and no video was made)
+PF=$(cygpath -w "$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"); OUT=$(cygpath -w "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")")
+cd /c/C9Test
 PTS=$(py -3 - "$PF" <<'PY'
 import sys
 rows = [l.split() for l in open(sys.argv[1]) if l.strip() and not l.startswith('#')]
@@ -19,10 +23,11 @@ PY
 DUR=$(py -3 - "$PF" <<'PY'
 import sys, math
 rows = [list(map(float, l.split()[:4])) for l in open(sys.argv[1]) if l.strip() and not l.startswith('#')]
-t = sum(math.dist(a[:3], b[:3]) / b[3] * 1.18 for a, b in zip(rows, rows[1:]))     # smoothstep legs take ~1.18x the linear time on average
-print(int(t + 6))
+t = sum(max(0.4, math.dist(a[:3], b[:3]) / b[3]) for a, b in zip(rows, rows[1:]))   # the Lua gives each leg exactly len / speed (min 0.4 s): no idle tail (2026-10-29: x1.18 + 6 s left a 25 s static end)
+print(int(t + 2))                                                                   # recording starts with the motion (both wait PRE): +2 s margin
 PY
 )
+[ -n "$PTS" ] && [ -n "$DUR" ] || { echo "JJ_FLY_FAIL could not read the path file $PF"; exit 2; }
 ./t.sh cl 1 "local O=vector2(${OX:-335.87},${OY:--1640.11}) local H=math.rad(${HDEG:-50.0})
 local function W(u,v,z) return vector3(O.x+u*math.cos(H)-v*math.sin(H), O.y+u*math.sin(H)+v*math.cos(H), z) end
 local raw={$PTS} local P={} local SP={} local LK={}
@@ -51,5 +56,6 @@ sleep ${PRE:-4}
 FF=$(ls -d /c/Users/anton/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg*/ffmpeg-*/bin | head -1)/ffmpeg.exe
 h=$(powershell -NoProfile -Command "(Get-Process FiveM_b3258_GTAProcess | ? MainWindowHandle -ne 0 | Select -First 1).MainWindowHandle.ToInt64()")
 "$FF" -hide_banner -loglevel error -y -f gdigrab -framerate 25 -i hwnd=$h -t $DUR -vf "scale=1280:-2" -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p "$OUT" </dev/null
-echo "$OUT ($DUR s)"
+D=$("$(dirname "$FF")/ffprobe.exe" -v error -show_entries format=duration -of csv=p=0 "$OUT" 2>/dev/null)
+[ -n "$D" ] && [ "$(py -3 -c "print(1 if float('${D:-0}') >= $DUR - 3 else 0)")" = 1 ] && echo "JJ_FLY_OK $OUT (${D%.*} s of $DUR)" || echo "JJ_FLY_FAIL $OUT (duration '$D' of $DUR)"
 ./t.sh cl 1 "_G.__tcfly=false _G.__hold=false return 'stop'" 5 > /dev/null; bash tcshot_off.sh > /dev/null

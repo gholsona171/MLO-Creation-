@@ -9,6 +9,27 @@ import jj_probe as P, jc_frame as F
 OUT = Path(sys.argv[1]); OUT.mkdir(parents=True, exist_ok=True)
 S = P.L['seats']
 def group(room, what): return [i for i, s in enumerate(S) if s[4] == room and s[6].startswith(what)]
+import jj_fit as JF
+FIT = P.L['fit_boxes']                                                     # [u0, u1, v0, v1, z0, z1] of every kit fitting
+CANDS = [(2.0, 0.7), (2.0, -0.7), (1.4, 1.4), (1.4, -1.4), (0.6, 1.8), (0.6, -1.8), (-0.6, 1.8), (-0.6, -1.8), (1.2, 0.0),
+         (-1.4, 0.7), (-1.4, -0.7), (-3.0, 0.8), (-3.0, -0.8)]          # last: from behind (a booth: through its glass)
+def pick_camera(i):
+    """a camera spot for seat i's photo (2026-10-29: fixed 'in front' put cameras inside counters and, for a chair facing a wall, outside
+    the building): the first of CANDS (forward, lateral in the sitter's frame) that lies in the seat's room clear rect (0.25 m in), not in
+    a fitting's footprint, not within 0.9 m of another sitter, with a line of sight to the sitter's chest over every fitting."""
+    u, v, z, h, room, sc, what = S[i]; hr = math.radians(h); fu, fv = -math.sin(hr), math.cos(hr); ru, rv = fv, -fu
+    rects = JF.clear(room); others = [(s_[0], s_[1]) for j, s_ in enumerate(S) if j != i and abs(s_[2] - z) < 1.0 and j in picks]
+    for f, l in CANDS:
+        cu, cv = u + fu * f + ru * l, v + fv * f + rv * l
+        if not any(r[0] + 0.25 < cu < r[1] - 0.25 and r[2] + 0.25 < cv < r[3] - 0.25 for r in rects): continue
+        if any(b[0] < cu < b[1] and b[2] < cv < b[3] and b[4] < z + 1.2 for b in FIT): continue
+        if any(math.hypot(cu - a, cv - c) < 0.9 for a, c in others): continue
+        blocked = False
+        for k in range(1, 20):
+            t = k / 20; pu, pv, pz = cu + (u - cu) * t, cv + (v - cv) * t, z + 0.75 + (0.15 - 0.75) * t
+            if any(b[0] < pu < b[1] and b[2] < pv < b[3] and b[4] < pz < b[5] for b in FIT): blocked = True; break
+        if not blocked: return cu, cv
+    return None
 picks = (group('book', 'booking counter') + group('book', 'officer station') + group('book', 'booking bench') + group('hold', 'holding cell 1')
          + group('hold', 'holding cell 2') + group('block', 'officer desk') + group('block', 'dayroom table')[:8]
          + group('block', 'cell W101') + group('block', 'cell W102') + group('block', 'cell E101') + group('block', 'cell W201') + group('block', 'cell E201'))
@@ -28,8 +49,9 @@ try:
     for i in picks:
         u, v, z, h, room, sc, what = S[i]; k = (room, sc, h, what.split(' bunk')[0][:14])
         if k in seen: continue
-        seen.add(k); hr = math.radians(h); fu, fv = -math.sin(hr), math.cos(hr)        # the ped's facing (GTA heading, lot frame)
-        cu, cv = u + fu * 2.0 + fv * 0.7, v + fv * 2.0 - fu * 0.7; x, y = F.W(cu, cv); tx, ty = F.W(u, v)
+        seen.add(k); cam = pick_camera(i)
+        if cam is None: print('SIT_CAMERA_NONE', i, room, what); continue
+        cu, cv = cam; x, y = F.W(cu, cv); tx, ty = F.W(u, v)
         cams.append([f'sit_{room}_{i}', x, y, z + 0.75, tx, ty, z + 0.15])
     for n, x, y, z, tx, ty, tz in cams:
         subprocess.run([P.GB, '-c', f'HOUR=13 bash /c/C9Test/tcshot.sh {OUT.as_posix()}/{n}.png {x:.2f} {y:.2f} {z:.2f} {tx:.2f} {ty:.2f} {tz:.2f} 55 4'], capture_output=True, timeout=120)
