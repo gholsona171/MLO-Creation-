@@ -30,7 +30,9 @@ walks)   py -3 jj_probe.py walk_plant > logs/rig_walk_plant.log 2>&1            
          bash jj_rec.sh $V/p4_jail_walks.mp4 1500 py -3 jj_probe.py walk > logs/rig_walks.log 2>&1
          grep -q REC_OK logs/rig_walks.log || { res walks FAIL "the recording did not finalise: $(grep REC_ logs/rig_walks.log)"; exit 1; }
          grep -q PROBE_WALK_PASS logs/rig_walks.log && res walks PASS "video $V/p4_jail_walks.mp4" || res walks FAIL "see out/probe_walk.json" ;;
-drive)   py -3 jj_probe.py drive_plant > logs/rig_drive_plant.log 2>&1
+drive)   py -3 jj_probe.py drive_selftest > logs/rig_drive_selftest.log 2>&1      # the pieces first: roll-up read-back shut/open/shut, a car moves 2 m, deleted
+         grep -q PROBE_DRIVE_SELFTEST_PASS logs/rig_drive_selftest.log || { res drive FAIL "self-test: $(grep -o 'PROBE_DRIVE_SELFTEST_FAIL.*\|PROBE:.*' logs/rig_drive_selftest.log | head -1 | cut -c1-300)"; exit 1; }
+         py -3 jj_probe.py drive_plant > logs/rig_drive_plant.log 2>&1
          grep -q PROBE_DRIVE_PLANT_PASS logs/rig_drive_plant.log || { res drive FAIL "the planted off-line drive did not collide: the check is not proven"; exit 1; }
          bash jj_rec.sh $V/p4_jail_drive_test.mp4 900 py -3 jj_probe.py drive > logs/rig_drive.log 2>&1
          grep -q REC_OK logs/rig_drive.log || { res drive FAIL "the recording did not finalise: $(grep REC_ logs/rig_drive.log)"; exit 1; }

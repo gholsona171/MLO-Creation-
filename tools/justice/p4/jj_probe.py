@@ -178,66 +178,102 @@ def route():
         ok, log = walk_to(u, v, tz, leg_time(prev, (u, v))); prev = (u, v); bad = sum(1 for e_ in log if e_[3] != '000'); good = ok and bad == 0; ok_all &= good
         legs.append({'to': [u, v], 'z': tz, 'arrived': ok, 'bad_states': bad, 'ok': good})
     return legs, ok_all
+RUX_ = None
+def _rollup():
+    """the roll-up's placement (world) and its door-system / read-back Lua helpers: the door object is looked up AGAIN at every read
+    (rig 2026-10-30: a handle taken before the door was registered read 0 while a car drove under the open door) and its opening is
+    measured against its PLACEMENT (position + pitch / roll), not against a first reading."""
+    rux, ruy = W(J.JBOX[0] + 0.275, J.DRIVE_V); ruz = J.SALLY_Z + J.ROLLUP[2] / 2
+    lua_ = ('local DH=GetHashKey("jjdrive_rollup") local RP=vector3(%.3f,%.3f,%.3f) local RM=GetHashKey("%s") '
+            'local function dopen() local o=GetClosestObjectOfType(RP.x,RP.y,RP.z,4.0,RM,false,false,false) if o==0 then return -1.0 end '
+            'local r_=GetEntityRotation(o,2) return #(GetEntityCoords(o)-RP)+(math.abs(r_.x)+math.abs(r_.y))/30.0 end '
+            'local function dsys(open) if not IsDoorRegisteredWithSystem(DH) then AddDoorToSystem(DH,RM,RP.x,RP.y,RP.z,false,false,false) end '
+            'if open then DoorSystemSetDoorState(DH,0,false,true) DoorSystemSetOpenRatio(DH,1.0,false,true) DoorSystemSetHoldOpen(DH,true) '
+            'else DoorSystemSetHoldOpen(DH,false) DoorSystemSetOpenRatio(DH,0.0,false,true) DoorSystemSetDoorState(DH,1,false,true) Wait(5000) '
+            'DoorSystemSetDoorState(DH,0,false,true) RemoveDoorFromSystem(DH) end end ') % (rux, ruy, ruz, J.ROLLUP[0])
+    return lua_
+# every vehicle near the bay goes before a test car is made - mission entities too (ClearAreaOfVehicles leaves those: a car left by an
+# earlier run blocked two test cars at their spawn, rig 2026-10-30). Returns how many were removed and how many are still there.
+PURGE = ('local function purge(x,y,z,rad) local n=0 for _,veh in ipairs(GetGamePool("CVehicle")) do if #(GetEntityCoords(veh)-vector3(x,y,z))<rad then '
+         'SetEntityAsMissionEntity(veh,true,true) DeleteVehicle(veh) if DoesEntityExist(veh) then DeleteEntity(veh) end n=n+1 end end Wait(300) local left=0 '
+         'for _,veh in ipairs(GetGamePool("CVehicle")) do if #(GetEntityCoords(veh)-vector3(x,y,z))<rad then left=left+1 end end return n,left end ')
+def _spawn(m, su, sv, h_in):
+    """the car on the line: purge the bay and the street in front of it (30 m), spawn, engine on, the server's key, the player in the
+    driver's seat. Raises 'nothing was tested' when the area does not purge or the car is not on the line."""
+    sx, sy = W(su, sv); bx, by = W(J.JBOX[0] - 2.0, J.DRIVE_V)
+    revive(); stand(J.JBOX[0] - 16.0, J.DRIVE_V + 4.0, J.SALLY_Z); time.sleep(1)
+    sp = lua((PURGE + 'local h=GetHashKey("%s") RequestModel(h) local t=GetGameTimer() while not HasModelLoaded(h) and GetGameTimer()-t<8000 do Wait(50) end '
+              'local n,left=purge(%.3f,%.3f,%.3f,30.0) '
+              'local v=CreateVehicle(h,%.3f,%.3f,%.3f,%.1f,true,false) SetEntityAsMissionEntity(v,true,true) SetVehicleOnGroundProperly(v) SetEntityHeading(v,%.1f) '
+              'FreezeEntityPosition(v,false) SetVehicleEngineOn(v,true,true,false) SetVehicleUndriveable(v,false) _G.__jjv=v Wait(800) local c=GetEntityCoords(v) '
+              'return GetVehicleNumberPlateText(v)..";"..string.format("%%.2f;%%.2f;%%.1f;%%d;%%d",c.x,c.y,GetEntityHeading(v),n,left)')
+             % (m, bx, by, J.SALLY_Z, sx, sy, J.SALLY_Z + 0.5, h_in, h_in), 40).split(';')
+    plate = sp[0].strip(); cu, cv = F.L(float(sp[1]), float(sp[2])); hd = abs(((float(sp[3]) - h_in) + 540.0) % 360.0 - 180.0); purged, left = int(sp[4]), int(sp[5])
+    if left > 0: raise SystemExit(f'PROBE: {left} vehicle(s) still in the bay / street after the purge - nothing was tested')
+    if abs(cv - sv) > 0.4 or abs(cu - su) > 0.6 or hd > 3.0:
+        lua('local v=_G.__jjv if v and DoesEntityExist(v) then SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) end return "x"')
+        raise SystemExit(f'PROBE: {m} did not spawn on the line ({cu:.2f}, {cv:.2f}, heading off {hd:.1f}) - nothing was tested')
+    r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh srv "$0" 20', "return tostring(exports.c9_vehiclekeys:GiveKeysByPlate(1,'%s',true))" % plate], capture_output=True, text=True, timeout=60)
+    if 'true' not in r.stdout: raise SystemExit('PROBE: the server gave no key - nothing was tested: ' + r.stdout[-200:])
+    w = lua('local p=PlayerPedId() local v=_G.__jjv TaskWarpPedIntoVehicle(p,v,-1) Wait(1500) SetVehicleEngineOn(v,true,true,false) Wait(500) '
+            'return tostring(GetPedInVehicleSeat(v,-1)==p)..";"..tostring(GetIsVehicleEngineRunning(v))', 20).split(';')
+    if w[0] not in ('true', '1'): raise SystemExit(f'PROBE: the player is not in {m}\'s driver seat - nothing was tested')
+    return purged, w[1] in ('true', '1')
+def drive_selftest():
+    """each piece of the drive test on its own (rig 2026-10-30: the first two cars never moved, the roll-up read 0 while a car drove
+    under it): (1) the roll-up read-back: shut ~0, opened by the door system > 1.0, shut again ~0; (2) a car spawned in the cleared
+    street on the line moves >= 2 m on 2 s of gas; (3) it is deleted for certain."""
+    h_in = (270.0 + F.HDEG) % 360; res = {}
+    r = lua((_rollup() + 'local a=dopen() dsys(true) Wait(5000) local b=dopen() dsys(false) Wait(500) local c=dopen() return string.format("%.2f:%.2f:%.2f",a,b,c)'), 60).split(':')
+    a, b, c = map(float, r); res['rollup_shut_open_shut'] = [a, b, c]; door_ok = a >= 0 and a < 0.3 and b > 1.0 and c < 0.3
+    su = J.JBOX[0] - 16.0; purged, eng = _spawn('police', su, J.DRIVE_V, h_in)
+    r = lua(('local p=PlayerPedId() local v=_G.__jjv local c0=GetEntityCoords(v) TaskVehicleTempAction(p,v,23,2000) Wait(2200) TaskVehicleTempAction(p,v,1,1500) Wait(1600) '
+             'local d=#(GetEntityCoords(v)-c0) local fr=IsEntityPositionFrozen(v) TaskLeaveVehicle(p,v,16) Wait(1500) SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) '
+             'return string.format("%%.2f:%%s:%%s",d,tostring(fr),tostring(not DoesEntityExist(v)))'), 40).split(':')
+    moved, frozen, gone = float(r[0]), r[1], r[2] in ('true', '1')
+    res.update({'purged_before_spawn': purged, 'engine_running': eng, 'moved_m_on_2s_gas': moved, 'frozen': frozen, 'deleted': gone})
+    ok = door_ok and moved >= 2.0 and gone; res['ok'] = ok
+    return res, ok
 def drive(models=None, plant=False):
     """the test player drives each vehicle from Macdonald St straight into the sally port to its stop and backs it straight out to the
-    street. The ROLL-UP IS OPENED THROUGH THE DOOR SYSTEM BOTH WAYS, held open for the whole run of each car and shut + released after
-    it (Antonio 2026-10-29: "client add locks" - the server's lock system runs this door; the game's own auto-open fired for the first
-    car only, rig 2026-10-30). Each car: the spawn spot is cleared of vehicles first and the car must stand on the door's centre line
-    facing the door before it moves (a leftover car from the previous run pushed police3 8 m off the line); it is deleted for certain
-    afterwards (DeleteVehicle, then checked). Logged: impacts (wall / door / kerb faces, debounced - not floor contact) going in and
-    backing out, with the first five impacts' spot and normal; body health; the nose stop (short of the platform kerb); the final spot;
-    the roll-up's physical opening on each leg. plant=True: the same drive 4.5 m off the centre line - it must hit the wall."""
-    out = []; ok_all = True; h_in = (270.0 + F.HDEG) % 360                 # facing +u (into the bay)
+    street. The roll-up is opened through the DOOR SYSTEM for the car's whole run (in and out), as the client's lock system will (Antonio
+    2026-10-29: "client add locks"), then shut and released. Every car starts on a purged street, on the line, keyed, engine on
+    (_spawn) and must be seen moving; the stop: the speed tapers with the distance left and the brakes go on in time (rig 2026-10-30:
+    the van overshot to -28.02). Logged: impacts (wall / door / kerb faces, debounced - not floor contact) going in and backing out
+    with the first five impacts' spot and normal; body health; the nose stop; the final spot; the roll-up's opening on each leg
+    (read from the door object found anew each time, against its placement). plant=True: 4.5 m off the line - it must hit the wall."""
+    out = []; ok_all = True; h_in = (270.0 + F.HDEG) % 360
     dv = J.DRIVE_V + (-4.5 if plant else 0.0)
-    rux, ruy = W(J.JBOX[0] + 0.275, J.DRIVE_V); ruz = J.SALLY_Z + J.ROLLUP[2] / 2
-    door = ('local DH=GetHashKey("jjdrive_rollup") local function dsys(open) if not IsDoorRegisteredWithSystem(DH) then '
-            'AddDoorToSystem(DH,GetHashKey("%s"),%.3f,%.3f,%.3f,false,false,false) end if open then DoorSystemSetDoorState(DH,0,false,true) '
-            'DoorSystemSetOpenRatio(DH,1.0,false,true) DoorSystemSetHoldOpen(DH,true) else DoorSystemSetHoldOpen(DH,false) DoorSystemSetOpenRatio(DH,0.0,false,true) '
-            'DoorSystemSetDoorState(DH,1,false,true) Wait(4500) DoorSystemSetDoorState(DH,0,false,true) RemoveDoorFromSystem(DH) end end ') % (J.ROLLUP[0], rux, ruy, ruz)
     for m in (models or J.DRIVE_TEST):
         L_ = J.VEHICLES.get({'police': 'police4', 'police3': 'police4'}.get(m, m), (2.0, 1.6, 5.0))[2]
-        su = J.JBOX[0] - 9.0 - L_ / 2; sx, sy = W(su, dv)
-        revive(); stand(J.JBOX[0] - 16.0, J.DRIVE_V + 4.0, J.SALLY_Z); time.sleep(1)
-        sp = lua(('local h=GetHashKey("%s") RequestModel(h) local t=GetGameTimer() while not HasModelLoaded(h) and GetGameTimer()-t<8000 do Wait(50) end '
-                  'ClearAreaOfVehicles(%.3f,%.3f,%.3f,12.0,false,false,false,false,false) Wait(500) '
-                  'local v=CreateVehicle(h,%.3f,%.3f,%.3f,%.1f,true,false) SetEntityAsMissionEntity(v,true,true) SetVehicleOnGroundProperly(v) '
-                  'SetEntityHeading(v,%.1f) SetVehicleEngineOn(v,true,true,false) _G.__jjv=v Wait(800) local c=GetEntityCoords(v) '
-                  'return GetVehicleNumberPlateText(v)..";"..string.format("%%.2f;%%.2f;%%.1f",c.x,c.y,GetEntityHeading(v))')
-                 % (m, sx, sy, J.SALLY_Z, sx, sy, J.SALLY_Z + 0.5, h_in, h_in), 30).split(';')
-        plate = sp[0].strip(); cu, cv = F.L(float(sp[1]), float(sp[2])); hd = abs(((float(sp[3]) - h_in) + 540.0) % 360.0 - 180.0)
-        if abs(cv - dv) > 0.4 or abs(cu - su) > 0.6 or hd > 3.0:
-            lua('local v=_G.__jjv if v and DoesEntityExist(v) then SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) end return "x"')
-            raise SystemExit(f'PROBE: {m} did not spawn on the line ({cu:.2f}, {cv:.2f}, heading off {hd:.1f}) - nothing was tested')
-        r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh srv "$0" 20', "return tostring(exports.c9_vehiclekeys:GiveKeysByPlate(1,'%s',true))" % plate], capture_output=True, text=True, timeout=60)
-        if 'true' not in r.stdout: raise SystemExit('PROBE: the server gave no key - nothing was tested: ' + r.stdout[-200:])
-        # the lock system opens the door for the arriving car and keeps it open until the car is back on the street (dsys)
-        r = lua((door + 'local p=PlayerPedId() local v=_G.__jjv TaskWarpPedIntoVehicle(p,v,-1) Wait(1500) local b0=GetVehicleBodyHealth(v) local hits,last,hin=0,0,0 local imp={} '
+        purged, eng = _spawn(m, J.JBOX[0] - 9.0 - L_ / 2, dv, h_in)
+        r = lua((_rollup() + 'local p=PlayerPedId() local v=_G.__jjv local b0=GetVehicleBodyHealth(v) local hits,last,hin=0,0,0 local imp={} '
                  'local O=vector2(%.3f,%.3f) local Hd=vector2(math.cos(math.rad(%.4f)),math.sin(math.rad(%.4f))) local Nm=vector2(-Hd.y,Hd.x) '
                  'local function uv() local c=GetEntityCoords(v) local d=vector2(c.x,c.y)-O return d.x*Hd.x+d.y*Hd.y, d.x*Nm.x+d.y*Nm.y end local function u() local a=uv() return a end '
-                 'local half=%.2f local ud=%.3f local dobj=GetClosestObjectOfType(%.3f,%.3f,%.3f,3.0,GetHashKey("%s"),false,false,false) '
-                 'local dp0=dobj~=0 and GetEntityCoords(dobj) or vector3(0,0,0) local dr0=dobj~=0 and GetEntityRotation(dobj,2) or vector3(0,0,0) local dIn,dOut=0.0,0.0 '
-                 'local function dopen() if dobj==0 then return -1.0 end local r_=GetEntityRotation(dobj,2) return #(GetEntityCoords(dobj)-dp0)+math.abs(r_.x-dr0.x)/30.0+math.abs(r_.y-dr0.y)/30.0 end '
+                 'local half=%.2f local ud=%.3f local dIn,dOut=0.0,0.0 local u0=u() '
                  'local function tick() if HasEntityCollidedWithAnything(v) then local n=GetCollisionNormalOfLastHitForEntity(v) if math.abs(n.z)<0.6 and GetGameTimer()-last>600 then '
                  'hits=hits+1 last=GetGameTimer() if #imp<5 then local a,b=uv() imp[#imp+1]=string.format("%%.2f/%%.2f/%%.2f/%%.2f/%%.2f",a,b,n.x,n.y,n.z) end end end end '
                  'local function drive(action,ms) TaskVehicleTempAction(p,v,action,ms) local t=GetGameTimer() while GetGameTimer()-t<ms do Wait(0) tick() end end '
-                 'dsys(true) Wait(3500) '
-                 'local t0=GetGameTimer() while GetGameTimer()-t0<45000 do local rem=%.3f-(u()+half) if rem<=0.0 then break end '
-                 'if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end local want=math.max(0.7,math.min(2.5,rem*0.35)) drive(GetEntitySpeed(v)<want and 23 or 6,250) end '
-                 'drive(1,2000) hin=hits local cin=GetEntityCoords(v) local t1=GetGameTimer() '
+                 'dsys(true) Wait(4000) local dPre=dopen() '
+                 'local t0=GetGameTimer() while GetGameTimer()-t0<50000 do local rem=%.3f-(u()+half) local sp=GetEntitySpeed(v) '
+                 'if rem<=0.25+sp*0.5 then break end if math.abs(u()+half-ud)<4.0 then dIn=math.max(dIn,dopen()) end '
+                 'local want=math.max(0.6,math.min(2.5,rem*0.3)) drive(sp<want and 23 or 1,200) end '
+                 'drive(1,2500) hin=hits local cin=GetEntityCoords(v) local moved=u()-u0 local t1=GetGameTimer() '
                  'while GetGameTimer()-t1<60000 and u() > %.3f do local rear=u()-half if math.abs(rear-ud)<4.0 then dOut=math.max(dOut,dopen()) end '
-                 'drive(GetEntitySpeed(v)<1.8 and 22 or 6,250) end '
+                 'drive(GetEntitySpeed(v)<1.8 and 22 or 1,200) end '
                  'drive(1,2000) local c2=GetEntityCoords(v) local b1=GetVehicleBodyHealth(v) TaskLeaveVehicle(p,v,16) Wait(1500) '
                  'SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) local gone=not DoesEntityExist(v) dsys(false) '
-                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone))..table.concat(imp,",")')
-                % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, rux, ruy, ruz, J.ROLLUP[0], J.DRIVE_STOP, J.JBOX[0] - 8.0), 200).split(':')
+                 'return string.format("%%d:%%.1f:%%.1f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%.2f:%%d:%%s:%%.2f:%%.2f:",hits,b0,b1,cin.x,cin.y,c2.x,c2.y,dIn,dOut,hin,tostring(gone),dPre,moved)..table.concat(imp,",")')
+                % (F.OX, F.OY, F.HDEG, F.HDEG, L_ / 2, J.JBOX[0] + 0.275, J.DRIVE_STOP, J.JBOX[0] - 8.0), 220).split(':')
         hits, b0, b1 = int(r[0]), float(r[1]), float(r[2]); ui, vi = F.L(float(r[3]), float(r[4])); uo, vo = F.L(float(r[5]), float(r[6]))
-        d_in, d_out, h_in_ = float(r[7]), float(r[8]), int(r[9]); gone = r[10] in ('true', '1'); imps = [x for x in r[11].split(',') if x]
-        nose = ui + L_ / 2
-        good = hits == 0 and b1 >= b0 - 1.0 and J.DRIVE_STOP - 1.0 < nose < J.PLATFORM[0] - 0.3 and uo < J.JBOX[0] - 5.0 and gone
-        out.append({'vehicle': m, 'spawn_uv': [round(cu, 2), round(cv, 2)], 'impacts': hits, 'impacts_going_in': h_in_, 'impacts_backing_out': hits - h_in_,
+        d_in, d_out, h_in_ = float(r[7]), float(r[8]), int(r[9]); gone = r[10] in ('true', '1'); d_pre, moved = float(r[11]), float(r[12])
+        imps = [x for x in r[13].split(',') if x]; nose = ui + L_ / 2
+        if moved < 2.0: raise SystemExit(f'PROBE: {m} never moved ({moved:.2f} m; engine {eng}) - nothing was tested')
+        good = hits == 0 and b1 >= b0 - 1.0 and J.DRIVE_STOP - 1.0 < nose < J.PLATFORM[0] - 0.3 and uo < J.JBOX[0] - 5.0 and gone and d_pre > 1.0
+        out.append({'vehicle': m, 'purged_before_spawn': purged, 'impacts': hits, 'impacts_going_in': h_in_, 'impacts_backing_out': hits - h_in_,
                     'first_impacts_u_v_nx_ny_nz': imps, 'body_before': b0, 'body_after': b1, 'stop_nose_u': round(nose, 2), 'planned_stop_u': J.DRIVE_STOP,
-                    'platform_kerb_u': J.PLATFORM[0], 'stop_v': round(vi, 2), 'out_uv': [round(uo, 2), round(vo, 2)], 'car_deleted': gone,
-                    'rollup_open_going_in': round(d_in, 2), 'rollup_open_backing_out': round(d_out, 2), 'ok': good})
+                    'pass_window': [round(J.DRIVE_STOP - 1.0, 2), round(J.PLATFORM[0] - 0.3, 2)], 'stop_v': round(vi, 2), 'out_uv': [round(uo, 2), round(vo, 2)],
+                    'car_deleted': gone, 'rollup_open_before_driving': round(d_pre, 2), 'rollup_open_going_in': round(d_in, 2), 'rollup_open_backing_out': round(d_out, 2), 'ok': good})
         ok_all &= good
     return out, ok_all
 def drive_plant():

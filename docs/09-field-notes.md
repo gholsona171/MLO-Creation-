@@ -531,3 +531,8 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   heading before it moves (abort "nothing was tested" otherwise), delete it for certain (mission entity + DeleteVehicle + check) - a
   leftover car from the previous run pushed the next one 8 m off the line and the third 100 m away. A garage door the client's lock
   system runs is opened through the door system for BOTH legs in the test: the game's own auto-open fired for the first car only.
+- **Drive test pieces, each proven on its own first** (`drive_selftest`): the garage door read-back (shut ~0 / door-system open > 1 /
+  shut ~0) with the door OBJECT looked up anew at every read and measured against its placement (a handle taken before the door was
+  registered read 0 while a car drove under the open door); a car on a purged street moves >= 2 m on 2 s of gas; it is deleted for
+  certain. Purge = every vehicle within 30 m, mission entities included (ClearAreaOfVehicles leaves those - a car left by an earlier
+  run blocked two test cars at their spawn). A car that never moves is "nothing was tested", not a failed bay.
