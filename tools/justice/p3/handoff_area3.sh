@@ -6,7 +6,6 @@
 #   models   every room drawable registered (planted unstreamed name reads false)
 #   rooms    every room's key in game (plaza control = no interior)
 #   doors    every door both ways (police + area 2; the garage roll-ups are the drive test)
-#   sits     every seat area 2 + 3 (incl. the lounge chairs that had no sit point)
 #   lifts    both banks on screen, the secure bank incl. jc-jail's B1 stop
 #   walks    the police routes: galleria link -> hall -> lobby, staff corridor -> stair, B1 garage -> stair
 #   drive    police car, recorded: in through the IN door, down, the loop, a bay, out by the OUT ramp (no collision)
@@ -15,7 +14,7 @@
 #   fly      the fly-through (jc3_fly_area3.sh)
 # Every step releases the camera at the end (tc_release.sh); nothing here restarts the server.
 J=/c/Users/anton/Documents/Codex/JusticeCenter; P=$J/work/p3; O=$J/shots/p3_area3_rig; mkdir -p "$O"; cd "$P"
-STEPS="${*:-control models rooms doors sits lifts walks drive van shots fly}"
+STEPS="${*:-control models rooms doors lifts walks drive van shots fly}"   # no sit tests: client builds (Antonio 2026-10-30)
 probe() {   # probe <name> <jc3_probe function...>: the probe's own PASS / FAIL line is the verdict; its json is kept
   local n=$1; shift; py -3 jc3_probe.py "$@" > "$O/$n.log" 2>&1
   for f in "$@"; do cp out/probe_$f.json "$O/" 2>/dev/null; done
@@ -26,7 +25,6 @@ for s in $STEPS; do case $s in
   models)  probe models models ;;
   rooms)   probe rooms rooms ;;
   doors)   probe doors doors2 ;;
-  sits)    probe sits sit2 ;;
   lifts)   probe lifts lifts ;;
   walks)   probe walks walk3 ;;
   drive)   RECDIR=jc_p3 bash /c/C9Test/rec.sh start area3_drive_car > /dev/null; probe drive gdrive; RECDIR=jc_p3 bash /c/C9Test/rec.sh stop > /dev/null 2>&1
