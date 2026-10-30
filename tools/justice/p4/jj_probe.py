@@ -198,38 +198,55 @@ PURGE = ('local function purge(x,y,z,rad) local n=0 for _,veh in ipairs(GetGameP
          'SetEntityAsMissionEntity(veh,true,true) DeleteVehicle(veh) if DoesEntityExist(veh) then DeleteEntity(veh) end n=n+1 end end Wait(300) local left=0 '
          'for _,veh in ipairs(GetGamePool("CVehicle")) do if #(GetEntityCoords(veh)-vector3(x,y,z))<rad then left=left+1 end end return n,left end ')
 def _spawn(m, su, sv, h_in):
-    """the car on the line: purge the bay and the street in front of it (30 m), spawn, the server's key, the player in the driver's
-    seat, the engine started THROUGH THE KEYS SCRIPT. Rig 2026-10-30: c9_vehiclekeys has disableAutoStart - while a player sits in
-    the driver's seat it switches the engine off every frame unless the script itself wants it on (its /engine command, export
-    ToggleEngine); a raw SetVehicleEngineOn read 'running' and the car crept 0.14 m on 2 s of gas. So no raw engine call here: key,
-    seat, the script's CanDrive, then its ToggleEngine, and the engine must still run 1.5 s later (the guard did not kill it), with
-    fuel > 0 (ox_fuel state bag). Raises 'nothing was tested' when any of that fails. Returns (purged, {engine, fuel})."""
+    """the car on the line, then the player in its driver's seat with the engine started THROUGH THE KEYS SCRIPT.
+    (1) the ped ready: out of any vehicle (also one it is still getting out of), not ragdolled / falling / entering, up to 5 s;
+    (2) purge the bay and the street in front of it (30 m), spawn, wait until the car is networked and ours (request control), up to 4 s;
+    (3) the server's key; (4) the seat: up to 3 warps then up to 3 direct seatings, each given 1 s, until GetPedInVehicleSeat(v,-1) is
+    the player (rig 2026-10-30: the warp into the plant car straight after the self-test left the player outside);
+    (5) the keys script's CanDrive, then its ToggleEngine (rig 2026-10-30: c9_vehiclekeys disableAutoStart switches a raw
+    SetVehicleEngineOn off every frame; the car crept 0.14 m), the engine still running 1.5 s later, fuel > 0 (ox_fuel state bag).
+    Any step failing raises 'nothing was tested' with what the game reported. Returns (purged, {engine, fuel, fuel_state, seat_tries})."""
     sx, sy = W(su, sv); bx, by = W(J.JBOX[0] - 2.0, J.DRIVE_V)
     revive(); stand(J.JBOX[0] - 16.0, J.DRIVE_V + 4.0, J.SALLY_Z); time.sleep(1)
-    sp = lua((PURGE + 'local h=GetHashKey("%s") RequestModel(h) local t=GetGameTimer() while not HasModelLoaded(h) and GetGameTimer()-t<8000 do Wait(50) end '
+    sp = lua((PURGE + 'local p=PlayerPedId() local t=GetGameTimer() if IsPedInAnyVehicle(p,false) then TaskLeaveVehicle(p,GetVehiclePedIsIn(p,false),16) end '
+              'while GetGameTimer()-t<5000 and (IsPedInAnyVehicle(p,true) or IsPedRagdoll(p) or IsPedFalling(p) or IsPedGettingIntoAVehicle(p)) do Wait(100) end '
+              'local rdy=not IsPedInAnyVehicle(p,true) and not IsPedRagdoll(p) and not IsPedFalling(p) '
+              'local h=GetHashKey("%s") RequestModel(h) t=GetGameTimer() while not HasModelLoaded(h) and GetGameTimer()-t<8000 do Wait(50) end '
               'local n,left=purge(%.3f,%.3f,%.3f,30.0) '
               'local v=CreateVehicle(h,%.3f,%.3f,%.3f,%.1f,true,false) SetEntityAsMissionEntity(v,true,true) SetVehicleOnGroundProperly(v) SetEntityHeading(v,%.1f) '
-              'FreezeEntityPosition(v,false) SetVehicleUndriveable(v,false) _G.__jjv=v Wait(800) local c=GetEntityCoords(v) '
-              'return GetVehicleNumberPlateText(v)..";"..string.format("%%.2f;%%.2f;%%.1f;%%d;%%d",c.x,c.y,GetEntityHeading(v),n,left)')
+              'FreezeEntityPosition(v,false) SetVehicleUndriveable(v,false) _G.__jjv=v t=GetGameTimer() '
+              'while GetGameTimer()-t<4000 and not (NetworkGetEntityIsNetworked(v) and NetworkHasControlOfEntity(v)) do NetworkRequestControlOfEntity(v) Wait(50) end '
+              'local net=NetworkGetEntityIsNetworked(v) and NetworkHasControlOfEntity(v) Wait(300) local c=GetEntityCoords(v) '
+              'return GetVehicleNumberPlateText(v)..";"..string.format("%%.2f;%%.2f;%%.1f;%%d;%%d;",c.x,c.y,GetEntityHeading(v),n,left)..tostring(rdy)..";"..tostring(net)')
              % (m, bx, by, J.SALLY_Z, sx, sy, J.SALLY_Z + 0.5, h_in, h_in), 40).split(';')
     plate = sp[0].strip(); cu, cv = F.L(float(sp[1]), float(sp[2])); hd = abs(((float(sp[3]) - h_in) + 540.0) % 360.0 - 180.0); purged, left = int(sp[4]), int(sp[5])
-    if left > 0: raise SystemExit(f'PROBE: {left} vehicle(s) still in the bay / street after the purge - nothing was tested')
-    if abs(cv - sv) > 0.4 or abs(cu - su) > 0.6 or hd > 3.0:
-        lua('local v=_G.__jjv if v and DoesEntityExist(v) then SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) end return "x"')
-        raise SystemExit(f'PROBE: {m} did not spawn on the line ({cu:.2f}, {cv:.2f}, heading off {hd:.1f}) - nothing was tested')
-    r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh srv "$0" 20', "return tostring(exports.c9_vehiclekeys:GiveKeysByPlate(1,'%s',true))" % plate], capture_output=True, text=True, timeout=60)
-    if 'true' not in r.stdout: raise SystemExit('PROBE: the server gave no key - nothing was tested: ' + r.stdout[-200:])
-    w = lua('local p=PlayerPedId() local v=_G.__jjv TaskWarpPedIntoVehicle(p,v,-1) local t=GetGameTimer() '
-            'while GetGameTimer()-t<6000 and not exports.c9_vehiclekeys:CanDrive(v) do Wait(100) end Wait(500) '
-            'local can=exports.c9_vehiclekeys:CanDrive(v) if can and not GetIsVehicleEngineRunning(v) then exports.c9_vehiclekeys:ToggleEngine() end Wait(1500) '
-            'local fs=Entity(v).state.fuel return tostring(GetPedInVehicleSeat(v,-1)==p)..";"..tostring(can)..";"..tostring(GetIsVehicleEngineRunning(v))..";"'
-            '..string.format("%.1f",GetVehicleFuelLevel(v))..";"..tostring(fs)', 30).split(';')
-    seat, can, run = (x in ('true', '1') for x in w[:3]); fuel = float(w[3]); fs = w[4].strip()
-    why = (None if seat else f"the player is not in {m}'s driver seat") or (None if can else "the keys script says the player cannot drive it (CanDrive false)")         or (None if run else 'the engine is not running 1.5 s after the keys script started it') or (None if fuel > 0 else f'fuel {fuel:.1f} (state bag {fs})')
-    if why:
+    rdy, net = sp[6].strip() in ('true', '1'), sp[7].strip() in ('true', '1')
+    def gone(why):
         lua('local v=_G.__jjv if v and DoesEntityExist(v) then SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) end return "x"')
         raise SystemExit(f'PROBE: {why} - nothing was tested')
-    return purged, {'engine': run, 'fuel': fuel, 'fuel_state': fs}
+    if left > 0: gone(f'{left} vehicle(s) still in the bay / street after the purge')
+    if not rdy: gone('the player was still in / getting out of a vehicle, ragdolled or falling 5 s after being stood up')
+    if not net: gone(f'{m} was not networked and owned by the test client within 4 s')
+    if abs(cv - sv) > 0.4 or abs(cu - su) > 0.6 or hd > 3.0: gone(f'{m} did not spawn on the line ({cu:.2f}, {cv:.2f}, heading off {hd:.1f})')
+    r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh srv "$0" 20', "return tostring(exports.c9_vehiclekeys:GiveKeysByPlate(1,'%s',true))" % plate], capture_output=True, text=True, timeout=60)
+    if 'true' not in r.stdout: gone('the server gave no key: ' + r.stdout[-200:])
+    w = lua('local p=PlayerPedId() local v=_G.__jjv local tries,how=0,"" '
+            'while GetPedInVehicleSeat(v,-1)~=p and tries<6 do tries=tries+1 ClearPedTasksImmediately(p) '
+            'if tries<=3 then TaskWarpPedIntoVehicle(p,v,-1) how="warp" else SetPedIntoVehicle(p,v,-1) how="set" end '
+            'local t=GetGameTimer() while GetGameTimer()-t<1000 and GetPedInVehicleSeat(v,-1)~=p do Wait(50) end end '
+            'local seat=GetPedInVehicleSeat(v,-1)==p local occ=GetPedInVehicleSeat(v,-1) '
+            'local diag=string.format("occupant %d, ped in a vehicle %s, ragdoll %s, dead %s, door lock %d, car exists %s",occ,tostring(IsPedInAnyVehicle(p,true)),'
+            'tostring(IsPedRagdoll(p)),tostring(IsEntityDead(p)),GetVehicleDoorLockStatus(v),tostring(DoesEntityExist(v))) '
+            'local can=false if seat then local t=GetGameTimer() while GetGameTimer()-t<6000 and not exports.c9_vehiclekeys:CanDrive(v) do Wait(100) end Wait(500) '
+            'can=exports.c9_vehiclekeys:CanDrive(v) if can and not GetIsVehicleEngineRunning(v) then exports.c9_vehiclekeys:ToggleEngine() end Wait(1500) end '
+            'local fs=Entity(v).state.fuel return tostring(seat)..";"..tostring(can)..";"..tostring(GetIsVehicleEngineRunning(v))..";"'
+            '..string.format("%.1f",GetVehicleFuelLevel(v))..";"..tostring(fs)..";"..tries..";"..how..";"..diag', 40).split(';')
+    seat, can, run = (x in ('true', '1') for x in w[:3]); fuel = float(w[3]); fs = w[4].strip(); tries, how, diag = int(w[5]), w[6], w[7]
+    if not seat: gone(f"the player is not in {m}'s driver seat after {tries} tries ({how}): {diag}")
+    if not can: gone('the keys script says the player cannot drive it (CanDrive false)')
+    if not run: gone('the engine is not running 1.5 s after the keys script started it')
+    if fuel <= 0: gone(f'fuel {fuel:.1f} (state bag {fs})')
+    return purged, {'engine': run, 'fuel': fuel, 'fuel_state': fs, 'seat_tries': f'{tries} {how}'.strip()}
 def drive_selftest():
     """each piece of the drive test on its own (rig 2026-10-30: the first two cars never moved, the roll-up read 0 while a car drove
     under it): (1) the roll-up read-back: shut ~0, opened by the door system > 1.0, shut again ~0; (2) a car spawned in the cleared

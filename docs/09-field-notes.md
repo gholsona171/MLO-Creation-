@@ -493,6 +493,12 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   the engine still runs 1.5 s later and fuel > 0 (ox_fuel state bag) before calling the drive a test. The offline sim mocks that guard,
   and the pre-fix probe fails there at 0.0 m, as on the rig. Also: the sim must keep ONE Lua state across a probe's chunks (globals and
   cars persist on the rig); a fresh state per chunk hid the car between chunks.
+- Seating the test driver is a step with its own checks, not one warp: stand the ped out of any vehicle and not ragdolled first, wait
+  until the new car is networked and owned (request control), then warp with retries (3 warps, then SetPedIntoVehicle) until
+  GetPedInVehicleSeat(v,-1) is the player; on failure report the seat occupant, ped state, door lock (rig 2026-10-30: the warp into the
+  plant car straight after the self-test did not take). The sim runs the plant in the same Lua state right after the self-test and
+  mocks a car that takes a ped only 1.5 s after it is created; the single-warp probe fails there with the rig's message. Mock tables
+  must be declared before the first mock function that uses them, or Lua reads a nil global (here: the stub function).
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous
