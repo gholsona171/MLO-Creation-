@@ -1,11 +1,16 @@
 """FILMING AID ONLY (never shipped, never a lock): open or close every jc_jail door on client 1 for a fly-through, so the camera never
 passes through a closed leaf (playbook: no camera through a closed door). Doors are added to the client's DoorSystem under hashes of
-our own and opened by ratio; 'close' drives every one of them shut (ratio 0, briefly locked so it swings home), removes them from the
-door system (the map default applies: plain native doors) and then checks every door OBJECT physically: heading within 3 deg and
-position within 0.15 m of its placement. The roll-up too.
-'close' is ALWAYS safe to run (also when nothing was opened: it registers, closes and removes) - jj_rig_tests.sh runs it in a trap after
-the fly and before the pairs shots (2026-10-29: a fly that failed before its close left the roll-up open in the pair shots).
-Run: py -3 jj_doorctl.py open|close   ->  DOORCTL_OK <mode> <n> | DOORCTL_FAIL ... (exit 1)"""
+our own. The roll-up too.
+Every read is PHYSICAL (2026-10-29: DoorSystemGetOpenRatio read 1.0 for 50 doors after a close - it reports the system's target, not the
+leaf): each door object is found at its spot and its heading / position compared with the door's own placement (shut = within 3 deg
+and 0.15 m).
+'open': unlocked, ratio 1, held open; polled every 0.5 s until every leaf has left its shut position (at most 15 s).
+'close': held shut by the door system (ratio 0, LOCKED) and polled every 0.5 s - the doors not yet shut are driven again - until every
+leaf is physically shut (at most 30 s); only then released to the map default (unlocked, out of the door system) and read again after
+2 s (rig 2026-10-30: the old close waited a fixed 4 s and released, and a leaf still swinging stopped where it was - a released map door
+has no spring: 50 of 51 left open after the fly, 14 after a second close). Reports the time it took and which doors are not shut.
+'close' is ALWAYS safe to run (also when nothing was opened) - jj_rig_tests.sh runs it in a trap after the fly and before the pairs shots.
+Run: py -3 jj_doorctl.py open|close   ->  DOORCTL_OK <mode> <n> ... | DOORCTL_FAIL ... (exit 1)"""
 import json, re, subprocess, sys
 from pathlib import Path
 JL = Path(__file__).resolve().parent; sys.path[:0] = [str(JL), str(JL.parent)]
@@ -14,38 +19,44 @@ import jj_plan as J, jc_frame as F
 GB = r'C:\Program Files\Git\bin\bash.exe'
 L = json.load(open(JL / OD / 'jj_layout.json'))
 doors = [(d['model'], *F.W(d['pos'][0], d['pos'][1]), d['pos'][2], (d['heading'] + F.HDEG) % 360.0) for d in L['doors']]
-s0, s1 = J.SALLY['s']; x, y = F.W(J.JBOX[0] + 0.275, (s0 + s1) / 2); doors.append((J.ROLLUP[0], x, y, J.SALLY_Z + J.ROLLUP[2] / 2, (90.0 + F.HDEG) % 360.0))
+names = [d['name'] for d in L['doors']]
+s0, s1 = J.SALLY['s']; x, y = F.W(J.JBOX[0] + 0.275, (s0 + s1) / 2); doors.append((J.ROLLUP[0], x, y, J.SALLY_Z + J.ROLLUP[2] / 2, (90.0 + F.HDEG) % 360.0)); names.append('rollup')
 def code(mode):
-    """the Lua for 'open' / 'close' (jj_luasim.py executes it offline)."""
+    """the Lua for 'open' / 'close' (jj_luasim.py executes it offline). Returns n:found:bad:ms:list - bad = doors not shut ('close') or
+    still shut ('open'), ms = how long the poll took, list = the first eight bad doors' indexes."""
     items = ','.join('{"%s",%.3f,%.3f,%.3f,%.2f}' % d for d in doors)
-    # the PHYSICAL check (2026-10-29: DoorSystemGetOpenRatio read 1.0 for 50 doors after a close - it reports the system's target, not the
-    # leaf): find each door object at its spot and compare its heading and position with the door's own placement (closed = within 3 deg
-    # and 0.15 m). Returns how many are found / not closed.
-    phys = ('local function shut() local found,openn=0,0 for i,d in ipairs(D) do local o=GetClosestObjectOfType(d[2],d[3],d[4],1.6,GetHashKey(d[1]),false,false,false) '
-            'if o~=0 then found=found+1 local dh=math.abs(((GetEntityHeading(o)-d[5])+540.0)%360.0-180.0) local dp=#(GetEntityCoords(o)-vector3(d[2],d[3],d[4])) '
-            'if dh>3.0 or dp>0.15 then openn=openn+1 end end end return found,openn end ')
-    reg = ('local D={%s} local H={} for i,d in ipairs(D) do H[i]=GetHashKey("jjfilm_"..i) end ' % items) + phys
+    lua = ('local D={%s} local H={} for i,d in ipairs(D) do H[i]=GetHashKey("jjfilm_"..i) end '
+           'local function obj(d) return GetClosestObjectOfType(d[2],d[3],d[4],1.6,GetHashKey(d[1]),false,false,false) end '
+           'local function isshut(d) local o=obj(d) if o==0 then return nil end local dh=math.abs(math.fmod((GetEntityHeading(o)-d[5])+540.0,360.0)-180.0) '
+           'return dh<=3.0 and #(GetEntityCoords(o)-vector3(d[2],d[3],d[4]))<=0.15 end '
+           'local function read(want) local found,bad,list=0,0,{} for i,d in ipairs(D) do local s=isshut(d) if s~=nil then found=found+1 '
+           'if s~=want then bad=bad+1 if #list<8 then list[#list+1]=tostring(i) end end end end return found,bad,list end '
+           'local function reg(i,d) if not IsDoorRegisteredWithSystem(H[i]) then AddDoorToSystem(H[i],GetHashKey(d[1]),d[2],d[3],d[4],false,false,false) end end '
+           'local function drive(i,d,open) reg(i,d) if open then DoorSystemSetDoorState(H[i],0,false,true) DoorSystemSetOpenRatio(H[i],1.0,false,true) DoorSystemSetHoldOpen(H[i],true) '
+           'else DoorSystemSetHoldOpen(H[i],false) DoorSystemSetOpenRatio(H[i],0.0,false,true) DoorSystemSetDoorState(H[i],1,false,true) end end ') % items
     if mode == 'open':
-        code = (reg + 'for i,d in ipairs(D) do if not IsDoorRegisteredWithSystem(H[i]) then AddDoorToSystem(H[i],GetHashKey(d[1]),d[2],d[3],d[4],false,false,false) end '
-                'DoorSystemSetDoorState(H[i],0,false,true) DoorSystemSetOpenRatio(H[i],1.0,false,true) DoorSystemSetHoldOpen(H[i],true) end Wait(3000) '
-                'local f,o=shut() return tostring(#D)..":"..tostring(f)..":"..tostring(#D-o)')        # n : found : still shut (after opening: should be 0)
+        lua += ('for i,d in ipairs(D) do drive(i,d,true) end local t0=GetGameTimer() local f,b,l=read(false) '
+                'while b>0 and GetGameTimer()-t0<15000 do Wait(500) f,b,l=read(false) end '
+                'return tostring(#D)..":"..tostring(f)..":"..tostring(b)..":"..tostring(GetGameTimer()-t0)..":"..table.concat(l,",")')
     else:
-        # reset: drive every door shut (ratio 0, locked, forced), wait, take every one OUT of the door system (the map default applies:
-        # a plain native door), wait, then the physical read-back
-        code = (reg + 'for i,d in ipairs(D) do if not IsDoorRegisteredWithSystem(H[i]) then AddDoorToSystem(H[i],GetHashKey(d[1]),d[2],d[3],d[4],false,false,false) end '
-                'DoorSystemSetHoldOpen(H[i],false) DoorSystemSetOpenRatio(H[i],0.0,false,true) DoorSystemSetDoorState(H[i],1,false,true) end Wait(4000) '
-                'for i=1,#D do DoorSystemSetDoorState(H[i],0,false,true) RemoveDoorFromSystem(H[i]) end Wait(1500) '
-                'local f,o=shut() return tostring(#D)..":"..tostring(f)..":"..tostring(o)')                # n : found : NOT shut (should be 0)
-    return code
+        lua += ('for i,d in ipairs(D) do drive(i,d,false) end local t0=GetGameTimer() local f,b,l=read(true) '
+                'while b>0 and GetGameTimer()-t0<30000 do Wait(500) for i,d in ipairs(D) do if isshut(d)==false then drive(i,d,false) end end f,b,l=read(true) end '
+                'local ms=GetGameTimer()-t0 if b==0 then for i=1,#D do DoorSystemSetDoorState(H[i],0,false,true) RemoveDoorFromSystem(H[i]) end Wait(2000) f,b,l=read(true) end '
+                'return tostring(#D)..":"..tostring(f)..":"..tostring(b)..":"..tostring(ms)..":"..table.concat(l,",")')
+    return lua
+def verdict(mode, res):
+    """(ok, line) from the Lua's answer."""
+    m = re.search(r'(\d+):(\d+):(\d+):(\d+):([\d,]*)', res or '')
+    if not m: return False, 'DOORCTL_FAIL no answer from the rig: ' + (res or '')[-300:]
+    n, found, bad, ms = map(int, m.groups()[:4]); which = [names[int(i) - 1] for i in m.group(5).split(',') if i]
+    if found != len(doors): return False, f'DOORCTL_FAIL {mode}: only {found} of {len(doors)} door objects found at their spots (stream them in first)'
+    if mode == 'close' and bad: return False, f'DOORCTL_FAIL close: {bad} of {n} doors not shut after {ms / 1000:.1f} s (physical check), e.g. {which}'
+    if mode == 'open' and bad: return True, f'DOORCTL_WARN open: {bad} of {n} doors did not swing open in {ms / 1000:.1f} s, e.g. {which}'
+    return True, f'DOORCTL_OK {mode} {n} doors' + (f' (all shut by physical check, settled in {ms / 1000:.1f} s, released to the map default and still shut 2 s later)' if mode == 'close' else f' (all open in {ms / 1000:.1f} s)')
 if __name__ == '__main__':
     mode = sys.argv[1]; assert mode in ('open', 'close'), 'usage: jj_doorctl.py open|close'
-    code = code(mode)
-    if '--dry' in sys.argv: print(code); sys.exit(0)                            # the Lua only
-    r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh cl 1 "$0" 40', code], capture_output=True, text=True, timeout=100)
-    m = re.search(r'"result":"(\d+):(\d+):(\d+)"', r.stdout)
-    if not m: print('DOORCTL_FAIL no answer from the rig: ' + (r.stdout + r.stderr)[-300:]); sys.exit(1)
-    n, found, x = map(int, m.groups())
-    if found != len(doors): print(f'DOORCTL_FAIL {mode}: only {found} of {len(doors)} door objects found at their spots (stream them in first)'); sys.exit(1)
-    if mode == 'close' and x: print(f'DOORCTL_FAIL close: {x} of {len(doors)} doors not shut (physical check: heading / position vs placement)'); sys.exit(1)
-    if mode == 'open' and x: print(f'DOORCTL_WARN open: {x} of {len(doors)} doors did not swing open'); sys.exit(0)
-    print(f'DOORCTL_OK {mode} {n} doors' + (' (all shut, physical check)' if mode == 'close' else ' (all open)'))
+    lua = code(mode)
+    if '--dry' in sys.argv: print(lua); sys.exit(0)                             # the Lua only
+    r = subprocess.run([GB, '-c', 'cd /c/C9Test && ./t.sh cl 1 "$0" 60', lua], capture_output=True, text=True, timeout=120)
+    m = re.search(r'"result":"([^"]*)"', r.stdout)
+    ok, line = verdict(mode, m.group(1) if m else r.stdout + r.stderr); print(line); sys.exit(0 if ok else 1)

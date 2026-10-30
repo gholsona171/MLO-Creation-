@@ -534,6 +534,11 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   the same frames: CLOSE (0.9 m, 0.45 at doors), HUG (rays both sides at camera and body height: nearer >= 1.2 m or centred in the
   middle 30 %), STATIC (< 0.25 m/s and < 5 deg/s for > 2 s); each proven on a plant. A rail under the camera narrows a stair: measure
   the space across at body height too, or the check pushes the camera into the mid wall.
+- Closing doors through the door system: hold them LOCKED at ratio 0 and poll the leaves physically (every 0.5 s, re-driving the ones
+  not shut) until every leaf is shut, and only then release them to the map default - then read again. A fixed wait then release
+  left 50 of 51 open (rig 2026-10-30): a released map door has no spring and stops wherever it was swinging. The sim mocks doors that
+  swing 10 deg/s and stay put when released; the old close fails there (51 of 51 open). Mock GetHashKey must hash strings distinctly,
+  or every door-system hash collides and only one door moves.
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous

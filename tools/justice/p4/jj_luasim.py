@@ -24,18 +24,29 @@ local POS, HD, CREATED, ENG, SEAT, WANT, VEL, ACT, CAP, COLL, SPAWNP = {}, {}, {
 -- the roll-up as the rig has it (2026-10-30): a map garage door that opens by itself while the player is near, unless the door system
 -- holds it (registered + locked -> shut; registered + unlocked -> the set ratio). Object 7 at the first spot asked for; opening = 2.6 m up.
 local DOOR = {base = nil, reg = false, locked = false, ratio = 0.0}
-function GetClosestObjectOfType(x, y, z) if not DOOR.base then DOOR.base = vector3(x, y, z) end return 7 end
-function AddDoorToSystem() DOOR.reg = true end
-function RemoveDoorFromSystem() DOOR.reg, DOOR.locked = false, false end
-function IsDoorRegisteredWithSystem() return DOOR.reg end
-function DoorSystemSetDoorState(h, st) DOOR.locked = (st == 1) end
-function DoorSystemSetOpenRatio(h, r) DOOR.ratio = r end
+-- the swing doors, when a run injects DOORP = {{x, y, z, heading}, ...} and SD = {{ang = deg}, ...} (rig 2026-10-30: after the fly 50 of
+-- 51 doors were left open by a close that released them after a fixed 4 s): object 100+i; in the door system (hash -> door i) a leaf
+-- swings toward its target at 10 deg/s (locked = shut); released, it stays where it is (a map door has no spring)
+DOORP, SD = false, false   -- real keys in _G (the catch-all stub would answer a missing one with a function)
+local LINK, LOCK, RATIO = {}, {}, {}
+local function nearestDoor(x, y, z, r) if not DOORP then return nil end local best, bd = nil, r or 1.6
+    for i, d in ipairs(DOORP) do local dd = math.sqrt((d[1] - x) ^ 2 + (d[2] - y) ^ 2 + (d[3] - z) ^ 2) if dd <= bd then best, bd = i, dd end end return best end
+function GetClosestObjectOfType(x, y, z, r) if DOORP then local i = nearestDoor(x, y, z, r) return i and (100 + i) or 0 end
+    if not DOOR.base then DOOR.base = vector3(x, y, z) end return 7 end
+function AddDoorToSystem(h, m, x, y, z) if DOORP then LINK[h] = nearestDoor(x, y, z, 1.6) return end DOOR.reg = true end
+function RemoveDoorFromSystem(h) if DOORP then LINK[h] = nil LOCK[h] = nil RATIO[h] = nil return end DOOR.reg, DOOR.locked = false, false end
+function IsDoorRegisteredWithSystem(h) if DOORP then return LINK[h] ~= nil end return DOOR.reg end
+function DoorSystemSetDoorState(h, st) if DOORP then LOCK[h] = (st == 1) return end DOOR.locked = (st == 1) end
+function DoorSystemSetOpenRatio(h, r) if DOORP then RATIO[h] = r return end DOOR.ratio = r end
+local function stepDoors(dt) if not DOORP then return end
+    for h, i in pairs(LINK) do local tgt = (LOCK[h] and 0.0) or (RATIO[h] or 0.0) * 90.0 local a = SD[i].ang
+        if a < tgt then SD[i].ang = math.min(tgt, a + 10.0 * dt) elseif a > tgt then SD[i].ang = math.max(tgt, a - 10.0 * dt) end end end
 local function doorOpen() if not DOOR.reg then return 1.0 end if DOOR.locked then return 0.0 end return (DOOR.ratio > 0) and 1.0 or 0.0 end
-function GetEntityCoords(e) if e == 7 and DOOR.base then return DOOR.base + vector3(0.0, 0.0, 2.6 * doorOpen()) end return POS[e] or vector3(300.0, -1660.0, 29.0) end
+function GetEntityCoords(e) if DOORP and e >= 100 and DOORP[e - 100] then local d = DOORP[e - 100] return vector3(d[1], d[2], d[3]) end if e == 7 and DOOR.base then return DOOR.base + vector3(0.0, 0.0, 2.6 * doorOpen()) end return POS[e] or vector3(300.0, -1660.0, 29.0) end
 function SetEntityCoords(e, x, y, z) POS[e] = vector3(x, y, z) end
 function CreateVehicle(h, x, y, z, hd) local e = 1000 + math.random(1, 999) POS[e] = vector3(x, y, z) HD[e] = hd or 0.0 CREATED[e] = T SPAWNP[e] = vector3(x, y, z) return e end
 function SetEntityHeading(e, h) HD[e] = h end
-function GetEntityHeading(e) return HD[e] or 0.0 end
+function GetEntityHeading(e) if DOORP and e >= 100 and DOORP[e - 100] then return math.fmod(DOORP[e - 100][4] + SD[e - 100].ang, 360.0) end return HD[e] or 0.0 end
 function GetEntityRotation(e) return vector3(0.0, 0.0, 0.0) end
 -- a new car rests against something at its spawn (rig 2026-10-30: contacts logged AT the spawn, normals like (-0.35, -0.94)) until it
 -- has moved 0.3 m: a contact flag with a horizontal normal
@@ -44,7 +55,7 @@ function GetCollisionNormalOfLastHitForEntity(e) if resting(e) and not (COLL[e] 
 function HasEntityCollidedWithAnything(e) return (COLL[e] or -1) >= T or resting(e) == true end
 function GetVehicleNumberPlateText(v) return "TEST1234" end
 function GetGamePool(n) return {} end
-function GetHashKey(s) return 12345 end
+function GetHashKey(s) local h = 7 for c in tostring(s):gmatch(".") do h = (h * 31 + c:byte()) % 2147483647 end return h end   -- distinct per string (door-system hashes must not collide)
 function PlayerPedId() return 1 end
 function DoesEntityExist(e) return POS[e] ~= nil end
 function DeleteVehicle(e) POS[e] = nil SEAT[e] = nil VEL[e] = nil ACT[e] = nil CAP[e] = nil COLL[e] = nil SPAWNP[e] = nil end
@@ -84,6 +95,7 @@ local LAST = 0
 local function step()
     local dt = (T - LAST) / 1000.0 LAST = T
     if dt <= 0 then return end
+    stepDoors(dt)
     for v, pos in pairs(POS) do
         local a = ACT[v] if a and T > a.untl then ACT[v] = nil a = nil end
         if a and T < a.from then a = nil end
@@ -200,8 +212,13 @@ if __name__ == '__main__':
         if not dr.get('ok'): bad.append(f"drive: not ok in the mock (impacts {dr.get('impacts')}, stop {dr.get('stop_nose_u')}, out {dr.get('out_uv')})")
     except SystemExit as e: bad.append(f'drive stopped: {str(e)[:160]}')
     except Exception as e: bad.append(f'drive: {type(e).__name__}: {e}')
-    for mode in ('open', 'close'):
-        reset(); res = run(D.code(mode)); e = check_result(res)
+    def doors_in(ang):
+        reset(); _rt.execute('DOORP = {%s} SD = {}' % ','.join('{%.3f,%.3f,%.3f,%.2f}' % d[1:] for d in D.doors))
+        _rt.execute('for i = 1, #DOORP do SD[i] = {ang = %.1f} end' % ang)
+    for mode, ang in (('open', 0.0), ('close', 90.0)):
+        doors_in(ang); res = run(D.code(mode)); e = check_result(res)
         if e: bad.append(f'doorctl {mode}: {e}')
+        ok_, line = D.verdict(mode, res); print(f'  doorctl {mode} (doors start {ang:.0f} deg, swing 10 deg/s):', line)
+        if not ok_ or 'WARN' in line: bad.append(f'doorctl {mode}: {line}')
     for b in bad: print(' ', b)
     print(f'chunks executed: {len(seen) + 2}'); print('JJ_LUASIM_PASS' if not bad else 'JJ_LUASIM_FAIL'); sys.exit(1 if bad else 0)
