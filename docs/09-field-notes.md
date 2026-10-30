@@ -487,6 +487,12 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   mock spawn "failed" and the buggy chunk was never reached, a false pass), drive the real probe functions with `lua` routed there, and
   flag any result that still holds `%d/%f/%s`. Plus a static AST check: `%%` in a string literal that is not the left side of a `%`.
   Both proven on plants, and the unfixed probe must FAIL the sim before the fix counts.
+- Test cars on a server with a keys script that blocks auto-start (c9_vehiclekeys `disableAutoStart`): a raw `SetVehicleEngineOn`
+  reads "running" but the script switches it off every frame while a player is in the driver's seat, so gas moves the car 0.14 m (rig
+  2026-10-30). Start the engine through the script (`exports.c9_vehiclekeys:ToggleEngine()` after its `CanDrive` is true) and check
+  the engine still runs 1.5 s later and fuel > 0 (ox_fuel state bag) before calling the drive a test. The offline sim mocks that guard,
+  and the pre-fix probe fails there at 0.0 m, as on the rig. Also: the sim must keep ONE Lua state across a probe's chunks (globals and
+  cars persist on the rig); a fresh state per chunk hid the car between chunks.
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous
