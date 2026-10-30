@@ -510,3 +510,10 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   a mirror portal (flags 4) to limbo; the observation side is dark glass plus a room-to-room portal.
 - **Gap rays explained:** `tools/justice/p3/tools_gap_why.py` names the first triangle (and its room) each leaking gap ray would hit,
   which turns a gap count into a fix list.
+- **Anything that goes below the lot slab needs a hole in it - drawn AND collision** (jail secure stair, 6 m down): phase 1's slab at
+  28.29 crossed the shaft as an invisible floor; the walker stood on it 2.5 risers down. An earlier "pass" of that leg was false: the
+  arrival test had no z. Gate `jj_intrusion.py`: every other build's drawn + collision triangles against each room's clear volume (SAT),
+  proven on a planted slab, run before every rig session. Hook: `jj_hooks.SLAB_HOLES` -> `p2_plan.SLAB_HOLES` -> `p1_slab.py`.
+- **A garage door the server's lock system will run** (Antonio: "client add locks"): the game auto-opens a roll-up only for a car
+  arriving from outside. The drive test opens it for the back-out leg through the door system (held open while the car is near, then
+  released and removed), as a lock script would; the mlo-data marks the door `lock_config_required` with model hash and coords.

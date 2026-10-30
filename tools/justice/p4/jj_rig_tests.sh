@@ -16,7 +16,9 @@ V=$S/p4_jail_video; mkdir -p $V
 res() { echo "JJ_TEST $1 $2 $3"; [ "$2" = PASS ]; }
 trap 'bash /c/C9Test/tc_release.sh > /dev/null 2>&1' EXIT
 case "$1" in
-deploy)  py -3 jj_deploy_check.py --plant | grep -q JJ_DEPLOY_PLANT_FOUND || { res deploy FAIL "the check did not find its planted stale file"; exit 1; }
+deploy)  py -3 jj_intrusion.py --plant | grep -q JJ_INTRUSION_PLANT_FOUND || { res deploy FAIL "the intrusion check did not find its planted slab"; exit 1; }
+         py -3 jj_intrusion.py | tail -6; py -3 jj_intrusion.py > /dev/null || { res deploy FAIL "another build's geometry crosses a jail room (above): fix before testing"; exit 1; }
+         py -3 jj_deploy_check.py --plant | grep -q JJ_DEPLOY_PLANT_FOUND || { res deploy FAIL "the check did not find its planted stale file"; exit 1; }
          out=$(py -3 jj_deploy_check.py); echo "$out" | tail -15
          echo "$out" | grep -q JJ_DEPLOY_PASS && res deploy PASS "$(echo "$out" | tail -1)" || res deploy FAIL "live files differ from work/jail/out: do not test, redeploy" ;;
 rooms)   py -3 jj_probe.py rooms models > logs/rig_rooms.log 2>&1; grep -o "PROBE_[A-Z_]*" logs/rig_rooms.log
