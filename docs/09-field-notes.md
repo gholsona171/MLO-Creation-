@@ -527,6 +527,13 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   log what the car touches (flag, normal, material, objects within 4.5 m). Spawn in open street, 2 m clear all round.
 - A mock clock must tick per frame (Wait(0) = 16 ms), not per GetGameTimer call: a 50 ms tick per call made the mock time outrun a
   per-frame governor. With the frame clock the mock's ramp matched the rig's speeds slice for slice.
+- Fly-throughs: never ease each leg - a smoothstep per waypoint leg stops the camera at every point (stop-start, static moments),
+  and hold legs plus a recording margin leave long static ends (rig 2026-10-30 review). Build the track once (tools/justice/p4/
+  jj_flypath.py): Catmull-Rom through the points, speed per POINT blended by cosine, ease only at the first / last 1.5 m, aim smoothed
+  over 0.7 s, sampled every 0.4 s and played back with a Catmull-Rom in time; the clip = motion + 1 s. The check (jj_flycheck.py) reads
+  the same frames: CLOSE (0.9 m, 0.45 at doors), HUG (rays both sides at camera and body height: nearer >= 1.2 m or centred in the
+  middle 30 %), STATIC (< 0.25 m/s and < 5 deg/s for > 2 s); each proven on a plant. A rail under the camera narrows a stair: measure
+  the space across at body height too, or the check pushes the camera into the mid wall.
 - A FAIL line must carry the reason: the rig runner appends the newest log's traceback last line / `PROBE:` line when the detail is empty.
 - **Count impacts, not contact, in a drive test:** HasEntityCollidedWithAnything is true every frame a car rolls on the floor (~2300 per
   run). Count a frame only when `GetCollisionNormalOfLastHitForEntity` is not the ground's (|n.z| < 0.6) and 0.6 s after the previous

@@ -1,0 +1,13 @@
+# Jail I fly-through 2: the cell block - from the stair door into the dayroom, along the east lower tier at eye height, up over the
+# tables, a sweep round both tiers, along the west walkway's edge, gliding to a stop over the dayroom.
+# "u v z speed [look_u look_v look_z]" (lot frame; speed = how fast the camera passes THIS point, blended smoothly: no stops).
+# Track built by jj_flypath.py; checked with jj_flycheck.py (>= 0.9 m from every face, no wall-hugging, no static stretch).
+-23.0 23.4 36.4 1.2
+-22.7 26.6 36.9 1.4 -15.0 29.0 35.8
+-19.0 29.8 36.6 1.5 -15.0 33.0 35.8
+-19.0 36.8 36.7 1.6 -15.0 40.0 35.8
+-22.0 39.6 38.3 1.6 -29.5 36.0 38.4
+-24.5 41.8 38.8 1.6 -29.0 30.0 38.0
+-27.0 40.0 38.8 1.8 -27.0 24.0 37.6
+-27.0 30.0 38.8 2.2 -17.0 34.0 36.2
+-26.6 25.6 38.6 0.8 -20.0 40.0 35.6

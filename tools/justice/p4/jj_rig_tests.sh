@@ -10,7 +10,7 @@
 #   lift     the secure lift B1 -> L3 -> B1 on screen ([E] + the ox_lib menu); needs the B1 stop in lifts.json
 #   route    the prisoner's whole way sally port -> ... -> tunnel -> lift -> L3 -> defendant door, recorded
 #   fly      both fly-throughs (doors opened for filming, closed after) -> shots/p4_jail_video/p4_jail_fly_*.mp4
-#   pairs    13:00 / 23:00 shots of every view + the pair sheet shots/p4_jail_pairs.jpg
+#   pairs    13:00 / 23:00 shots of every view + the sheet shots/p4_jail_pairs.jpg (Blender preview | 13:00 | 23:00 per view)
 set -o pipefail; JL=/c/Users/anton/Documents/Codex/JusticeCenter/work/jail; S=/c/Users/anton/Documents/Codex/JusticeCenter/shots; cd $JL
 V=$S/p4_jail_video; mkdir -p $V
 T0=$JL/logs/.t0_$$; mkdir -p $JL/logs; touch $T0
@@ -55,8 +55,10 @@ lift)    bash jj_rec.sh $V/p4_jail_lift_b1.mp4 300 py -3 jj_probe.py lift_b1 > l
 route)   bash jj_rec.sh $V/p4_jail_prisoner_route.mp4 1500 py -3 jj_probe.py route > logs/rig_route.log 2>&1
          grep -q REC_OK logs/rig_route.log || { res route FAIL "the recording did not finalise: $(grep REC_ logs/rig_route.log)"; exit 1; }
          grep -q PROBE_ROUTE_PASS logs/rig_route.log && res route PASS "video $V/p4_jail_prisoner_route.mp4" || res route FAIL "see out/probe_route.json" ;;
-fly)     for f in fly_route.txt fly_block.txt; do [ -f "$JL/$f" ] || { res fly FAIL "path file $JL/$f missing"; exit 1; }
-           py -3 jj_flycheck.py $f | tail -1 | grep -q JJ_FLYCHECK_PASS || { res fly FAIL "$f fails the offline clearance check (py -3 jj_flycheck.py $f)"; exit 1; }; done
+fly)     for pl in --plant --plant-hug --plant-static; do                                  # the check proven on its plants: a wall, a hug, a hold
+           py -3 jj_flycheck.py fly_route.txt $pl 2>/dev/null | grep -q JJ_FLYCHECK_PLANT_FOUND || { res fly FAIL "the fly check missed its plant ($pl)"; exit 1; }; done
+         for f in fly_route.txt fly_block.txt; do [ -f "$JL/$f" ] || { res fly FAIL "path file $JL/$f missing"; exit 1; }
+           py -3 jj_flycheck.py $f 2>/dev/null | tail -1 | grep -q JJ_FLYCHECK_PASS || { res fly FAIL "$f fails the offline check: walls, hugging or a hold (py -3 jj_flycheck.py $f)"; exit 1; }; done
          trap 'py -3 $JL/jj_doorctl.py close; bash /c/C9Test/tc_release.sh > /dev/null 2>&1' EXIT        # the doors are shut again whatever happens
          py -3 jj_doorctl.py open | grep -q DOORCTL_OK || { res fly FAIL "doors could not be opened"; exit 1; }
          HOUR=13 bash jj_fly.sh $V/p4_jail_fly_intake.mp4 $JL/fly_route.txt | tee logs/rig_fly.log
@@ -64,7 +66,7 @@ fly)     for f in fly_route.txt fly_block.txt; do [ -f "$JL/$f" ] || { res fly F
          [ $(grep -c JJ_FLY_OK logs/rig_fly.log) = 2 ] && res fly PASS "videos in $V (review the frames: py -3 MLO-Creation/tools/video_review.py)" || res fly FAIL "$(grep JJ_FLY_FAIL logs/rig_fly.log | head -2)" ;;
 pairs)   py -3 jj_doorctl.py close | grep -q DOORCTL_OK || { res pairs FAIL "could not put the doors in their normal (shut) state"; exit 1; }
          CAMS=$JL/out/cams_jail.txt bash ../jc_pair.sh $S/p4_jail_game night > logs/rig_pairs.log 2>&1
-         py -3 jj_pairs.py $S/p4_jail_game $S/p4_jail_pairs.jpg > logs/rig_pairsheet.log 2>&1
+         py -3 jj_pairs.py $S/p4_jail_game $S/p4_jail_pairs.jpg $S/p4_jail_preview > logs/rig_pairsheet.log 2>&1      # Blender preview | 13:00 | 23:00
          grep -q PAIRS logs/rig_pairsheet.log && res pairs PASS "$(cat logs/rig_pairsheet.log)" || res pairs FAIL "a shot is missing: see logs/rig_pairs.log" ;;
 *) echo "usage: jj_rig_tests.sh deploy|rooms|doors|walks|drive|lift|route|fly|pairs"; exit 2 ;;
 esac
