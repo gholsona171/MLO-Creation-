@@ -473,3 +473,10 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   from other sitters and with a line of sight over the fittings (a booth's chairs: from behind, through its glass).
 - **Filming door opener: close in a trap** - a fly that failed before its close left the roll-up open in the next pair shots; the close
   drives every door shut, reads each ratio back and only then removes them; the pair shots run it first.
+- **DoorSystemGetOpenRatio reports the system's target, not the leaf:** after a "close", 50 of 51 doors read 1.0. Check doors
+  PHYSICALLY: the door object at its spot, heading within 3 deg and position within 0.15 m of its placement. Reset = drive shut (ratio 0,
+  locked), take every door out of the door system (the map default applies), then the physical check.
+- **A walk-check plant must be unreachable by ANY path:** a leg into the property room's wall "arrived" - its door was standing open (the
+  filming door opener had failed to close). Plant a target inside the building's solid hull, and count "arrived" only with the root ~1 m
+  over the target floor (never on another level).
+- Lua sent to the rig is compiled offline first (`jj_luacheck.py`, lupa's Lua runtime, proven on a planted syntax error).

@@ -37,7 +37,8 @@ def walk_to(u, v, z, tmax=20.0, speed=1.0):
     x, y = W(u, v)
     code = ('local p=PlayerPedId() TaskGoStraightToCoord(p,%.3f,%.3f,%.3f,%.2f,%d,0.0,0.0) local o={} local t0=GetGameTimer() local ok=false '
             'while GetGameTimer()-t0 < %d do Wait(250) local c=GetEntityCoords(p) o[#o+1]=string.format("%%.2f:%%.2f:%%.3f:%%d%%d%%d",c.x,c.y,c.z,IsPedRagdoll(p) and 1 or 0,IsPedClimbing(p) and 1 or 0,IsPedFalling(p) and 1 or 0) '
-            'if #(vector2(c.x,c.y)-vector2(%.3f,%.3f)) < 0.6 then ok=true break end end return (ok and "OK" or "NO")..";"..table.concat(o,";")') % (x, y, z, speed, int(tmax * 1000), int(tmax * 1000), x, y)
+            'if #(vector2(c.x,c.y)-vector2(%.3f,%.3f)) < 0.6 and math.abs(c.z-%.3f) < 1.6 then ok=true break end end return (ok and "OK" or "NO")..";"..table.concat(o,";")') % (x, y, z, speed, int(tmax * 1000), int(tmax * 1000), x, y, z + 1.0)
+    # (arrived = within 0.6 m in plan AND the root about 1 m over the target floor: never 'arrived' on another level)
     r = lua(code, int(tmax) + 30).split(';'); log = [tuple(float(a) if i < 3 else a for i, a in enumerate(e.split(':'))) for e in r[1:] if e]
     return r[0] == 'OK', log
 STREET = (J.JBOX[0] - 9.0, J.DRIVE_V, J.SALLY_Z - 0.05)             # Macdonald St in front of the sally port (the control spot)
@@ -111,7 +112,9 @@ def leg_time(a, b):
     """the time a leg may take: its length at WALK_SPEED, x1.5, + 6 s to start and turn (rig 2026-10-29: a flat 20 s cut the 36 m tunnel
     leg short - the walker was still walking; the next leg arrived)."""
     return 6.0 + 1.5 * math.dist(a[:2], b[:2]) / WALK_SPEED
-WALK_PLANT = [(-17.0, 9.0, G), (-28.6, 3.0, G)]                      # booking -> straight through the property room's wall (blocked)
+WALK_PLANT = [(-17.0, 9.0, G), (-29.0, -1.6, G)]                     # booking -> a spot INSIDE Jail I's solid hull, south-west of the property
+                                                                    # room: no path of any kind leads there, open doors or not (rig 2026-10-29:
+                                                                    # a target in the property room was reached - its door was standing open)
 def walk(walks=None):
     out = {}; ok_all = True
     for name, pts in (walks or WALK).items():
