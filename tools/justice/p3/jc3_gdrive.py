@@ -37,6 +37,9 @@ def doors_lua():
             'if open then DoorSystemSetDoorState(D.h,0,false,true) DoorSystemSetOpenRatio(D.h,1.0,false,true) DoorSystemSetHoldOpen(D.h,true) '
             'else DoorSystemSetHoldOpen(D.h,false) DoorSystemSetOpenRatio(D.h,0.0,false,true) DoorSystemSetDoorState(D.h,1,false,true) Wait(5000) '
             'DoorSystemSetDoorState(D.h,0,false,true) RemoveDoorFromSystem(D.h) end end ') % (MODEL, *pts['IN'], *pts['OUT'])
+def _lanes():
+    import jc3_pgarage as G
+    return G.IN_C, G.OUT_C
 def heading_minus_u(): return (90.0 + F.HDEG) % 360.0            # a car facing -u (into the garage from the street)
 def _gspawn(m, su, sv, h_world, z=28.4):
     """jc-jail's _spawn (jj_probe.py), at the garage: ped ready, purge 30 m, spawn networked + owned, the server's key, the driver's seat,
@@ -108,8 +111,11 @@ def _delete():
     return _pr().lua('local p=PlayerPedId() local v=_G.__gv TaskLeaveVehicle(p,v,16) Wait(1500) SetEntityAsMissionEntity(v,true,true) DeleteVehicle(v) Wait(200) '
                      'return tostring(not DoesEntityExist(v))', 20) in ('true', '1')
 def _doors(open_):
-    """open (True) or shut + release (False) both roll-ups through the door system; returns their read-back (IN, OUT) after."""
-    r = _pr().lua(doors_lua() + ('dsys("IN",true) dsys("OUT",true) Wait(4000)' if open_ else 'dsys("IN",false) dsys("OUT",false) Wait(500)')
+    """open (True) or shut + release (False) both roll-ups through the door system; returns their read-back (IN, OUT) after. The player
+    stands on the plaza between the two doors first (rig 2026-10-30: read from wherever the previous step left the player, the door
+    objects were not there - every read -1)."""
+    PR = _pr(); ic, oc = _lanes(); PR.stand(52.0, (ic + oc) / 2, 28.4); __import__('time').sleep(2.5)
+    r = PR.lua(doors_lua() + ('dsys("IN",true) dsys("OUT",true) Wait(4000)' if open_ else 'dsys("IN",false) dsys("OUT",false) Wait(500)')
                   + ' return string.format("%.2f:%.2f",dopen("IN"),dopen("OUT"))', 60).split(':')
     return float(r[0]), float(r[1])
 def gdrive_selftest():
@@ -139,20 +145,9 @@ def gdrive_control():
     ok = (res['open lane']['reached'] and res['open lane']['impacts'] == 0 and not res['planted wall']['reached'] and res['planted wall']['impacts'] > 0)
     return res, ok
 def route():
-    """the drive's waypoints (lot u, v, speed m/s; negative = reverse): in through the IN door, down the ramp, the IN turn, up the west
-    aisle, the north aisle, the east aisle, the return aisle, nose into a row-4 bay, out backwards, the U-turn, up the OUT ramp, out of
-    the OUT door. The turns follow the plan's arcs (jc3_pgarage) as polylines."""
+    """the drive's waypoints: the plan's loop_route (jc3_pgarage), the same points the swept-path gate (jc3_drive_sweep.py) checks."""
     import jc3_pgarage as G
-    pts = [(60.0, G.IN_C, 4.0), (45.5, G.IN_C, 3.0), (G.U_FOOT + 1.0, G.IN_C, 3.0)]
-    cx, cy = G.IN_X + G.UT_R, G.IN_C + G.UT_R
-    pts += [(cx - G.UT_R * math.sin(t), cy - G.UT_R * math.cos(t), 2.5) for t in [i * math.pi / 2 / 6 for i in range(1, 7)]]
-    pts += [(G.IN_X, -16.0, 3.0), (G.IN_X + 3.0, -11.2, 2.5), (36.0, -11.2, 3.0), (41.4, -15.0, 2.5), (41.4, G.RET_V + 1.0, 3.0), (32.5, G.RET_V, 2.5)]
-    bay = [b for b in G.bays() if b[3] == 3][0]                              # row 4: south of the return aisle, nose-in heading south
-    pts += [(bay[0], G.RET_V - 2.0, 1.5), (bay[0], bay[1] - 1.0, 1.0), (bay[0], G.RET_V - 1.0, -1.2)]   # in, then back out
-    pts += [(G.UT_C[0] + 1.0, G.RET_V, 2.5)]
-    pts += [(G.UT_C[0] - G.UT_R * math.sin(t), G.UT_C[1] + G.UT_R * math.cos(t), 2.5) for t in [i * math.pi / 8 for i in range(1, 9)]]
-    pts += [(G.U_FOOT + 2.0, G.OUT_C, 3.0), (44.0, G.OUT_C, 3.0), (47.0, G.OUT_C, 3.0), (60.0, G.OUT_C, 4.0)]
-    return pts
+    return G.loop_route()
 def gdrive(model='police3'):
     """the garage drive: both roll-ups opened through the door system (held), the car spawned on the IN lane facing the door, driven leg
     by leg (brakes first where the direction flips), then deleted and the doors shut and released. Pass: every waypoint reached with 0

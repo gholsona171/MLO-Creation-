@@ -288,6 +288,10 @@ def mlo_voids(k):
     for lvl in sorted(SEE_OUT[k]):
         for (u0, u1, v0, v1) in rects(k): out.append((u0 - 0.01, u1 + 0.01, v0 - 0.01, v1 + 0.01, L[lvl - 1], L[lvl]))
     return out
+def below_mlo(k):
+    """volumes under an MLO's floor that phase 2 must leave empty even where it builds a floor of its own (the police colonnades'
+    floor slabs over area 3's B1: they stop at B1's ceiling)."""
+    return [tuple(v) for v in _p3('jc3_pgarage').under_ceiling()] if k == 'police' and MLO_BUILT['police_in'] else []
 PIER_DEPTH = 1.4                               # the colonnade's piers: square-ish, free standing; a 1.6 m walk runs behind them
 def arcade_runs(k, face):
     """the colonnade bays grouped into continuous runs (bays closer than 3 m share one walk, one glass wall, one soffit):

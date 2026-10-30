@@ -71,5 +71,8 @@ if [ -f jail/jj_intrusion.py ]; then                                       # no 
   (cd jail && py -3 jj_intrusion.py) > logs/jj_intrusion.log 2>&1 || { tail -12 logs/jj_intrusion.log; echo 'JJ_INTRUSION FAILED (above) - nothing deployed'; exit 1; }
   grep JJ_INTRUSION_PASS logs/jj_intrusion.log
 fi
+(cd p3 && py -3 jc3_drive_sweep.py --plant) > logs/drive_sweep_plant.log 2>&1; grep DRIVE_SWEEP_PLANT_FOUND logs/drive_sweep_plant.log || { tail -6 logs/drive_sweep_plant.log; echo 'DRIVE SWEEP NOT PROVEN - nothing deployed'; exit 1; }
+(cd p3 && py -3 jc3_drive_sweep.py) > logs/drive_sweep.log 2>&1 || { tail -30 logs/drive_sweep.log; echo 'DRIVE SWEEP FAILED: the van / car route through the B1 garage hits something (above) - nothing deployed'; exit 1; }
+grep DRIVE_SWEEP_PASS logs/drive_sweep.log
 if [ "${DEPLOY:-1}" != 0 ]; then bash assemble.sh; fi
 echo BUILD_P1_PASS

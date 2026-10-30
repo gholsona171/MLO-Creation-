@@ -630,3 +630,19 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   The buyer README lists both roll-ups (hash, coords, heading) under "Access / locks"; mlo-data carries them as street doors.
 - **mlo-data written for area 1 went stale silently:** it listed every door of the MLO (68) as a galleria street door. Street doors are
   the doors on a portal to limbo; the rest go in `interior_doors`, each with its model hash.
+- **Swept-path gate for garage drives** (`tools/justice/p3/jc3_drive_sweep.py`, fatal in build_p1.sh, proven on a planted column): the
+  real footprint (width x length + 0.15 m) moved along the probe's OWN route every 0.25 m against every built face that is not a
+  driving surface (drawn + collision, ours and phase 2's), the placed props' survey boxes and the bollards, with the floor taken WHERE
+  THE OBSTACLE STANDS (a 6 m body spans 0.9 m of a 1:7 ramp; a ceiling plate spans rooms). It reproduced the rig's stop (the IN lane's
+  line 0.8 m off the lining: the plan measured from the wall line, not the lining's face). Waypoint checks (a corridor along the
+  centre line) missed it.
+- **The route lives in the plan** (`jc3_pgarage.loop_route`): the plan drawing, the swept-path gate and the rig drive use one list.
+  Lane lines are set off the LINING faces by the vehicle's swing on the turn (hypot(r + w/2, l/2) - r for a body turned about its
+  centre, which is how the heading-hold probe turns it).
+- **A 6.2 m van does not fit a garage loop that a car does:** with a 10 m deep turning pocket at the ramp feet, the IN turn and the
+  U-turn into the OUT lane cannot both clear for policet, turned about its centre (rear in the walled lane) or about its rear axle
+  (front corner into the lane divider, and into a 3.5 m aisle beside a fuel island). Size the van's U-turn pocket (~13 m) and its
+  aisles before drawing a loop; gate the vehicles the client actually drives there.
+- **Colonnade floor slabs over a basement:** phase 2's 0.5 m colonnade slab (28.3 .. 28.8) hung 8 cm under B1's ceiling (28.38),
+  drawn and colliding. Phase 2 now cuts everything it builds against `p2_plan.below_mlo(k)` (B1 + walls up to its ceiling).
+  (A first, wrong read blamed the colonnade floor height - PL.G is the colonnade FLOOR, 28.8; check what a z means before rebuilding.)

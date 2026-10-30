@@ -64,9 +64,9 @@ def test_loop_paths_never_meet():
     """the IN path (down the IN lane, its turn north at the van radius, up the west aisle) and the OUT path (the return aisle's U-turn
     into the OUT lane) keep a car's width apart (2.2 m + 0.6 m) - proven on a U-turn planted 2 m further west."""
     def gap(utc):
-        a = [(u, G.IN_C) for u in [G.U_FOOT - k * 0.2 for k in range(int((G.U_FOOT - (G.IN_X + G.UT_R)) / 0.2))]]
-        a += [(G.IN_X + G.UT_R - G.UT_R * math.sin(t), G.IN_C + G.UT_R - G.UT_R * math.cos(t)) for t in [i * math.pi / 40 for i in range(21)]]
-        a += [(G.IN_X, v) for v in [G.IN_C + G.UT_R + k * 0.5 for k in range(40)]]
+        a = [(u, G.IN_S) for u in [G.U_FOOT - k * 0.2 for k in range(int((G.U_FOOT - (G.IN_X + G.IN_R)) / 0.2))]]
+        a += [(G.IN_X + G.IN_R - G.IN_R * math.sin(t), G.IN_S + G.IN_R - G.IN_R * math.cos(t)) for t in [i * math.pi / 40 for i in range(21)]]
+        a += [(G.IN_X, v) for v in [G.IN_S + G.IN_R + k * 0.5 for k in range(40)]]
         b = [(utc[0] - G.UT_R * math.sin(t), utc[1] + G.UT_R * math.cos(t)) for t in [i * math.pi / 40 for i in range(41)]]
         return min(math.dist(p, q) for p in a for q in b)
     assert gap(G.UT_C) >= 2.8, gap(G.UT_C)

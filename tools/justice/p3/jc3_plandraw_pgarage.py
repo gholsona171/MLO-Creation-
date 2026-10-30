@@ -41,23 +41,23 @@ def plan(out):
         for u in [45.8 + 1.7 * i for i in range(10)]:
             for v in (a0 - 0.55, a1 + 0.55): x, y = X(u, v); d.ellipse([x - 4, y - 4, x + 4, y + 4], fill=(60, 60, 60))
     text(54.0, -57.6, 'two driveways: Rockstar concrete, dipped kerbs at Innocence Blvd, prop_bollard_04 both sides of each', F1)
-    # the one-way loop
-    arrow((G.U_FOOT, G.IN_C), (G.IN_X + G.UT_R, G.IN_C))
-    pts = [(G.IN_X + G.UT_R - G.UT_R * math.sin(t), G.IN_C + G.UT_R - G.UT_R * math.cos(t)) for t in [i * math.pi / 2 / 12 for i in range(13)]]
-    for p, q in zip(pts, pts[1:]): line(p, q, (200, 40, 40), 4)
-    arrow((G.IN_X, G.IN_C + G.UT_R), (G.IN_X, -16.0)); arrow((G.IN_X + 1, -11.5), (35.0, -11.5)); arrow((41.4, -12.5), (41.4, G.RET_V + 2))
-    arrow((40.0, G.RET_V), (G.UT_C[0] + 1.0, G.RET_V)); arrow(((G.MID_AISLE[0] + G.MID_AISLE[1]) / 2, -14.0), ((G.MID_AISLE[0] + G.MID_AISLE[1]) / 2, G.RET_V + 2.5))
-    pts = [(G.UT_C[0] - G.UT_R * math.sin(t), G.UT_C[1] + G.UT_R * math.cos(t)) for t in [i * math.pi / 24 for i in range(25)]]
-    for p, q in zip(pts, pts[1:]): line(p, q, (200, 40, 40), 4)
-    arrow((G.U_FOOT, G.OUT_C), (G.U_FOOT + 4.0, G.OUT_C))
-    text(13.0, -30.0, 'IN lane north', F1); text(G.UT_C[0] - 2.5, G.UT_C[1], 'U-turn r 6', F1)
+    # the one-way loop: the plan's own drive route (jc3_pgarage.loop_route: the rig drive and the swept-path gate use the same points)
+    R = [(u, v, spd) for u, v, spd in G.loop_route() if u <= G.U_TOP + 1.0]
+    for (pu, pv, _), (qu, qv, sq) in zip(R, R[1:]):                       # red forward, blue reversing (out of the test bay)
+        p, q = (pu, pv), (qu, qv)
+        if sq < 0: line(p, q, (40, 90, 200), 4)
+        elif math.dist(p, q) < 8.0: line(p, q, (200, 40, 40), 4)
+        else: arrow(p, q)
+    arrow(((G.MID_AISLE[0] + G.MID_AISLE[1]) / 2, -14.0), ((G.MID_AISLE[0] + G.MID_AISLE[1]) / 2, G.RET_V + 2.5))
+    bu, bv = G.drive_bay()[:2]; text(bu, bv, 'test bay', F1)
+    text(G.IN_X + 2.0, -30.0, 'IN lane north', F1); text(G.UT_C[0] - 2.5, G.UT_C[1], f'U-turn r {G.UT_R}', F1)
     S_ = P.STAIR_B
     rect(S_, (196, 196, 204), (60, 60, 60), 2); text((S_[0] + S_[1]) / 2, (S_[2] + S_[3]) / 2, 'police stair (B1-L1-L2)', F1)
     d.rectangle([0, 0, W, 100], fill=(30, 30, 34))
     d.text((12, 10), f'Police HQ basement B1 (floor {G.ZB}, clear {G.CEIL_B - G.ZB:.1f} m): {len(G.bays())} parking bays + workshop, fuel, wash - lot frame, m', fill=(255, 255, 255), font=F3)
-    d.text((12, 44), 'red = the one-way loop: IN ramp -> west aisle north -> north aisle east -> east aisle / middle aisle south -> return aisle west -> U-turn -> OUT ramp',
+    d.text((12, 44), 'red = the drive route (jc3_pgarage.loop_route): IN ramp -> west aisle north -> north aisle east -> east aisle south -> return aisle west (test bay: in, blue = backing out) -> U-turn -> OUT ramp',
            fill=(220, 220, 220), font=F1)
-    d.text((12, 66), 'no crossing, no head-on: the U-turn stays 1.5 m east of the IN lane; turns drawn at the van radius 6 m (centre line); grey squares = columns (numbered)',
+    d.text((12, 66), f'car centre line; IN turn r {G.IN_R}, corners r {G.RC}, U-turn r {G.UT_R}; IN lane {G.IN_X:.2f} vs U-turn west {G.UT_C[0] - G.UT_R:.2f}; swept-path gate: jc3_drive_sweep.py; grey squares = columns',
            fill=(220, 220, 220), font=F1)
     im.save(out); print('PLAN_DRAWN', out)
 def section(out):

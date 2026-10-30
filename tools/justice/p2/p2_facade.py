@@ -88,15 +88,23 @@ def _wind(V, idx, toward):
     a, b, c = (V[i] for i in idx)
     n = ((b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]), (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]), (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
     return idx if sum(x * y for x, y in zip(n, toward)) > 0 else idx[::-1]
+def _cut(lo, hi, cuts):
+    """the lot box lo..hi minus `cuts` (PL.below_mlo): the pieces as (lo, hi) pairs."""
+    lo, hi = [min(a, b) for a, b in zip(lo, hi)], [max(a, b) for a, b in zip(lo, hi)]
+    return [((c[0], c[2], c[4]), (c[1], c[3], c[5])) for c in box_minus((lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]), cuts)]
+def fbox_cut(k, face, s0, s1, d0, d1, z0, z1, mat, cuts):
+    for lo, hi in _cut(PL.P(face, s0, d0, z0), PL.P(face, s1, d1, z1), cuts): TK.box(k, lo, hi, mat, col=False)
+def col_box_cut(lo, hi, mat, cuts):
+    for a, b in _cut(lo, hi, cuts): col_box(a, b, mat)
 def arcade(k, emi, face, bays, D, glass, see_out):
     """the colonnade, per continuous run: one granite floor (G), one soffit, one glass wall ARC_BACK m back (+ its backing box), free
     standing piers PIER_DEPTH deep between the bays (a walk runs behind them), closed ends, a downlight per bay."""
-    A = PL.ARC_BACK; PD = PL.PIER_DEPTH
+    A = PL.ARC_BACK; PD = PL.PIER_DEPTH; CUT = PL.below_mlo(k)                                   # nothing under an MLO's ceiling (B1)
     for run in PL.arcade_runs(k, face):
         r0, r1, z0, z1 = run[0][0], run[-1][1], run[0][2], run[0][3]
         fbox(k, face, r0, r1, -A, -D, z1, z1 + 0.45, STONE[k])                                       # soffit
-        fbox(k, face, r0, r1, -A, 0.0, PL.G - 0.5, PL.G, 'granite')                                  # floor
-        col_box(PL.P(face, r0, -A, PL.G - 0.5), PL.P(face, r1, 0.05, PL.G), 'stone')                 # 5 cm past the face: no seam with the ground outside
+        fbox_cut(k, face, r0, r1, -A, 0.0, PL.G - 0.5, PL.G, 'granite', CUT)                         # floor
+        col_box_cut(PL.P(face, r0, -A, PL.G - 0.5), PL.P(face, r1, 0.05, PL.G), 'stone', CUT)        # 5 cm past the face: no seam with the ground outside
         segs = [(r0, r1)]
         if k == 'police' and face[0] == 'E' and r0 < PL.POLICE_FRONT < r1:          # area 3: the front pair stands in the glass line
             d0, d1 = PL.POLICE_FRONT, PL.POLICE_FRONT + PL.POLICE_FRONT_W; segs = [(r0, d0 - 0.06), (d1 + 0.06, r1)]
@@ -114,9 +122,9 @@ def arcade(k, emi, face, bays, D, glass, see_out):
             fquad(emi, face, [(c - 0.35, -A / 2 - 0.35, zc), (c + 0.35, -A / 2 - 0.35, zc), (c + 0.35, -A / 2 + 0.35, zc), (c - 0.35, -A / 2 + 0.35, zc)], 'soffit_emis', toward=(0, 0, -1), name='downlight')
         for (_, p1, _, _), (q0, _, _, _) in zip(run, run[1:]):                                       # the piers between the bays
             fbox(k, face, p1, q0, -PD, -D, PL.G, z1, STONE[k])
-            col_box(PL.P(face, p1, -PD, PL.G - 0.5), PL.P(face, q0, 0.0, z1 + 0.45), 'stone')
-        fbox(k, face, r0 - 0.5, r0, -A, -D, PL.G - 0.5, z1 + 0.45, STONE[k])                         # the run's closed ends
-        fbox(k, face, r1, r1 + 0.5, -A, -D, PL.G - 0.5, z1 + 0.45, STONE[k])
+            col_box_cut(PL.P(face, p1, -PD, PL.G - 0.5), PL.P(face, q0, 0.0, z1 + 0.45), 'stone', CUT)
+        fbox_cut(k, face, r0 - 0.5, r0, -A, -D, PL.G - 0.5, z1 + 0.45, STONE[k], CUT)                # the run's closed ends
+        fbox_cut(k, face, r1, r1 + 0.5, -A, -D, PL.G - 0.5, z1 + 0.45, STONE[k], CUT)
 def door_frame(k, face, a0, a1, z0, z1, D):
     """an atrium entrance (phase 3): steel jambs from the curtain's mullion line in to the leaves, a steel head over the opening (the
     curtain bay's glass starts above it). The leaves are the galleria MLO's native doors in the glass plane; the floor under them is

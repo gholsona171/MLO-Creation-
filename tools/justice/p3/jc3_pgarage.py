@@ -16,6 +16,7 @@ ZB = 25.6                                                                 # B1 f
 CEIL_B = P.P1 - 0.4                                                       # 28.4: B1's ceiling = the underside of L1's slab (2.8 m clear: the van)
 RW = 0.3                                                                  # retaining walls (inside the box)
 B1 = (P.WI + RW, P.EI - RW, PL.B['police']['box'][2] + PL.B['police']['depth'] + RW, P.NI_FACE - RW)   # 10.85 44.35 -58.85 -7.95
+CLEAR = (B1[0] + RW, B1[1] - RW, B1[2] + RW, B1[3] - RW)                  # the deck's clear faces (inside the linings)
 ZD = PL.PGARAGE['z0']                                                     # 28.34: the street (+5 cm) at the doors
 # ---------------- the two doors and lanes (east face, v) ----------------
 LANE_W = 3.6                                                              # clear lane between kerbs / walls
@@ -43,8 +44,21 @@ def ramp_z(u):
 def headroom(u): return P.P1 - 0.4 - ramp_z(u)                            # under L1's slab, if it were there
 OPEN_U = (U_FOOT, U_TOP)                                                  # L1's floor is open over the whole ramp (headroom < 2.8 m everywhere but the foot)
 # ---------------- the loop on B1 ----------------
-UT_R = 6.0                                                                # the van's turning radius (path centre line)
-IN_X = 11.95 + 0.0                                                        # the IN lane's centre line up the west aisle (car body 10.95 .. 12.95)
+UT_R = 5.5                                                                # the U-turn / IN turn radius (path centre line); 6.0 put the
+                                                                          # U-turn 2.5 m off the IN lane once the lane cleared the lining
+# the test vehicles (jj_plan.VEHICLES sizes): width, length
+VEHICLES = {'police3': (2.05, 5.05), 'policet': (2.30, 6.20)}
+DRIVE_VEHICLES = ('police3',)          # the loop is gated for the patrol car; the van (policet) does not fit the loop (2026-10-30 sweep):
+                                       # Antonio decides (main asked) - jc3_drive_sweep.py prints its result as information
+MARG = 0.15                                                               # clearance kept round the body (the swept-path gate's margin)
+def swing(r, veh='policet'):
+    """how far a vehicle's corners reach past its path line on a turn of radius r: the drive probe turns the body about its centre
+    (heading set, jj_probe's heading hold), so the outer corners sweep a circle of hypot(r + w/2, l/2) (+ the margin)."""
+    w, l = VEHICLES[veh]; return math.hypot(r + w / 2 + MARG, l / 2 + MARG) - r
+IN_R = 6.0                                                                # the IN turn (W -> N) at the ramp foot
+IN_X = CLEAR[0] + swing(IN_R)                                             # 13.14: the IN lane's line up the west aisle - the turn's swing off the
+                                                                          # LINING's face (11.95 from the wall line: the van pressed the lining)
+IN_S = max(IN_C, CLEAR[2] + swing(IN_R))                                  # the deck approach to the IN turn: the lane, unless the swing needs more
 WEST_AISLE = (B1[0], 17.35)                                               # IN northbound (west half) + the U-turn's west edge
 RET_V = OUT_C + 2 * UT_R                                                  # -38.0: the return aisle's centre line
 UT_C = (U_FOOT, OUT_C + UT_R)                                             # the U-turn's centre (21.47, -44.0): it ends heading east at the OUT foot
@@ -82,6 +96,38 @@ FUEL = (WEST_AISLE[1] + 1.0, MID_AISLE[1] - 1.0, NORTH_AISLE[0] + 1.2, NORTH_AIS
 WASH = (EAST_AISLE[0] - BAY_D, EAST_AISLE[0], NORTH_AISLE[0] - 4.0, NORTH_AISLE[0])   # the wash bay (the workshop's NE corner, off the east aisle)
 PARALLEL = (B1[1] - 2.2, B1[1], -36.0, NORTH_AISLE[0] - 1.0)          # parallel bays along the east wall (6 m each), the east aisle 3.75 m beside them
 COLUMNS = [(u, v) for u in (WEST_AISLE[1] + BAY_D, MID_AISLE[1], EAST_AISLE[0] - BAY_D) for v in (-35.0, -27.2, -19.4)]
+# ---------------- the drive loop (one definition: the plan test, the plan drawing, the rig drive and the swept-path gate) ----------------
+RC = 6.0                                                                  # the loop's corner radius (path centre line)
+NORTH_V = CLEAR[3] - swing(RC)                                            # -10.24: the north aisle's line, the corners' swing off the north wall
+EAST_U = (EAST_AISLE[0] + PARALLEL[0]) / 2                                # 40.3: the east aisle's lane, beside the parallel bays
+def _arc(c, r, a0, a1, n, spd):
+    return [(c[0] + r * math.cos(a0 + (a1 - a0) * k / n), c[1] + r * math.sin(a0 + (a1 - a0) * k / n), spd) for k in range(1, n + 1)]
+def drive_bay():
+    """the row-4 bay the drive test parks in: the easternmost one the van can turn into (radius >= 4 m) straight off the loop's SE
+    corner, which ends heading west at u = EAST_U - RC."""
+    return max((b for b in bays() if b[3] == 3 and (EAST_U - RC) - b[0] >= 4.0), key=lambda b: b[0])
+def bay_r():
+    return (EAST_U - RC) - drive_bay()[0]                                  # the turn into / out of the test bay
+def loop_route():
+    """the drive through the garage as waypoints (lot u, v, speed m/s; negative = reverse), from the street to the street: the IN lane down
+    the ramp, the IN turn north (radius UT_R), the west aisle, the NW / NE / SE corners (radius RC), the return aisle west, a left turn
+    nose-in into the test bay (radius BAY_R) and back out along the same arc, on west to the U-turn (radius UT_R, centre UT_C), the OUT
+    lane up the ramp and out. The points are the body centre's path (the probe turns the body about its centre)."""
+    h = math.pi / 2; pts = [(60.0, IN_C, 4.0), (U_TOP + 0.8, IN_C, 3.0), (U_FOOT, IN_C, 3.0), (IN_X + IN_R, IN_S, 3.0)]
+    pts += _arc((IN_X + IN_R, IN_S + IN_R), IN_R, -h, -2 * h, 8, 2.5)                       # west -> north (right turn)
+    pts += [(IN_X, NORTH_V - RC, 3.0)]
+    pts += _arc((IN_X + RC, NORTH_V - RC), RC, 2 * h, h, 6, 2.5)                            # north -> east
+    pts += [(EAST_U - RC, NORTH_V, 3.0)]
+    pts += _arc((EAST_U - RC, NORTH_V - RC), RC, h, 0.0, 6, 2.5)                            # east -> south
+    pts += [(EAST_U, RET_V + RC, 3.0)]
+    pts += _arc((EAST_U - RC, RET_V + RC), RC, 0.0, -h, 6, 2.5)                             # south -> west
+    bu = drive_bay()[0]; BAY_R = bay_r(); c = (bu + BAY_R, RET_V - BAY_R); v_stop = TRENCH[1] + 0.2 + 0.3 + 3.1   # nose 0.3 m off the bay's end (van 6.2 m)
+    pts += _arc(c, BAY_R, h, 2 * h, 6, 1.5) + [(bu, v_stop, 1.0)]                          # west -> south, into the bay (off the SE corner's end)
+    pts += [(bu, RET_V - BAY_R, -1.2)] + _arc(c, BAY_R, 2 * h, h, 6, -1.2)                  # back out along the same arc: facing west
+    pts += [(UT_C[0], RET_V, 3.0)]
+    pts += _arc(UT_C, UT_R, h, 3 * h, 10, 2.5)                                              # the U-turn: west -> south -> east
+    pts += [(U_FOOT + 2.0, OUT_C, 3.0), (U_TOP - 0.8, OUT_C, 3.0), (U_TOP + 2.4, OUT_C, 3.0), (60.0, OUT_C, 4.0)]
+    return pts
 # ---------------- the fit-out: Rockstar props (survey/arch_ytyp.json), (model, u, v, z above B1, heading); all under 2.78 m ----------------
 SERVICE_BAYS = [(WORKSHOP[0] + BAY_D / 2, v) for v in (-21.1, -18.5, -15.9)]   # row 2's north bays: a pair of lift platforms each
 ISLAND = (FUEL[0], FUEL[1], FUEL[2], FUEL[3], 0.15)                       # the fuel island's kerb (kit concrete, 15 cm)
@@ -106,4 +152,8 @@ ROOM_NAME = {'pdeck': 'JC_POLICE_GARAGE_B1', 'pramp_in': 'JC_POLICE_RAMP_IN', 'p
 TCYC = {k: 'carpark_dt1_03' for k in KEYS}                                # Rockstar's car park timecycle (playbook 02)
 def voids():
     """the volume under L1 phase 2's hull hands over: B1 and its retaining walls, from below the hull's bottom (27.8) up to L1."""
-    return [(P.WI, P.EI, PL.B['police']['box'][2] + PL.B['police']['depth'], P.NI_FACE, ZB - 0.4, P.P1)]
+    return [(P.WI, P.EI, B1[2] - RW, P.NI_FACE, ZB - 0.4, P.P1)]
+def under_ceiling():
+    """B1 and its walls up to its ceiling (lot rect + z): phase 2 builds nothing in here - the colonnades' 0.5 m floor slabs (28.3 ..
+    28.8) hung 8 cm under B1's ceiling (28.38) into the garage (drawn + collision: the van's roof is 28.30; sweep 2026-10-30)."""
+    return [(P.WI, P.EI, B1[2] - RW, P.NI_FACE, ZB - 0.4, CEIL_B)]
