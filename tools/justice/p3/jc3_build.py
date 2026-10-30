@@ -276,6 +276,7 @@ DRAWN = {k: ('jc_courts_' + k).lower() for k in JP.ROOMS}     # lower case: the 
 for k, d in DRAWN.items(): DRAW2ROOM[d] = k
 pieces = len(TK.COLS)
 info = TK.export_all(DRAWN, {}, JP.MLO, 'jc_courts_extcol')
+custom = {JPOL.MIRROR_PROP[0]: PB.export_mirror(OUT)}                              # our own prop archetypes in jc_courts.ytyp (the interview mirrors)
 missing_vc = [d for d in DRAWN.values() if not VC_DONE.get(d)]
 assert not missing_vc, f'vertex colours were not written: {missing_vc}'
 def corners_of(P):
@@ -291,7 +292,12 @@ door_ents = []
 for name, model, u, v, z, h in JP.doors():                                         # the galleria's street doors: on its east portal
     props.append({'room': JP.ROOMS[R], 'model': model, 'pos': [u, v, z], 'heading': h, 'flags': TK.DOOR_FLAGS, 'portal': JP.DOOR_PORTAL})
     door_ents.append({'name': name, 'model': model, 'pos': [u, v, z], 'heading': h, 'rooms': ['galleria', 'limbo']})
-for d in TB.OPS['doors']:                                                          # area 2: on the portal of their opening, else in their room
+rollups = []                                                                       # the garage roll-ups: plain MAP door entities (jc3_meta ->
+for d in TB.OPS['doors']:                                                          # jc_courts_ext.ymap, flags 1572864), never MLO entities: as an
+    if 'rollup' in d['name']:                                                      # MLO entity (1572866) the roll-up stayed shut for a car (rig
+        rollups.append({'name': d['name'], 'model': d['model'], 'pos': [round(x, 4) for x in d['pos']], 'heading': d['heading']})   # 2026-10-30)
+        door_ents.append({'name': d['name'], 'model': d['model'], 'pos': d['pos'], 'heading': d['heading'], 'rooms': list(d['portal'])})
+        continue
     pi = next((i for i, p_ in enumerate(ports) if p_.get('door') and d['name'].startswith(p_['door']) and d['portal']), None)
     props.append({'room': JP.ROOMS[d['room']], 'model': d['model'], 'pos': [round(x, 4) for x in d['pos']], 'heading': d['heading'], 'flags': TK.DOOR_FLAGS,
                   **({'portal': pi} if pi is not None else {})})
@@ -310,7 +316,7 @@ for k, rs_ in REGIONS.items():
     zones[k] = [[round(r[0], 3), round(r[1], 3), round(r[2], 3), round(r[3], 3), z0, z1] for r in rs_]
 lay = {'mlo': JP.MLO, 'origin': [F.OX, F.OY, 0.0], 'heading': F.HDEG, 'drawables': info, 'bound': JP.MLO,
        'rooms': [{'key': k, 'name': JP.ROOM_NAME[k], 'id': i, 'drawable': ('jc_courts_' + k).lower(), 'timecycle': JP.TCYC[k]} for k, i in JP.ROOMS.items()],
-       'portals': ports, 'props': props, 'placed': PLACED, 'doors': door_ents, 'seats': [[round(x, 3) if isinstance(x, float) else x for x in s_] for s_ in SEATS],
+       'portals': ports, 'props': props, 'placed': PLACED, 'doors': door_ents, 'rollups': rollups, 'custom_props': custom, 'seats': [[round(x, 3) if isinstance(x, float) else x for x in s_] for s_ in SEATS],
        'lights': sum(len(TK.LIGHTS[k]) for k in JP.ROOMS), 'vcol': {k: VCOL[DRAW2ROOM[k]] for k in VC_DONE}, 'lifts': list(lifts.values()),
        'mlo_box': [[JP.RA[0], JP.RA[2], G - JP.SLAB_T], [PL.B['tower']['box'][1], PL.B['tower']['box'][3], JT.F7]],
        'openings': JT.OPENINGS, 'zones': zones, 'collision': {'children': len(TK.COLS), 'pieces_merged': pieces}}

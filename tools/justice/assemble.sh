@@ -7,7 +7,7 @@ cp work/maps/bin/* work/col/*.ybn work/slab/jc_lot.ydr work/slab/jc_lot_col.ybn 
 cp work/p2/out/*.ydr work/p2/out/jc_ext_col.ybn work/p2/out_lod/*.ydr $R/stream/            # phase 2: the complex's shells + LOD chain
 cp work/scripts/area_clear.lua $R/
 # phase 3: the interiors (MLO jc_courts: every room's drawable) - built by work/p3/build_p3.sh; the stream gate must prove itself, then pass
-cp work/p3/out/bin/jc_courts.ytyp work/p3/out/bin/jc_courts_milo_.ymap work/p3/out/jc_courts_*.ydr work/p3/out/jc_courts.ybn $R/stream/
+cp work/p3/out/bin/jc_courts.ytyp work/p3/out/bin/jc_courts_milo_.ymap work/p3/out/bin/jc_courts_ext.ymap work/p3/out/jc_courts_*.ydr work/p3/out/jc_courts.ybn $R/stream/
 # area 4: Jail I (MLO jc_jail), built by jc-jail in work/jail (numbers: work/jail/jj_hooks.ASSEMBLE). Only when its build is there; its
 # own stream gate must prove itself, then pass (the folder is wiped while build_jail.sh runs: a partial one fails the gate)
 JAIL=0; INTS="work/p3/out/interior.json"

@@ -11,7 +11,7 @@ Rooms:
   pstair   the staff stair L1 -> L2.
   pstaff2  L2: the open office, the captain's office, the conference room, two interview rooms, the corridor.
 Every partition that meets the west face lands in a gap between its window bays (checked by tests/test_jc3_police.py)."""
-import sys
+import math, sys
 from pathlib import Path
 P3 = Path(__file__).resolve().parent; sys.path[:0] = [str(P3.parent / 'p2'), str(P3.parent)]
 import p2_plan as PL
@@ -68,8 +68,17 @@ LINK = (18.65, NI_LINK)                                                   # the 
 MIR = (14.2, 18.4)
 SUITES = {'pint1': (WI, MIR[0], SG, -48.93), 'pobs1': (MIR[0], 16.3, SG, -48.93), 'pobs2': (16.3, MIR[1], SG, -48.93), 'pint2': (MIR[1], 22.0, SG, -48.93)}
 MIRROR = [('pint1', 'pobs1', 'u', MIR[0], -1), ('pint2', 'pobs2', 'u', MIR[1], 1)]   # (interview, observation, axis, plane, interview side: -1 = u < plane)
+def mirror_heading(side):
+    """the mirror panel's heading (lot frame): the panel faces -Y, so heading 90 faces +u, 270 faces -u - into the interview room."""
+    return 90.0 if side > 0 else 270.0
+def facing(heading, normal=(0.0, -1.0)):
+    """a model-space horizontal normal turned by an entity heading (degrees, counter-clockwise): its lot-frame (u, v)."""
+    h = math.radians(heading); return (normal[0] * math.cos(h) - normal[1] * math.sin(h), normal[0] * math.sin(h) + normal[1] * math.cos(h))
 MIRROR_SPAN = (-55.6, -50.0, P2 + 0.9, P2 + 2.2)                          # the mirror / dark glass: v0, v1, z0, z1
-MIRROR_PROP = ('vw_vwint02_pent_mbt_mirror', 1.8717, 1.2386)            # Rockstar's penthouse mirror (mirror_default, its plane = its YZ): scaled to the span
+MIRROR_PROP = ('jc_courts_mirror', 1.0, 1.0)                              # our own 1 x 1 m mirror_default panel facing -Y (Tower City's
+# tc_prop_mirror recipe, jc3_police_build.export_mirror), its own entity scaled to the span. NOT Rockstar's vw_vwint02_pent_mbt_mirror:
+# that model is TWO panels (y +-0.30..0.94, a 0.6 m gap between) facing -x - scaled up it left a see-through strip and, turned with
+# +x into the room, showed its back to the interview room (rig 2026-10-30: the interview side read as clear glass into observation)
 # ---------------- rooms in the MLO ----------------
 KEYS = ['plobby', 'pdesk', 'pstaff1', 'pstair', 'pstaff2', 'pint1', 'pobs1', 'pobs2', 'pint2']
 ROOM_NAME = {'plobby': 'JC_POLICE_LOBBY', 'pdesk': 'JC_POLICE_DESK', 'pstaff1': 'JC_POLICE_STAFF_L1', 'pstair': 'JC_POLICE_STAIR',

@@ -234,11 +234,14 @@ def walk3():
         out[name] = legs
     return out, ok_all
 def gdrive_control():
-    """proves the drive probe before it is trusted: a straight run on the open plaza must count no collision, a run into the police
-    east face (solid stone between the colonnade's end and the doors) must count one or more."""
+    """proves the drive probe before it is trusted: a straight run along the IN driveway's lane (nothing built in it from u 64 to the door:
+    checked offline against every drawn + collision triangle) must count no impact and arrive; a run into the police east face's solid
+    stone between the OUT door and the colonnade's end (v -46.1, full-height stone at u 44.65; the target lies inside the building) must
+    count one or more and NOT arrive. (2026-10-30 rig: the old plaza line crossed a site planter and the old wall line ran into the open
+    arcade, so the control read inverted.)"""
     import jc3_pgarage as G
     res = {}
-    for name, (u0, v0, u1, v1) in (('open plaza', (60.0, -30.0, 52.0, -30.0)), ('planted wall', (52.0, -42.5, 43.0, -42.5))):
+    for name, (u0, v0, u1, v1) in (('open lane', (62.0, G.IN_C, 50.0, G.IN_C)), ('planted wall', (56.0, -46.1, 40.0, -46.1))):
         x0, y0 = W(u0, v0); revive(); stand(u0 + 3.0, v0 + 3.0, 28.8); time.sleep(1.5)
         lua('local m=GetHashKey("police3") RequestModel(m) local t=GetGameTimer() while not HasModelLoaded(m) and GetGameTimer()-t<10000 do Wait(50) end '
             'local _,gz=GetGroundZFor_3dCoord(%.2f,%.2f,40.0,false) local v=CreateVehicle(m,%.2f,%.2f,gz+0.3,%.1f,false,false) SetVehicleOnGroundProperly(v) '
@@ -246,7 +249,8 @@ def gdrive_control():
         x, y = W(u1, v1); r = lua(GDRIVE_STEP % (x, y, 4.0, 4.0), 40).split('|')
         res[name] = {'reached': r[0] in ('true', '1'), 'collisions': int(r[1])}
         lua('local p=PlayerPedId() TaskLeaveVehicle(p,_G.__gv,16) Wait(1500) if _G.__gv then DeleteEntity(_G.__gv) end return "gone"', 20)
-    return res, res['open plaza']['collisions'] == 0 and res['planted wall']['collisions'] > 0
+    return res, (res['open lane']['reached'] and res['open lane']['collisions'] == 0 and not res['planted wall']['reached']
+                 and res['planted wall']['collisions'] > 0)
 STAIR_ROUTE = []
 def stair():
     """L1 lobby -> the stair door -> both flights of each storey -> L3 landing -> out into pubA (and on to L5)."""

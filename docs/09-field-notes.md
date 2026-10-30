@@ -563,3 +563,15 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   registered read 0 while a car drove under the open door); a car on a purged street moves >= 2 m on 2 s of gas; it is deleted for
   certain. Purge = every vehicle within 30 m, mission entities included (ClearAreaOfVehicles leaves those - a car left by an earlier
   run blocked two test cars at their spawn). A car that never moves is "nothing was tested", not a failed bay.
+- **Rockstar's penthouse mirror is no single pane:** `vw_vwint02_pent_mbt_mirror` is TWO panels (y 0.30..0.94 and -0.94..-0.30, a 0.6 m
+  gap) and its reflecting normal is **-x**. Scaled to a 5.6 m interview window it left a see-through strip, and turned with +x into
+  the room it showed its back: from the interview room the window read as clear glass into the observation room. Read a vanilla
+  model's vertex normals (vanilla_xml.ps1) before placing it. The interview mirrors are now our own 1 x 1 m `mirror_default` panel
+  (Tower City's tc_prop_mirror recipe, facing -Y, heading 90 / 270, scaled to the span) with its own archetype in the MLO's ytyp; a unit
+  test turns the panel normal by the heading and checks it faces the interview room (proven on the old heading).
+- **A garage roll-up inside an MLO does not open for cars:** placed as an MLO entity (flags 1572866) the police roll-ups stayed shut
+  and the drive test stopped on the IN door. Garage roll-ups are plain MAP door entities with flags 1572864 in their own ymap
+  (`jc_courts_ext.ymap`; Tower City gar_meta, Jail I's sally port). Write that ymap's extents from the doors, not the writer's origin.
+- **Check a drive control's lines offline first** (`tools/justice/p3/jc3_corridor.py`): the first "open plaza" line crossed a site
+  planter (5 impacts) and the "planted wall" line ran into the open arcade (0 impacts, arrived) - an inverted control. The open line
+  must list no near-vertical built face; the wall line must list the wall, and the wall run must NOT arrive.

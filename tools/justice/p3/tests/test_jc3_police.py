@@ -90,3 +90,13 @@ def test_lobby_fronts_the_whole_east_colonnade():
     def ok(gar_n): return all(gar_n <= a0 - 0.5 and a1 <= P.REGIONS['plobby'][0][3] + 0.5 for a0, a1 in runs)
     assert ok(P.GAR_N), (runs, P.GAR_N)
     assert not ok(-40.0), 'the colonnade check did not find the old lobby wall'
+
+
+def test_mirror_faces_the_interview_room():
+    """the panel (-Y face) must reflect INTO the interview room; plant: the old heading (0 / 180, written for a +x model) faces along
+    the wall (rig 2026-10-30: the interview side read as clear glass)."""
+    def into(heading, side):
+        n = P.facing(heading); return n[0] * side > 0.99
+    assert not into(0.0 if 1 > 0 else 180.0, 1) and not into(180.0, -1), 'the plant (old headings) was not caught'
+    for intr, obs, ax, plane, side in P.MIRROR:
+        assert ax == 'u' and into(P.mirror_heading(side), side), f'{intr}: the mirror does not face the interview room'

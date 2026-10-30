@@ -4,7 +4,7 @@ with jc3_tower_build's helpers (lining by region, slabs, door openings, lights).
 jc3_pgarage_build.py. Rockstar's recipes as area 2: lobby = the tower lobby's granite / marble; offices = plaster, carpet, ceiling tile;
 L1 staff = Mission Row's painted block + speckled floor. Interview suites: the mirror is its own entity (Rockstar's penthouse mirror, scaled)
 + a mirror portal (flags 4); the observation room sees the interview room through dark glass (a room-to-room portal)."""
-import tc_kit as TK
+import math, tc_kit as TK
 import jc3_tower as JT, jc3_police as P
 import jc3_tower_build as TB
 OPS = TB.OPS
@@ -78,7 +78,7 @@ def _suites(holes):
     for intr, obs, ax, plane, side in P.MIRROR:                          # side: the interview room's side of the wall plane (-1: u < plane)
         TK.box(obs, (plane - 0.01, v0, z0), (plane + 0.01, v1, z1), 'obsglass', col=True)                   # the dark glass (collision)
         um = plane + side * 0.115                                         # the mirror panel: 1.5 cm off the interview face of the wall
-        TK.prop(intr, P.MIRROR_PROP[0], um, (v0 + v1) / 2, (z0 + z1) / 2, 0.0 if side > 0 else 180.0,                  # its +x into the interview room
+        TK.prop(intr, P.MIRROR_PROP[0], um, (v0 + v1) / 2, (z0 + z1) / 2, P.mirror_heading(side),                           # its -Y face into the interview room
                 scale=((v1 - v0) / P.MIRROR_PROP[1], (z1 - z0) / P.MIRROR_PROP[2]))
         OPS['portals'].append({'from': intr, 'to': 'limbo', 'kind': f'{intr} mirror', 'P': ('u', um, v0, v1, z0, z1, -side), 'flags': 4})
         OPS['portals'].append({'from': obs, 'to': intr, 'kind': f'{obs} glass', 'P': ('u', plane - side * 0.1, v0, v1, z0, z1, side)})
@@ -87,6 +87,26 @@ def _suites(holes):
                 f0, f1 = sorted((plane + s_ * 0.1, plane + s_ * 0.13))
                 TK.box(rm, (f0, a, c), (f1, b, d), 'steel', col=False)
     return R
+def export_mirror(out):
+    """jc_courts_mirror: a 1 x 1 m panel in the XZ plane facing -Y, centred on its origin, shader mirror_default.sps with white diffuse +
+    spec and specularIntensityMult 1 (Rockstar's vw_vwint02_pent_mbt_mirror material; Tower City's tc_prop_mirror, proven in game). Its own
+    drawable + archetype: a mirror never reflects the entity holding the surface. Returns its bounds for the ytyp."""
+    import bpy, numpy as np
+    from mathutils import Vector
+    m = TK.create_shader('mirror_default.sps'); m.name = 'JC mirror'; m['preserve_authored_uv'] = True
+    w = np.ones((8, 8, 4), np.float32)
+    for s_ in ('DiffuseSampler', 'SpecSampler'):
+        nd = m.node_tree.nodes.get(s_)
+        if nd: nd.image = TK.dds(f'jc_mirror_{s_[:4].lower()}', w, out / 'tex', s_ != 'DiffuseSampler', 'B8G8R8A8_UNORM'); nd.texture_properties.embedded = True
+    q = m.node_tree.nodes.get('specularIntensityMult')
+    if q: q.set_float(1.0)
+    me = bpy.data.meshes.new('mirror_panel'); me.from_pydata([Vector(v) for v in [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]], [], [(0, 1, 2, 3)])
+    me.materials.append(m); uv = me.uv_layers.new(name='UVMap 0')
+    for i, c in enumerate([(0, 0), (1, 0), (1, 1), (0, 1)]): uv.data[i].uv = c
+    me.update(); assert me.polygons[0].normal.y < -0.99, 'the mirror panel must face -Y'
+    o = bpy.data.objects.new('mirror_panel', me); TK.coll().objects.link(o)
+    root, lo, hi = TK.K.new_drawable(P.MIRROR_PROP[0], [o], uv=0.5, keep_uv=TK.KEEP); TK._export(root, out)
+    return {'bb_lo': [round(v, 4) for v in lo], 'bb_hi': [round(v, 4) for v in hi]}
 def build(zb1):
     R = {}; holes = TB.opening_boxes()
     # ---------------- the public lobby ----------------
