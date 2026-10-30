@@ -575,3 +575,11 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
 - **Check a drive control's lines offline first** (`tools/justice/p3/jc3_corridor.py`): the first "open plaza" line crossed a site
   planter (5 impacts) and the "planted wall" line ran into the open arcade (0 impacts, arrived) - an inverted control. The open line
   must list no near-vertical built face; the wall line must list the wall, and the wall run must NOT arrive.
+- **Police roll-ups as map doors still stay shut for a car** (rig 2026-10-30, as Jail I's sally port): the buyer's door-lock system opens
+  them. The garage drive (`tools/justice/p3/jc3_gdrive.py`) opens both through the door system (registered, open ratio 1, held), reads
+  each door's opening from a fresh object read-back while the car is at it, then shuts and releases them; a self-test step proves the
+  read-back (shut / open / shut) and that a keyed car moves. It drives with jc-jail's method (jj_probe DRV: TaskVehicleTempAction
+  slices, speed cap, engine via c9_vehiclekeys ToggleEngine), the heading turned toward each waypoint 0.9 deg a frame for the turns.
+  The buyer README lists both roll-ups (hash, coords, heading) under "Access / locks"; mlo-data carries them as street doors.
+- **mlo-data written for area 1 went stale silently:** it listed every door of the MLO (68) as a galleria street door. Street doors are
+  the doors on a portal to limbo; the rest go in `interior_doors`, each with its model hash.
