@@ -31,11 +31,19 @@ def export(root):
     assert 'FINISHED' in bpy.ops.sollumz.export_assets(directory=str(OUT), use_custom_settings=True, target_formats={'NATIVE'}, target_versions={'GEN8'}, limit_to_selected=True)
 GRID = 2.0
 sys.path.insert(0, str(J / 'work/p2')); import p2_plan as PL
+HOLES = PL.slab_holes()                                                   # police B1 box + Jail I secure stair (jj_hooks.SLAB_HOLES)
 def _in_hole(c):
-    """a world point inside one of p2_plan.SLAB_HOLES (lot-frame rects): the slab is not drawn / does not collide there (area 3: the
+    """a world point inside one of p2_plan.slab_holes() (lot-frame rects): the slab is not drawn / does not collide there (area 3: the
     police HQ's B1 garage and its ramps run below the slab's height under the whole police box)."""
     u, v = F.L(c.x, c.y)
-    return any(r[0] < u < r[1] and r[2] < v < r[3] for r in PL.SLAB_HOLES)
+    return any(r[0] < u < r[1] and r[2] < v < r[3] for r in HOLES)
+def _hole_edge(e):
+    """a boundary edge lying on one of the holes' edge lines (inside that rect's span)."""
+    m = (e.verts[0].co + e.verts[1].co) / 2; u, v = F.L(m.x, m.y); t = 0.01
+    for r in HOLES:
+        if (min(abs(u - r[0]), abs(u - r[1])) < t and r[2] - t <= v <= r[3] + t) or (min(abs(v - r[2]), abs(v - r[3])) < t and r[0] - t <= u <= r[1] + t):
+            return True
+    return False
 def slab_mesh(pts, mat, skirt=0.0, apron=0.0):
     bm = bmesh.new(); vs = [bm.verts.new(Vector(p)) for p in pts]
     f = bm.faces.new(vs); f.normal_update()
@@ -47,7 +55,7 @@ def slab_mesh(pts, mat, skirt=0.0, apron=0.0):
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=Vector((0, k * GRID, 0)), plane_no=Vector((0, 1, 0)))
     import math as _m
     hd = _m.radians(F.HDEG); du = Vector((_m.cos(hd), _m.sin(hd), 0.0)); dv = Vector((-_m.sin(hd), _m.cos(hd), 0.0))
-    for r in PL.SLAB_HOLES:                                                 # split the slab exactly on each hole's edge lines (then only what lies
+    for r in HOLES:                                                 # split the slab exactly on each hole's edge lines (then only what lies
         for a_, n_ in ((r[0], du), (r[1], du)):                             # inside goes: a centre test on 2 m triangles left holes outside it)
             x, y = F.W(a_, 0.0); bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=Vector((x, y, 0)), plane_no=n_)
         for a_, n_ in ((r[2], dv), (r[3], dv)):
@@ -56,13 +64,14 @@ def slab_mesh(pts, mat, skirt=0.0, apron=0.0):
     for v in bm.verts:
         if v not in edge: v.co.z = F.slab_z(v.co.x, v.co.y)
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method='BEAUTY', ngon_method='BEAUTY')
-    dead = [f for f in bm.faces if _in_hole(f.calc_center_median())]   # the holes (p2_plan.SLAB_HOLES): under the police HQ's B1
+    dead = [f for f in bm.faces if _in_hole(f.calc_center_median())]   # the holes (p2_plan.slab_holes()): under the police HQ's B1
     if dead: bmesh.ops.delete(bm, geom=dead, context='FACES')
     for f in bm.faces:
         f.normal_update()
         if f.normal.z < 0: f.normal_flip()
     if skirt or apron:
-        be = [e for e in bm.edges if e.is_boundary]
+        be = [e for e in bm.edges if e.is_boundary and not _hole_edge(e)]  # the lot's outer edge only: a skirt / apron on a hole's edge
+                                                                          # reaches back into the hole (the apron crossed Jail I's stair)
         out = {}                                                          # outward horizontal normal per boundary vertex (ccw outline)
         for e in be:
             fc = e.link_faces[0].calc_center_median(); a, b = e.verts; d = (b.co - a.co); d.z = 0; d.normalize()

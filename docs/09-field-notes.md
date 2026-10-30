@@ -517,3 +517,11 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
 - **A garage door the server's lock system will run** (Antonio: "client add locks"): the game auto-opens a roll-up only for a car
   arriving from outside. The drive test opens it for the back-out leg through the door system (held open while the car is near, then
   released and removed), as a lock script would; the mlo-data marks the door `lock_config_required` with model hash and coords.
+- **A slab hole's edge gets no skirt or apron:** the lot slab's collision apron (0.5 m out, 3 cm down) and the drawn skirt were
+  extruded from EVERY boundary edge, so once holes were cut, the apron reached 0.5 m back into each hole. Jail I's stair still had
+  51 collision triangles across it after the hole was cut. Extrude only the lot's outer edge (skip edges lying on a hole's lines).
+  Found by jc-jail's `jj_intrusion.py` (every foreign triangle against every room's clear volume, proven on a plant), now a fatal gate
+  in build_p1.sh. Hole numbers that belong to another agent's MLO are read lazily from its hooks file (jj_hooks -> jj_plan imports
+  p2_plan: a module-level import is circular).
+- **Never edit a shell script while it runs:** bash reads the file by offset as it goes; inserting lines into build_p1.sh mid-run
+  gave "syntax error near unexpected token" at a line that was fine. Edit, then start a fresh run.

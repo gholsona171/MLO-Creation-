@@ -52,7 +52,19 @@ def _pg(k):
     c = POLICE_DOOR_C[k]; w = POLICE_ROLLUP[1] + 0.1                          # the opening: the door + 10 cm (doc 06)
     return dict(PGARAGE, s=(c - w / 2, c + w / 2), z1=PGARAGE['z0'] + POLICE_ROLLUP[2], room=(30.0, 45.1, c - w / 2, c + w / 2))   # room = the opening (a wider one left hull strips)
 GARAGES = {'sallyport': SALLY, 'police_in': _pg('in'), 'police_out': _pg('out')}   # room = (u0, u1, v0, v1) of the bay behind the door (to the face)
-SLAB_HOLES = [B['police']['box']]                                         # p1's lot slab is cut here: area 3's B1 + ramps run below its height (28.3)
+def _jj_hooks():
+    """jc-jail's hook numbers (work/jail/jj_hooks.py), or None when the jail work is not there."""
+    import importlib.util
+    from pathlib import Path
+    p = Path(__file__).resolve().parent.parent / 'jail' / 'jj_hooks.py'
+    if not p.exists(): return None
+    spec = importlib.util.spec_from_file_location('jj_hooks', p); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    return m
+# p1's lot slab (drawn + collision) is cut here: area 3's B1 + ramps run below its height (28.3); Jail I's secure stair goes 6 m down
+# through it (jj_hooks.SLAB_HOLES)
+def slab_holes():
+    """lazily (jj_hooks -> jj_plan imports this module): the police box + jj_hooks.SLAB_HOLES."""
+    return [B['police']['box']] + [tuple(r) for r in getattr(_jj_hooks(), 'SLAB_HOLES', [])]
 POLICE_FRONT = -25.88                                                      # area 3: the front pair in the east colonnade glass (a0 along v; bay -26.15 .. -22.91)
 POLICE_FRONT_W = 2 * 1.30 + 2 * 0.05
 # ---------------- faces ----------------
@@ -264,12 +276,8 @@ def tower_voids():
 def jail_voids():
     """Jail I's MLO volumes (jc-jail's work/jail/jj_hooks.JAIL_VOIDS: the numbers live there; Jail I keeps every pane, louvre and
     backing box - no SEE_OUT band)."""
-    import importlib.util
-    from pathlib import Path
-    p = Path(__file__).resolve().parent.parent / 'jail' / 'jj_hooks.py'
-    if not p.exists(): return []
-    spec = importlib.util.spec_from_file_location('jj_hooks', p); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-    return [tuple(v) for v in m.JAIL_VOIDS]
+    m = _jj_hooks()
+    return [tuple(v) for v in m.JAIL_VOIDS] if m else []
 def mlo_voids(k):
     """the floor bands handed to an MLO (SEE_OUT levels): cut out of the hull (the MLO brings its own walls / floors / collision).
     The tower hands over explicit volumes (tower_voids), not whole bands."""

@@ -66,5 +66,10 @@ DEPLOY=0 bash assemble.sh
 py -3 tools/ground_check.py --plant > logs/ground_check_plant.log 2>&1; grep "GROUND_CHECK_PLANT\|plant:" logs/ground_check_plant.log || { tail -20 logs/ground_check_plant.log; echo 'GROUND CHECK NOT PROVEN - nothing deployed'; exit 1; }
 py -3 tools/ground_check.py --no-dump > logs/ground_check.log 2>&1 || { grep "GROUND_CHECK\|^    " logs/ground_check.log | head -40; echo 'GROUND CHECK FAILED: drawn ground and collision disagree (above) - nothing deployed'; exit 1; }
 grep "GROUND_CHECK" logs/ground_check.log
+if [ -f jail/jj_intrusion.py ]; then                                       # no foreign floor in Jail I's rooms (lot slab + phase 2, drawn + collision)
+  (cd jail && py -3 jj_intrusion.py --plant) > logs/jj_intrusion_plant.log 2>&1; grep JJ_INTRUSION_PLANT_FOUND logs/jj_intrusion_plant.log || { tail -8 logs/jj_intrusion_plant.log; echo 'INTRUSION CHECK NOT PROVEN - nothing deployed'; exit 1; }
+  (cd jail && py -3 jj_intrusion.py) > logs/jj_intrusion.log 2>&1 || { tail -12 logs/jj_intrusion.log; echo 'JJ_INTRUSION FAILED (above) - nothing deployed'; exit 1; }
+  grep JJ_INTRUSION_PASS logs/jj_intrusion.log
+fi
 if [ "${DEPLOY:-1}" != 0 ]; then bash assemble.sh; fi
 echo BUILD_P1_PASS
