@@ -47,20 +47,23 @@ for n in EXT:
 SRC = {}
 def model_obj(model):
     if model in SRC: return SRC[model]
-    x = VAN / f'{model}.ydr.xml'
-    if not x.exists(): SRC[model] = None; return None
+    x = next((VAN / f'{model}.{k}.xml' for k in ('ydr', 'yft') if (VAN / f'{model}.{k}.xml').exists()), None)   # yft: fragments (vending, TVs)
+    if x is None: SRC[model] = None; return None
     td = VAN / model; td.mkdir(exist_ok=True)
     if TEX.exists():
         for f in TEX.glob('*.dds'):
             if not (td / f.name).exists(): shutil.copy(f, td / f.name)
-    roots, new = imp(VAN, f'{model}.ydr.xml'); r = roots[0]; r.location = (0, 0, -500); SRC[model] = r; return r
+    roots, new = imp(VAN, x.name); r = roots[0]; r.location = (0, 0, -500); SRC[model] = r
+    for o in new:                                                       # a fragment's collision / bounds stay out of the picture
+        if 'bound' in str(getattr(o, 'sollum_type', '')).lower() or o.name.lower().startswith('col'): o.hide_render = True
+    return r
 def place(model, u, v, z, h):
     r = model_obj(model)
     if r is None:                                                       # not exported: its bounds as a grey box (labelled in the report)
         return
     c = r.copy(); scn.collection.objects.link(c)
     for ch in r.children_recursive:
-        cc = ch.copy(); scn.collection.objects.link(cc); cc.parent = c
+        cc = ch.copy(); scn.collection.objects.link(cc); cc.parent = c; cc.hide_render = ch.hide_render
     c.location = (u, v, z); c.rotation_euler = (0, 0, math.radians(h))
 for p in L['props']: place(p['model'], *p['pos'], p['heading'])
 # ---------------- preview glass: a Blender glass for every glass shader (Rockstar's glass shaders do not render here) ----------------
@@ -130,6 +133,12 @@ VIEWS.update({   # area 3: the Police HQ and its B1 garage
     'p3_a3_garage':      ((12.5, -55.0, 27.4), (30.0, -20.0, 26.6), 16),
     'p3_a3_workshop':    ((25.0, -26.0, 27.3), (34.0, -16.0, 26.3), 18),
     'p3_a3_ramp':        ((22.5, -54.5, 26.8), (44.0, -54.5, 28.6), 20),
+    'p3_a3_briefing': ((20.5, -25.5, 30.4), (14.0, -14.5, 29.9), 18),
+    'p3_a3_captain': ((11.3, -17.3, 33.6), (19.0, -9.0, 33.0), 18),
+    'p3_a3_lockers': ((11.3, -39.5, 30.4), (17.0, -30.0, 29.8), 18),
+    'p3_a3_break': ((11.2, -13.0, 30.4), (16.8, -8.0, 29.9), 18),
+    'p3_a3_records': ((25.0, -42.0, 33.6), (31.0, -55.0, 32.8), 18),
+    'p3_a3_store': ((34.0, -41.5, 27.2), (43.0, -46.0, 26.2), 18),
 })
 SET = [a for a in ONLY if a in ('area1', 'area2', 'area3')]
 if SET: ONLY = {k for k in VIEWS if k.startswith({'area1': 'p3_a1', 'area2': 'p3_a2', 'area3': 'p3_a3'}[SET[0]])}

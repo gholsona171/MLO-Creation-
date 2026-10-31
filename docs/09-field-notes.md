@@ -657,3 +657,26 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   0.3 m for the probe's chord steering (the van's larger swing had hidden that allowance); mlo-data `police_garage` and the buyer
   README state it.
 - Side-by-side hand-back sheet: `tools/justice/p3/jc3_sheet.py` (Blender | 13:00 | 23:00 per view, labelled).
+
+## police-hq-dressing (Justice Center area 3, 2026-10-31: Antonio "garage & headquarters look basic")
+- **Dress from Rockstar's own station:** `survey/mlo_scan.tsv` lists every entity of Mission Row (`hei_heist_police_dlc`,
+  `v_policehub`): folders, paper piles, mugs, lamps, keyboards, notice boards `v_20_notbrd*`, `v_20_lspd_sign`, `v_20_copfile*`,
+  `v_20_evidence01`, `prop_game_clock_02`, printers, vending, water coolers, CCTV, extinguishers. The fire station gives the garage set.
+  The dressing is plan data (`jc3_police_dress.py`, `jc3_pgarage_dress.py`): wall items placed by wall line + side + lining thickness,
+  desks with seeded clutter so no two desks match.
+- **Measure which side a wall model shows before hanging it:** Mission Row's notice boards face **+y** (their paper faces' normals),
+  the whiteboard, pinboard, clock and LSPD sign face -y. Placed by the whiteboard's convention every notice board would have hung
+  backwards (`facing` = summed up-facing area per side from the CodeWalker XML normals).
+- **A dressing gate per prop** (`jc3_dress_check.py`, plants: a board 0.3 m off its wall, a prop in the wrong room, a board across a
+  door): every prop inside its OWN room's zone (eleven lockers had stayed in the public lobby after the patrol room shrank - another
+  room's entities only draw when that room is visible); wall items with a built face behind them (the stair's lining is 0.15, not 0.1;
+  the lobby ceiling is CEIL - 0.2 in the tall hall, 2.6 m in the low hall); no wall item over a door opening.
+- **Skirting boards in one pass over the built walls:** every vertical wall face meeting the floor gets a 10 cm board, cut against
+  every wall box and every board already placed, none on faces under 0.45 m (jambs, split-lining ends). 2 cm proud: the sweep reads
+  same-facing faces within 1.2 cm as fighting (12 mm boards and 6 mm hazard bands both failed). The ground check now treats a
+  horizontal drawn face under 5 cm wide as trim, not ground (a sample landed on a board's top).
+- **Previews with the props:** `vanilla_xml.ps1` now also reads fragments (`.yft` -> `<name>.yft.xml`: vending machines, monitors,
+  TVs, water coolers, CCTV), the renderer takes either XML, and `tools/counter_kit/cw.ps1 tex` fetches the shared-txd textures into
+  `survey/vanilla/_tex` (87 for this pass). Without the export the preview silently skipped every new prop.
+- Check every new placement against the existing layout and the route's swing: the NE extinguisher sat in the corner turn's front
+  swing (the drive sweep found it); a sofa, a flag and a copier stood in door swings (found while planning, from INTO).

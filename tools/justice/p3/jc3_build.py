@@ -110,8 +110,13 @@ rs('speckle', 'normal_detail.sps', {'DiffuseSampler': 'xj_v_speckledfloor01', 'D
 rs('conc', 'normal.sps', {'DiffuseSampler': 'xj_v_conc_wall', 'BumpSampler': 'xj_v_concrete01_n'},
    {'bumpiness': 1.0, 'specularIntensityMult': 0.125, 'specularFalloffMult': 20.0, 'specularFresnel': 0.97})              # Mission Row's concrete
 TK.MAT['obsglass'] = TK.clear_glass('JC obs glass', (0.05, 0.06, 0.07), 0.45)          # the observation rooms' dark one-way glass
+_hz = np.zeros((32, 32, 4), np.float32); _hz[..., 3] = 1.0; _yy, _xx = np.mgrid[0:32, 0:32]
+_hz[..., :3] = np.where((((_xx + _yy) // 8) % 2 == 0)[..., None], (0.92, 0.72, 0.06), (0.06, 0.06, 0.06))
+TK.MAT['hazard'] = TK.tex_mat('JC3 hazard', _hz)                                      # B1: the columns' yellow / black safety bands
+TK.MAT['pipe_red'] = TK.flat('JC3 pipe_red', (0.55, 0.07, 0.05)); TK.MAT['panel_grey'] = TK.flat('JC3 panel_grey', (0.42, 0.43, 0.44))
+TK.MAT['skirt'] = TK.flat('JC3 skirt', (0.07, 0.07, 0.08), spec=0.3)                        # area 3: skirting boards
 M_PER_UV = {'granite': 4.05, 'marble': 2.4, 'slat': 2.0, 'carpet': 2.0, 'plaster': 3.0, 'ceiltile': 1.2, 'panel': 1.0, 'plank': 2.0,
-            'block': 2.0, 'speckle': 2.0, 'conc': 3.0}             # (bfloormrble1 = 2 x 2 tiles: 1.2 m tiles)
+            'block': 2.0, 'speckle': 2.0, 'conc': 3.0, 'hazard': 0.6}             # (bfloormrble1 = 2 x 2 tiles: 1.2 m tiles)
 # ---------------- helpers ----------------
 R = 'galleria'
 ARCH = {k.lower(): v for k, v in json.load(open(P3 / 'survey/arch_ytyp.json', encoding='utf-8-sig')).items()}

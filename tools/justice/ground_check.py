@@ -112,7 +112,11 @@ def drawn(dump=True):
             if f.stem.endswith('_emi'): continue
             T = np.load(f).astype(np.float64); parts.append(T); mids.append(np.full(len(T), len(names2))); names2.append(f.stem[5:])
         for f in sorted((W / 'p3/out').glob('tris_jc_*.npy')):                # phase 3 interiors (world space, as the exteriors')
-            T = np.load(f).astype(np.float64); parts.append(T); mids.append(np.full(len(T), len(names2))); names2.append(f.stem[5:])
+            T = np.load(f).astype(np.float64)
+            n = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]); area2 = np.linalg.norm(n, axis=1)
+            longest = np.max(np.stack([np.linalg.norm(T[:, i] - T[:, (i + 1) % 3], axis=1) for i in range(3)], 1), 1)
+            trim = (np.abs(n[:, 2]) > 0.95 * area2) & (area2 / np.maximum(longest, 1e-9) < 0.05)   # a horizontal face under 5 cm wide:
+            T = T[~trim]; parts.append(T); mids.append(np.full(len(T), len(names2))); names2.append(f.stem[5:])   # trim (skirting tops), not ground
     return np.concatenate(parts), np.concatenate(mids), names2, len(nm)
 def cast(Tr, X0, Y0, NX, NY):
     Z = np.full((NY, NX), np.nan); SRC = np.full((NY, NX), -1, np.int64)

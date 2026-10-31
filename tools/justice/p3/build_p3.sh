@@ -16,6 +16,8 @@ py -3 jc3_gap_check.py --plant tower 2>/dev/null | grep JC3_GAP_PLANT_FOUND
 py -3 jc3_gap_check.py 2>/dev/null | grep JC3_GAP_PASS
 py -3 jc3_footprint.py --plant | grep JC3_FOOTPRINT_PLANT_FOUND
 py -3 jc3_footprint.py | grep JC3_FOOTPRINT_PASS
+py -3 jc3_dress_check.py --plant | grep JC3_DRESS_PLANT_FOUND
+py -3 jc3_dress_check.py | tail -42 | tee logs/dress_check.log | grep JC3_DRESS_PASS
 py -3 jc3_mlo_data.py
 py -3 jc3_plandraw.py "C:/Users/anton/Documents/Codex/JusticeCenter/shots/p3_area1_plan.png"
 py -3 jc3_plandraw_tower.py "C:/Users/anton/Documents/Codex/JusticeCenter/shots/p3_area2_plan_L1.png" "C:/Users/anton/Documents/Codex/JusticeCenter/shots/p3_area2_plan_L3.png"

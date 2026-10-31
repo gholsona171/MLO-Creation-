@@ -31,8 +31,8 @@ for s in $STEPS; do case $s in
   walks)   probe walks walk3 ;;
   drive)   RECDIR=jc_p3 bash /c/C9Test/rec.sh start area3_drive_car > /dev/null; probe drive gdrive; RECDIR=jc_p3 bash /c/C9Test/rec.sh stop > /dev/null 2>&1
            cp /c/C9Test/videos/jc_p3/area3_drive_car.mp4 "$O/" 2>/dev/null ;;
-  shots)   (cd $J/work && CAMS=$P/cams_area3.txt bash jc_pair.sh "$O/shots" night > "$O/shots.log" 2>&1)
-           n=$(ls "$O/shots"/*.png 2>/dev/null | wc -l); [ "$n" -ge 20 ] && echo "STEP shots PASS ($n images: $O/shots - mirror: p3_a3_interview, glass: p3_a3_observe)" || echo "STEP shots FAIL ($n images)" ;;
+  shots)   rm -f "$O/shots"/*.png; (cd $J/work && CAMS=$P/cams_area3.txt bash jc_pair.sh "$O/shots" night > "$O/shots.log" 2>&1)
+           n=$(ls "$O/shots"/*.png 2>/dev/null | wc -l); want=$(( $(grep -c . $P/cams_area3.txt) * 2 )); [ "$n" -ge "$want" ] && echo "STEP shots PASS ($n of $want images: $O/shots - mirror: p3_a3_interview, glass: p3_a3_observe)" || echo "STEP shots FAIL ($n of $want images)" ;;
   fly)     bash $P/jc3_fly_area3.sh "$O/video" > "$O/fly.log" 2>&1; grep -q FLY_DONE "$O/fly.log" && echo "STEP fly PASS $O/video/area3_flythrough.mp4" || echo "STEP fly FAIL" ;;
   *) echo "STEP $s FAIL (unknown step)" ;;
 esac; bash /c/C9Test/tc_release.sh > /dev/null 2>&1; done

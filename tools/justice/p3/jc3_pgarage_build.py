@@ -5,13 +5,60 @@ concrete everywhere (Mission Row's conc / speckle here), painted markings, prop_
 Portals: deck <-> each ramp at its foot (the lane's full width and height), each ramp -> limbo at its street door (the roll-up door,
 a native door on that portal)."""
 import tc_kit as TK
-import jc3_tower as JT, jc3_police as P, jc3_pgarage as G
+import jc3_tower as JT, jc3_police as P, jc3_pgarage as G, jc3_pgarage_dress as GD
 import jc3_tower_build as TB
 OPS = TB.OPS
 CEIL_PLATE = 0.02                                                         # the B1 ceiling plate under L1's slab (2.78 m clear)
 RAMP_CEIL = P.P2 - 0.4                                                    # 31.6: the ramps' ceiling = the underside of L2's slab
 def deck_region():
     return TK.rects_minus(*G.B1, [(G.U_FOOT, G.B1[1], G.B1[2], G.TRENCH[1]), P.STAIR_B])
+def _px_arrow(n=128):
+    """a white arrow pointing up the texture (+v), transparent round it (rows top-first, flipped for Blender)."""
+    import numpy as np
+    px = np.zeros((n, n, 4), np.float32); y, x = np.mgrid[0:n, 0:n] / (n - 1)
+    head = (y < 0.45) & (np.abs(x - 0.5) < (0.45 - y) * 1.0); shaft = (y >= 0.45) & (y < 0.95) & (np.abs(x - 0.5) < 0.14)
+    m = head | shaft; px[m] = (0.92, 0.92, 0.88, 1.0); return px[::-1].copy()
+def _px_blob(seed, n=64):
+    """an oil stain: a dark irregular blob, soft edged."""
+    import numpy as np
+    rng = np.random.default_rng(seed); y, x = np.mgrid[0:n, 0:n] / (n - 1) - 0.5; r = np.hypot(x, y)
+    a = np.arctan2(y, x); edge = 0.38 + 0.06 * np.sin(3 * a + rng.random() * 6) + 0.04 * np.sin(7 * a + rng.random() * 6)
+    alpha = np.clip((edge - r) / 0.08, 0, 1) * (0.55 + 0.25 * rng.random((n, n)))
+    px = np.zeros((n, n, 4), np.float32); px[..., :3] = 0.07; px[..., 3] = alpha; return px
+def _px_drain(n=64):
+    import numpy as np
+    px = np.zeros((n, n, 4), np.float32); px[...] = (0.25, 0.25, 0.25, 1.0); px[4:-4, 4:-4] = (0.05, 0.05, 0.05, 1.0)
+    for k in range(8, n - 6, 7): px[6:-6, k:k + 3] = (0.32, 0.32, 0.32, 1.0)
+    return px
+def floor_decal(room, u, v, along_up, across, up_deg, px, name, z):
+    """a painted floor marking: a quad on the floor (decal shader: drawn over it, never fights it), its texture's top toward `up_deg`."""
+    import bpy, math
+    from mathutils import Vector
+    key = name + '_d'                                                     # '_d': decals may overlay (the sweep)
+    if key not in TK.MAT:
+        m = TK.tex_mat(key, px, shader='decal.sps'); m['preserve_authored_uv'] = True; TK.KEEP.add(m.name); TK.MAT[key] = m
+    t = math.radians(up_deg); d = (math.cos(t), math.sin(t)); r = (d[1], -d[0])
+    c = lambda a, b: Vector((u + r[0] * a + d[0] * b, v + r[1] * a + d[1] * b, z))
+    pts = [c(-across / 2, -along_up / 2), c(across / 2, -along_up / 2), c(across / 2, along_up / 2), c(-across / 2, along_up / 2)]
+    me = bpy.data.meshes.new(key); me.from_pydata(pts, [], [(0, 1, 2, 3)]); me.materials.append(TK.MAT[key])
+    uv = me.uv_layers.new(name='UVMap 0')
+    for li, q in enumerate(((0, 0), (1, 0), (1, 1), (0, 1))): uv.data[li].uv = q
+    me.update(); assert me.polygons[0].normal.z > 0.99, f'decal {name} faces down'
+    o = bpy.data.objects.new(key, me); TK.coll().objects.link(o); TK.PARTS[room].append(o)
+def dressing(room):
+    """the garage's dressing (jc3_pgarage_dress): props, signs, floor markings, hazard bands / pipes / duct / panels, warm task lights."""
+    for x in GD.dress(): OPS['props'].append((room, x[1], x[2], x[3], x[4], x[5]))
+    for r, c, face, w, h, lines, name, bg, fg, hang in GD.signs():
+        if hang: TK.hanging_sign(r, c, face, w, h, lines, name, hang, bg=bg, fg=fg, emis=False, scale=1.0)
+        else: TK.sign(r, c, face, w, h, lines, name, bg=bg, fg=fg, emis=False, scale=1.0)
+    zd = G.ZB + 0.004
+    for i, (kind, u, v, a, b, up, text) in enumerate(GD.decals()):
+        if kind == 'number': floor_decal(room, u, v, b, a, up, TK.sign_px([text], a, b, (232, 190, 30), (20, 20, 20), 1.0), f'JC gar bay {text}', zd)
+        elif kind == 'arrow': floor_decal(room, u, v, a, b, up, _px_arrow(), 'JC gar arrow', zd)
+        elif kind == 'oil': floor_decal(room, u, v, b, a, up, _px_blob(i), f'JC gar oil {i}', zd - 0.001)
+        elif kind == 'drain': floor_decal(room, u, v, b, a, up, _px_drain(), 'JC gar drain', zd)
+    for lo, hi, mat in GD.boxes(): TK.box(room, lo, hi, mat, col=False)
+    for u, v, z, e, fo, size, col in GD.lamps(): TK.lamp(room, u, v, z, energy=e, falloff=fo, size=size, color=col)
 def ramp_collision(room, us, c0, c1):
     """a ramp's collision: one open, welded surface strip (shared vertices at every section, up-facing), no faces under it. Prisms
     with their own collision left a vertical end face under every 0.5 m seam, flush with the surface: a car climbing the OUT ramp
@@ -45,6 +92,7 @@ def build():
     TB.lights_grid(room, reg, G.CEIL_B - CEIL_PLATE, 6.0)
     TK.box(room, (G.ISLAND[0], G.ISLAND[2], G.ZB), (G.ISLAND[1], G.ISLAND[3], G.ZB + G.ISLAND[4]), 'conc')         # the fuel island's kerb
     for m, u, v, z, h in G.fitout(): OPS['props'].append((room, m, u, v, z, h))
+    dressing(room)
     for l0, l1 in G.LANES.values():                                       # the ramp feet: deck <-> ramp
         k = 'pramp_in' if (l0 + l1) / 2 == G.IN_C else 'pramp_out'
         # the foot's portal on the plane where the ramp room starts, the full lane: the deck's reveal in front of it is the deck's own

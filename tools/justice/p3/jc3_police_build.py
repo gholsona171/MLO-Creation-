@@ -5,7 +5,7 @@ jc3_pgarage_build.py. Rockstar's recipes as area 2: lobby = the tower lobby's gr
 L1 staff = Mission Row's painted block + speckled floor. Interview suites: the mirror is its own entity (Rockstar's penthouse mirror, scaled)
 + a mirror portal (flags 4); the observation room sees the interview room through dark glass (a room-to-room portal)."""
 import math, tc_kit as TK
-import jc3_tower as JT, jc3_police as P
+import jc3_tower as JT, jc3_police as P, jc3_police_dress as D
 import jc3_tower_build as TB
 OPS = TB.OPS
 GLASS = (JT.GLASS_L, JT.GLASS_R)
@@ -157,5 +157,34 @@ def build(zb1):
         TB.lining(room, reg, oth, F, F + ROOM_H, wal, holes + win, ext_t=P.OL, int_t=0.1)
         _space_walls(spaces, opens, F, room, wal, holes)
         TB.lights_grid(room, reg, F + ROOM_H, 3.6)
-    for room, m, u, v, z, h in P.furniture(): OPS['props'].append((room, m, u, v, z, h))
+    for room, m, u, v, z, h in D.dress(): OPS['props'].append((room, m, u, v, z, h))
+    for room, c, face, w, h_, lines, name, bg, fg in D.signs(): TK.sign(room, c, face, w, h_, lines, name, bg=bg, fg=fg, emis=False, scale=1.0)
+    skirting({'plobby': P.P1, 'pdesk': P.P1, 'pstaff1': P.P1, 'pstaff2': P.P2, 'pint1': P.P2, 'pobs1': P.P2, 'pobs2': P.P2, 'pint2': P.P2})
     return R
+SKIRT_WALLS = ('JC3 plaster', 'JC3 block', 'JC3 granite')
+def skirting(rooms):
+    """a 10 cm dark skirting board, 2 cm proud (the sweep reads faces within 1.2 cm as fighting), along the foot of every wall face that meets a room's floor (the linings' and the
+    partitions' boxes are already split at every door, so the boards stop at the jambs). One pass over what the room's walls became."""
+    for room, fz in rooms.items():
+        walls = [o for o in TK.PARTS[room] if o.type == 'MESH' and o.data.materials and o.data.materials[0] is not None
+                 and o.data.materials[0].name in SKIRT_WALLS]
+        solid, boards = [], []                                            # every wall box near the floor: a board stops at the walls it meets
+        for o in walls:
+            vs = [o.matrix_world @ v.co for v in o.data.vertices]
+            if min(v.z for v in vs) <= fz + 0.11: solid.append(tuple(f(v[i] for v in vs) for i in range(3) for f in (min, max)))
+        for o in walls:
+            me = o.data; M = o.matrix_world
+            for p_ in me.polygons:
+                n = p_.normal
+                if abs(n.z) > 0.01 or max(abs(n.x), abs(n.y)) < 0.99: continue
+                vs = [M @ me.vertices[i].co for i in p_.vertices]
+                if abs(min(v.z for v in vs) - fz) > 0.01: continue
+                lo = [min(v[i] for v in vs) for i in range(2)]; hi = [max(v[i] for v in vs) for i in range(2)]
+                k = 0 if abs(n.x) > 0.99 else 1; s = 1.0 if n[k] > 0 else -1.0
+                if hi[1 - k] - lo[1 - k] < 0.45: continue                         # jambs, split-lining ends: no board
+                a = [lo[0], lo[1]]; b = [hi[0], hi[1]]
+                if s > 0: a[k] = hi[k]; b[k] = hi[k] + 0.02
+                else: a[k] = lo[k] - 0.02; b[k] = lo[k]
+                a[1 - k] += 0.021; b[1 - k] -= 0.021                              # short of corners / jambs: boards never meet
+                for c in TB.box_minus((a[0], b[0], a[1], b[1], fz, fz + 0.1), solid + boards):    # never into a wall or another board
+                    if max(c[1] - c[0], c[3] - c[2]) > 0.05: TK.box(room, (c[0], c[2], c[4]), (c[1], c[3], c[5]), 'skirt', col=False); boards.append(c)

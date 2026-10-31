@@ -13,7 +13,7 @@ $rpf = New-Object CodeWalker.GameFiles.RpfManager
 $rpf.Init($gta, $false, [Action[string]]{ param($s) }, [Action[string]]{ param($s) }, $false, $true)
 New-Item -ItemType Directory -Force $Out | Out-Null
 $want = @{}; foreach ($n in ($Names -split ',')) { $k = $n.Trim().ToLower(); if ($k) { $want[[CodeWalker.GameFiles.JenkHash]::GenHash($k)] = $k } }
-foreach ($pass in 'ydr', 'ydd') {
+foreach ($pass in 'ydr', 'ydd', 'yft') {
   foreach ($f in $rpf.AllRpfs) { if (-not $f.AllEntries -or $want.Count -eq 0) { continue }
     foreach ($e in $f.AllEntries) {
       if ($want.Count -eq 0) { break }
@@ -29,6 +29,13 @@ foreach ($pass in 'ydr', 'ydd') {
           $h = [uint32]$kv.Key; if (-not $want.ContainsKey($h)) { continue }
           $n = $want[$h]; $y = New-Object CodeWalker.GameFiles.YdrFile; $y.Drawable = $kv.Value; $y.Name = "$n.ydr"
           [IO.File]::WriteAllText((Join-Path $Out "$n.ydr.xml"), [CodeWalker.GameFiles.YdrXml]::GetXml($y, (Join-Path $Out $n))); "found $n (in $($e.Name))"; $want.Remove($h)
-        } } } } }
+        }
+      } elseif ($pass -eq 'yft' -and $e.Name -like '*.yft') {
+        $n = [IO.Path]::GetFileNameWithoutExtension($e.Name).ToLower(); $h = [CodeWalker.GameFiles.JenkHash]::GenHash($n)
+        if (-not $want.ContainsKey($h)) { continue }
+        try { $yf = New-Object CodeWalker.GameFiles.YftFile; $yf.Load($e.File.ExtractFile($e), $e) } catch { continue }
+        # a fragment (vending machines, monitors, TVs ...): written as <name>.yft.xml (Sollumz imports it; jc3_render takes either)
+        [IO.File]::WriteAllText((Join-Path $Out "$n.yft.xml"), [CodeWalker.GameFiles.YftXml]::GetXml($yf, (Join-Path $Out $n))); "found $n (yft) $($e.Path)"; $want.Remove($h)
+      } } } }
 if ($want.Count) { "not found: $($want.Values -join ', ')" }
 'VANILLA_XML_DONE'
