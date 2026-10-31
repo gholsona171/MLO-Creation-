@@ -57,7 +57,7 @@ def dressing(room):
         elif kind == 'arrow': floor_decal(room, u, v, a, b, up, _px_arrow(), 'JC gar arrow', zd)
         elif kind == 'oil': floor_decal(room, u, v, b, a, up, _px_blob(i), f'JC gar oil {i}', zd - 0.001)
         elif kind == 'drain': floor_decal(room, u, v, b, a, up, _px_drain(), 'JC gar drain', zd)
-    for lo, hi, mat in GD.boxes(): TK.box(room, lo, hi, mat, col=False)
+    for lo, hi, mat, col in GD.boxes(): TK.box(room, lo, hi, mat, col=col)
     for u, v, z, e, fo, size, col in GD.lamps(): TK.lamp(room, u, v, z, energy=e, falloff=fo, size=size, color=col)
 def ramp_collision(room, us, c0, c1):
     """a ramp's collision: one open, welded surface strip (shared vertices at every section, up-facing), no faces under it. Prisms

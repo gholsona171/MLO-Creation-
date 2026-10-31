@@ -9,7 +9,7 @@ FC = r'C:\Users\anton\Documents\Codex\MLO-Creation\tools\footprint_check.py'
 L = json.load(open(P3 / 'out/jc3_layout.json'))
 inset = JP.FIN_P + 0.01
 import jc3_police_dress as JD, jc3_pgarage_dress as GD
-WALL_HUNG = {'prop_fire_exting_2a'} | JD.WALL | GD.WALL          # hung on a wall / ceiling by design: not floor props (jc3_dress_check.py checks them)
+WALL_HUNG = {'prop_fire_exting_2a'} | JD.WALL | GD.WALL | JD.FLAT          # hung on a wall / ceiling by design: not floor props (jc3_dress_check.py checks them)
 def inset_rects(zs, t):
     """inset a room's region by its lining, only on the sides that are the region's boundary (pieces of one room abut, no wall)."""
     out = []

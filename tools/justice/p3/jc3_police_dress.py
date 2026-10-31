@@ -12,10 +12,13 @@ import math
 import jc3_police as P
 WI, SG, NI, COR, LOB_W, P1, P2, H = P.WI, P.SG, P.NI_LINK, P.COR, P.LOB_W, P.P1, P.P2, 2.6
 OUTER = {('u', WI), ('u', P.EI), ('v', SG), ('v', NI), ('v', P.NI_FACE), ('v', P.TRENCH_N)}   # outer lines: 0.2 m linings
-FRONT = {'v_20_notbrd01': '+y', 'v_20_notbrd002': '+y', 'v_20_notbrd003': '+y', 'v_20_notbrd004': '+y', 'v_20_notbrd005': '+y'}
+FRONT = {'v_20_notbrd01': '+y', 'v_20_notbrd002': '+y', 'v_20_notbrd003': '+y', 'v_20_notbrd004': '+y', 'v_20_notbrd005': '+y',
+         'v_med_wallpicture1': '+y', 'v_med_wallpicture2': '+y'}     # measured from their normals (the picture faces)
+FLAT = {'apa_mp_h_01_acc_rug'}                                             # lies on the floor under furniture: not a footprint
 WALL = {'v_20_notbrd01', 'v_20_notbrd002', 'v_20_notbrd003', 'v_20_notbrd004', 'v_20_notbrd005', 'v_med_cor_whiteboard',
         'v_med_cor_pinboard', 'prop_game_clock_02', 'prop_fire_exting_2a', 'v_serv_firealarm', 'prop_coathook_01', 'v_20_lspd_sign',
-        'prop_cctv_cam_06a', 'v_med_smokealarm', 'v_serv_metro_ceilingvent', 'v_serv_emrglgt_off', 'prop_wall_vent_02'}
+        'prop_cctv_cam_06a', 'v_med_smokealarm', 'v_serv_metro_ceilingvent', 'v_serv_emrglgt_off', 'prop_wall_vent_02',
+        'v_med_wallpicture1', 'v_med_wallpicture2', 'v_med_cor_flatscreentv', 'prop_cs_gunrack'}
 CEILING = {'prop_cctv_cam_06a', 'v_med_smokealarm', 'v_serv_metro_ceilingvent'}
 BENCH, DESK, OCH, BKC, LCH, EXC = 'v_ilev_ph_bench', 'v_corp_officedesk', 'prop_off_chair_05', 'v_corp_bk_chair1', 'v_ilev_leath_chr', 'ex_prop_offchair_exec_01'
 SHELF, FCAB, LOCK, SIDE = 'v_corp_offshelfdark', 'v_corp_filecabtall', 'v_ind_rc_locker', 'v_corp_sidetable'
@@ -46,7 +49,9 @@ DEPTH = {'v_20_notbrd01': 0.05, 'v_med_cor_whiteboard': 0.01, 'v_med_cor_pinboar
          'prop_watercooler': 0.20, 'prop_vend_coffe_01': 0.32, 'prop_vend_soda_02': 0.47, 'prop_vend_water_01': 0.33, SIDE: 0.45,
          'v_res_tt_fridge': 0.45, 'prop_shredder_01': 0.19, 'v_corp_cabshelves01': 0.32, 'prop_copier_01': 0.52, 'v_med_p_sofa': 0.48,
          'prop_recyclebin_02a': 0.25, 'prop_bin_11b': 0.24, 'v_20_office_flag01': 0.16, BENCH: 0.45, 'prop_plant_int_01b': 0.46,
-         'prop_plant_int_02a': 0.44, 'prop_tool_mopbucket': 0.25, 'prop_cabinet_01': 0.31, 'v_res_filebox01': 0.17}
+         'prop_plant_int_02a': 0.44, 'prop_tool_mopbucket': 0.25, 'prop_cabinet_01': 0.31, 'v_res_filebox01': 0.17,
+         'v_corp_cabshelves01': 0.32, 'v_med_wallpicture1': 0.01, 'v_med_wallpicture2': 0.01, 'v_med_cor_flatscreentv': 0.20,
+         'prop_cs_gunrack': 0.13, 'm23_2_prop_m32_safe_01a': 0.48, 'v_res_tre_smallbookshelf': 0.18}
 for _b in BOARDS: DEPTH[_b] = 0.05
 def W(room, model, axis, line, side, a, bottom=0.0): return wall(room, model, axis, line, side, a, bottom, DEPTH.get(model, 0.02))
 def local(u, v, h, x, y):
@@ -158,6 +163,17 @@ def dress():
     L += [W(S, SHELF, 'v', NI, -1, 16.0), W(S, 'v_20_office_flag01', 'v', NI, -1, 12.0), W(S, 'v_20_office_flag01', 'v', NI, -1, 13.0)]
     L += [W(S, 'prop_plant_int_02a', 'v', P.G_CAPT, 1, 20.8), W(S, 'v_med_cor_pinboard', 'u', COR[0], -1, -10.0, 1.0),
           W(S, 'prop_game_clock_02', 'u', COR[0], -1, -16.5, 2.05)]
+    # (Antonio 2026-10-31: "fill it like a real commander's office") a meeting table, a sofa corner on a rug, a bookshelf with awards,
+    # the wall TV over the table, pictures, a gun rack and a safe, coat hooks by the door
+    L += [(S, 'v_corp_conftable3', 15.5, -15.7, 0.0, 0.0)] + [(S, LCH, u, v, 0.0, h) for u in (14.3, 15.5, 16.7) for v, h in ((-16.9, 180.0), (-14.55, 0.0))]
+    L += [(S, 'v_res_paperfolders', 15.0, -15.75, 0.93, 0.0), (S, 'v_res_mmug', 16.2, -15.5, 0.82, 0.0)]
+    L += [W(S, 'v_med_cor_flatscreentv', 'v', P.G_CAPT, 1, 15.5, 1.1), W(S, 'prop_cs_gunrack', 'v', P.G_CAPT, 1, 12.9, 1.3),
+          W(S, 'm23_2_prop_m32_safe_01a', 'v', P.G_CAPT, 1, 11.4)]
+    L += [W(S, 'v_med_p_sofa', 'u', COR[0], -1, -9.6), (S, 'apa_mp_h_01_acc_rug', 19.6, -9.6, 0.0, 90.0), (S, 'v_med_p_coffeetable', 19.8, -9.6, 0.0, 0.0),
+          (S, 'v_med_p_easychair', 18.3, -9.6, 0.0, 90.0), (S, 'v_med_p_floorlamp', 20.6, -11.6, 0.0, 0.0), (S, 'v_res_mmug', 19.6, -9.4, 0.4, 0.0)]
+    L += [W(S, 'v_res_tre_smallbookshelf', 'v', NI, -1, 19.5), (S, 'ex_prop_exec_award_gold', 19.2, -7.6, 0.93, 180.0), (S, 'ex_prop_exec_award_diamond', 19.8, -7.6, 0.93, 180.0)]
+    L += [W(S, 'v_med_wallpicture2', 'v', NI, -1, 18.0, 1.4), W(S, 'v_med_wallpicture1', 'u', COR[0], -1, -8.1, 1.5)]
+    L += [W(S, 'prop_coathook_01', 'u', COR[0], -1, -15.2, 1.65)]
     # conference room
     L += [(S, 'v_corp_conftable2', 16.3, -22.3, 0.0, 0.0)] + [(S, LCH, u, v, 0.0, h) for u in (14.8, 16.3, 17.8) for v, h in ((-23.3, 180.0), (-21.3, 0.0))]
     L += [(S, LCH, 13.95, -22.3, 0.0, 90.0), (S, LCH, 18.65, -22.3, 0.0, 270.0)]
@@ -178,9 +194,17 @@ def dress():
     L += [('pobs1', OCH, 15.6, -52.8, 0.0, 270.0), ('pobs2', OCH, 17.1, -52.8, 0.0, 90.0)]
     L += [ceiling(r, 'prop_cctv_cam_06a', u, -49.4, h) for r, u, h in (('pint1', 13.8, 135.0), ('pint2', 18.8, 225.0))]
     # records: shelving runs with boxes, cabinets, a desk
-    L += [(S, SHELF, 28.4, v, 0.0, 0.0) for v in (-44.5, -48.0, -51.5, -55.0)]
-    L += [(S, 'v_res_filebox01', 30.0, v, z, 90.0) for v in (-44.5, -48.0, -51.5) for z in (0.0, 0.36)]
-    L += [W(S, 'v_corp_tallcabdark01', 'u', LOB_W, -1, v) for v in (-42.5, -43.1, -43.7)] + desk(S, 31.0, -53.0, 90.0, extra=False)
+    # (Antonio 2026-10-31: open shelving, not dark cabinets) the counter inside the door, a back-to-back pair of open shelving runs and a
+    # run along the east wall (aisles 1 m+), a sorting table between, filing cabinets along the north-east and south walls
+    L += desk(S, 25.62, -44.0, 270.0)
+    for v in (-46.0, -48.5, -51.0, -53.5):
+        L += [(S, 'v_corp_cabshelves01', 27.7, v, 0.0, 270.0), (S, 'v_corp_cabshelves01', 28.34, v, 0.0, 90.0)]
+        if v != -46.0: L += [W(S, 'v_corp_cabshelves01', 'u', LOB_W, -1, v)]            # (-46: the L2 store's door, v -46.6 .. -45.2)
+    L += [(S, 'v_corp_conftable2', 30.35, -50.0, 0.0, 90.0), (S, 'v_res_filebox01', 30.35, -49.2, 0.82, 0.0), (S, 'v_res_filebox01', 30.35, -50.6, 0.82, 10.0),
+          (S, 'v_med_cor_fileboxa', 30.15, -51.3, 0.82, 0.0), (S, 'v_res_paperfolders', 30.5, -48.6, 0.93, 90.0)]
+    L += [W(S, 'v_corp_tallcabdark01', 'u', LOB_W, -1, v) for v in (-42.2, -42.8, -43.4)]
+    L += [W(S, 'v_corp_tallcabdark01', 'v', SG, 1, u) for u in (25.0, 25.6, 26.2, 26.8)] + [W(S, 'v_corp_lowcabdark01', 'v', SG, 1, u) for u in (29.6, 31.0)]
+    L += [(S, 'v_corp_boxpapr1fd', u, -56.05, 0.89, 0.0) for u in (29.3, 31.3)]
     # open office east: two rows of desks, cabinets, printer, boards
     for u in (26.5, 30.5):
         for v in (-34.0, -27.0, -20.0, -13.0): L += desk(S, u, v)

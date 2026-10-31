@@ -680,3 +680,12 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   `survey/vanilla/_tex` (87 for this pass). Without the export the preview silently skipped every new prop.
 - Check every new placement against the existing layout and the route's swing: the NE extinguisher sat in the corner turn's front
   swing (the drive sweep found it); a sofa, a flag and a copier stood in door swings (found while planning, from INTO).
+- **Second dressing pass (Antonio: records, captain's office, B1 hall):** open shelving `v_corp_cabshelves01` in runs with 1 m+
+  aisles instead of the dark `v_corp_offshelfdark` blocks; a commander's office = meeting table under a wall TV, sofa corner on a rug
+  (`apa_mp_h_01_acc_rug`: a FLAT prop, excluded from the footprint gate), bookshelf with awards, framed pictures (measured: they face
+  +y), gun rack, safe. Rockstar has NO wheel-stop and NO first-aid / eyewash prop: those are our own blocks / small cabinets with
+  signs (kit geometry only where no prop exists); wheel stops 10 cm high stay under the drive sweep's 0.15 m body band.
+- **One model, one kind:** making `prop_tyre_rack_01` a wall-hung model also turned the workshop's free-standing racks into wall items
+  (the dressing gate found no wall behind them). A model is either hung or standing across the whole build.
+- The drive sweep keeps paying off: every new hall item near a corner (a hose cabinet in the NW turn, the eyewash in the NE turn, an
+  extinguisher earlier) was in the car's front swing; put wall items on the aisles' straights.
