@@ -51,3 +51,29 @@
 - Check every door, not just the reported one: `wow2easy_move/tools/door_swing_check.py` samples the half disc each leaf sweeps
   (both ways) against the built collision (every flat face, either way up - door physics is not a ray) and prints the clearance.
   Run it on the jammed build first: it flagged all 6 outside door leaves at -6 to -9 mm.
+
+## Door openings and frames: fit the opening to the leaf (Justice Center, 2026-11-01)
+Antonio: "the cutouts are too big, gaps all over the doors". Our openings were the leaf + 5 cm a side + 10 cm over the head; every door
+showed a slit of light round it.
+
+**How Rockstar does it** (measured in Mission Row: `v_policehub` entities against `v_20_policedlc_shell`, every
+`v_ilev_ph_gendoor00x`): the shell's jamb faces sit exactly on the hinge and latch edges of the leaf's bounding box, the head face on
+its top, the floor under its bottom - 0 mm (+-2 mm). The pivot sits on the hinge edge at mid-height (z +-1.15 for a 2.30 m leaf), so
+the leaf stands on the floor. No clearance is modelled: the leaf mesh itself is a hair inside its bbox.
+
+**The tool:** `tools/doors/door_fit.py`
+- `fit_single(lo, hi, a0, z)` / `fit_pair(...)`: the exact opening from the archetype's bbox (`leaf_bbox(arch, model)` reads
+  `arch_ytyp.json`), the hinge position (the end of the opening the pivot sits on) and the pivot height. Cut the wall hole with this
+  opening and place the door entity on `hinge` / `zc`.
+- `fillers(opening, la0, la1, z_top)`: when the hole is not yours to cut (another phase's curtain-wall bay or facade frame), the frame
+  pieces that close it down to the leaves (jambs and a transom in the glass plane).
+- `casing(op, face, side)`: a 7 cm casing round the opening on a wall face, 5.5 cm proud (clear of skirting / wainscot bands at
+  2 - 4.8 cm and signs at 5 cm). Lay trim bands after the casings so they stop at them.
+- `check(tris, doors, arch, tol=0.005)`: the gate. Per leaf: rays through the wall 2 / 5 / 10 / 20 / 40 mm outside each side and the
+  head (a ray that meets nothing is a slit, unless it runs inside a perpendicular wall: odd face count above the point); the gap each
+  side measured along the wall 12 mm either side of the leaf's mid plane (two rooms' linings meet on it). The other leaves of the list
+  are solid (a pair's meeting edge). Pick nearby triangles by bounding box, not centroid: a long wall face's centre lies metres away
+  (that bug alone made two good doors fail).
+- `py -3 door_fit.py` proves the gate on a planted 5 cm opening (DOOR_FIT_PROVEN). In a build, run it with `shrink={door: 0.05}` on
+  one real door as the plant (Justice Center: `work/p3/jc3_door_gate.py`, 94 doors, worst gap 0.2 mm, 0 slit rays).
+- Doors in mesh / cage walls: a 6 cm steel frame on the fitted opening (the jambs are the frame), no casing.

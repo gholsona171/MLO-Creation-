@@ -18,6 +18,7 @@ GTA V install and the CodeWalker folder — change them for another PC.
 | `water_diff.lua` | City-wide stray-water check: vanilla vs our water map on a grid, lists every difference | run in a client (rig `t.sh`) |
 | `custom_props/tc_props.py` | Blender build of our own props: the render-target TV, the urinal, the faucet (CW XML) | `blender -b --python tc_props.py` |
 | `custom_props/props_meta.py` | Render-target texture patch, CodeWalker import, ytyp compile, survey update | `py -3 props_meta.py` |
+| `doors/door_fit.py` | **Doors.** The exact opening for a door archetype from its leaf bbox (Rockstar's 0 mm fit), hinge + pivot height, fillers for openings you cannot cut, casings, and the gate: side / head gaps + see-through rays per leaf (docs/06) | `py -3 doors/door_fit.py` (self-proof) |
 | `footprint_check.py` | Props through walls / overlapping / in doorways, pivot-aware | `py -3 footprint_check.py props.json arch_ytyp.json` |
 | `video_review.py` | Walkthrough video → labelled frame contact sheets for review | `py -3 video_review.py walk.mp4 review 3 2` |
 | `merge_cols.py` | Blender: join an MLO's collision into one mesh per room before the composite (one BVH child per room: phInstGta pool) | `from merge_cols import merge_cols` in the build |
