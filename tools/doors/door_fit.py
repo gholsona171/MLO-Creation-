@@ -21,7 +21,10 @@ Gate:
   faces above the point). A gap = the distance from the leaf's edge to the first face met along
   the wall at mid-edge, 12 mm either side of the leaf's mid plane (two rooms' linings meet on it). The other leaves of the list are solid
   (a pair's meeting edge). shrink={name: m} narrows that leaf at its latch edge: the planted-defect proof.
-CLI: py -3 door_fit.py   (fits gendoor005 into a test wall, then proves the gate on a planted 5 cm opening: DOOR_FIT_PROVEN)
+  clearance(dr, arch, boxes, floor_z, depth=1.5) -> the walking lane through the leaf and the leaf's swing (to 80 deg) both ways,
+                                                      against props' AABBs and solids: [(lane|swing, side, point)]
+CLI: py -3 door_fit.py   (fits gendoor005 into a test wall, proves the gate on a planted 5 cm opening and the clearance check on a
+     planted box in the door's path: DOOR_FIT_PROVEN)
 See docs/06-doors-lifts.md, "Door openings and frames"."""
 import math
 import numpy as np
@@ -83,22 +86,11 @@ def _hit(T, p, d, maxd):
     return float(t[m].min()) if m.any() else None
 
 
-def _inside(T, p):
-    """p inside a closed solid: an odd number of faces straight above it (a ray along a perpendicular wall runs inside it, not a slit)."""
-    e1 = T[:, 1] - T[:, 0]
-    e2 = T[:, 2] - T[:, 0]
-    d = np.array([0.0, 0.0, 1.0])
-    h = np.cross(d, e2)
-    a = (e1 * h).sum(1)
-    ok = np.abs(a) > 1e-12
-    f = np.where(ok, 1.0 / np.where(ok, a, 1), 0)
-    s = p - T[:, 0]
-    u = f * (s * h).sum(1)
-    q = np.cross(s, e1)
-    v = f * (q * d).sum(1)
-    t = f * (q * e2).sum(1)
-    m = ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t > 1e-6)
-    return int(m.sum()) % 2 == 1
+def _inside(T, p, X):
+    """p inside a wall that runs along the slit ray (a perpendicular wall beside the hinge): faces within 0.3 m both ways along the door's
+    wall direction X. (A real slit beside a leaf has the jamb one way and the open leaf space the other.) Counting faces above the point
+    broke on single-sided surfaces (roofs, decals)."""
+    return _hit(T, p, X, 0.3) is not None and _hit(T, p, -X, 0.3) is not None
 
 
 def leaf_tris(arch, dr):
@@ -143,7 +135,7 @@ def check(tris, doors, arch, tol=0.005, shrink=None):
             for s in np.linspace(rng[0], rng[1], 5):
                 b = W(*base(s))
                 for d in (0.002, 0.005, 0.010, 0.020, 0.040):
-                    if _hit(Tn, b + outward * d - Y * 0.6, Y, 1.2) is None and not _inside(Tn, b + outward * d):
+                    if _hit(Tn, b + outward * d - Y * 0.6, Y, 1.2) is None and not _inside(Tn, b + outward * d, X):
                         slits.append((edge, round(float(s), 2), d))
             gs = [_hit(Tn, W(*base(sum(rng) / 2)) - outward * 0.01 + Y * dy, outward, 1.0) for dy in (-0.012, 0.012)]   # either side of
             gs = [g for g in gs if g is not None]                                                                     # the mid plane: two
@@ -152,6 +144,46 @@ def check(tris, doors, arch, tol=0.005, shrink=None):
         worst = max(known) if len(known) == len(gaps) else None
         out.append({'name': dr['name'], 'gaps': gaps, 'slits': len(slits), 'first_slit': slits[0] if slits else None,
                     'ok': worst is not None and worst <= tol and not slits})
+    return out
+
+
+def clearance(dr, arch, boxes, floor_z, depth=1.5, half=0.35, max_angle=80.0, r0=0.25):
+    """what a door needs round it besides the fit (rig 2026-11-01: three doors the walker could not get through, all fitted to 0 mm):
+      lane  - a walking lane 2 x half wide through the middle of the leaf, `depth` m out on both sides (the probe walks 1.5 m through)
+      swing - the leaf swung to max_angle both ways, sampled from r0 m out from the hinge (inside r0 it may touch its own casing / jamb)
+    against boxes [(lo, hi)] (props' AABBs and built solids) that overlap 0.2 .. 1.8 m over the floor. -> [(kind, side, point)]."""
+    lo, hi = leaf_bbox(arch, dr['model'])
+    h = math.radians(dr['heading'])
+    X = np.array([math.cos(h), math.sin(h)])
+    Y = np.array([-math.sin(h), math.cos(h)])
+    P0 = np.array(dr['pos'][:2], np.float64)
+    sx = 1.0 if abs(lo[0]) < abs(hi[0]) else -1.0                        # the leaf runs along +x or -x from the hinge
+    w = hi[0] - lo[0]
+    B = [(b[0], b[1]) for b in boxes if b[0][2] < floor_z + 1.8 and b[1][2] > floor_z + 0.2]
+    def blocked(p):
+        return any(l[0] < p[0] < u[0] and l[1] < p[1] < u[1] for l, u in B)
+    out = []
+    mid = P0 + X * sx * w / 2
+    for side in (1, -1):
+        for t in np.arange(0.05, depth + 1e-6, 0.05):
+            for c in np.arange(-half, half + 1e-6, 0.05):                   # every 5 cm across (a 10 cm post must not slip between)
+                p = mid + Y * side * t + X * c
+                if blocked(p):
+                    out.append(('lane', side, tuple(np.round(p, 2))))
+                    break
+            else:
+                continue
+            break
+        for a in np.radians(np.arange(10.0, max_angle + 1e-6, 10.0)):
+            hit = None
+            for r in np.arange(r0, w + 1e-6, 0.05):
+                p = P0 + (X * sx * math.cos(a) + Y * side * math.sin(a)) * r
+                if blocked(p):
+                    hit = p
+                    break
+            if hit is not None:
+                out.append(('swing', side, tuple(np.round(hit, 2))))
+                break
     return out
 
 
@@ -175,6 +207,10 @@ def _demo():
     print('exact opening:', good[0])
     print('planted 5 cm:', bad[0])
     assert good[0]['ok'] and not bad[0]['ok'] and bad[0]['slits'] > 0, 'the door gate did not prove itself'
+    clear = clearance(door[0], arch, [], 0.0)
+    planted = clearance(door[0], arch, [((0.4, 0.5, 0.0), (0.9, 0.9, 1.0))], 0.0)        # a box 0.5 m in front of the leaf
+    print('clear door:', clear, ' planted box:', planted)
+    assert not clear and any(k == 'lane' for k, _, _ in planted) and any(k == 'swing' for k, _, _ in planted), 'the clearance check did not prove itself'
     print('DOOR_FIT_PROVEN')
 
 

@@ -77,3 +77,12 @@ the leaf stands on the floor. No clearance is modelled: the leaf mesh itself is 
 - `py -3 door_fit.py` proves the gate on a planted 5 cm opening (DOOR_FIT_PROVEN). In a build, run it with `shrink={door: 0.05}` on
   one real door as the plant (Justice Center: `work/p3/jc3_door_gate.py`, 94 doors, worst gap 0.2 mm, 0 slit rays).
 - Doors in mesh / cage walls: a 6 cm steel frame on the fitted opening (the jambs are the frame), no casing.
+- **Clearance, not just fit (rig 2026-11-01: three doors fitted to 0 mm the walker still could not get through):**
+  `clearance(dr, arch, boxes, floor_z, depth, max_angle)` checks the walking lane through the middle of each leaf (0.7 m wide, both
+  sides) and the leaf's swing both ways against props' AABBs and built solids. Depth = the probe's walk distance - 0.3 (a ped arrives
+  0.6 m short of its target and is 0.3 m wide: obstacles inside 1.2 m stop it); swing to 70 deg (the leaf then leaves 0.85 m clear).
+  Sample every 5 cm across and along: a 10 cm screen post and a 6 cm-thick one both slipped between 0.35 / 0.1 m samples. The three
+  causes found: a training table 0.9 m beyond a door, a desk pod 1.15 m beyond one, and a glass screen line that ran into the middle
+  of a door pair (one leaf on the public side of the screening line - a design fault the fit could never show).
+- The slit test's "inside a perpendicular wall" check: faces within 0.3 m both ways along the door's wall. Counting faces above the point
+  (parity) broke on single-sided surfaces (roofs, decals) and hid every slit.
