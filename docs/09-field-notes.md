@@ -720,3 +720,12 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
 - **Facing of new wall / against-wall models:** `tools/justice/model_facing.py` (area per normal direction from the CodeWalker XML;
   proven on the notice board +y and the whiteboard -y). Two-sided results (lockers, shelving, toilets) need a second look: a toilet's
   tank (the tall side) is its back. Models that face along x (FIB urinal row, paper-towel unit) were left out rather than guessed.
+- **Mesh cage walls (evidence cage, armory):** Rockstar's chain-link fence props are 4.2 m outdoor panels or 2.07 m security panels and
+  never fit a 2.6 m room, so the cage is our frame in Rockstar's own material: Mission Row's armoury mesh (`v_20_armoury_gate`,
+  `normal_cutout.sps`, `xj_v_metmesh` + `_n`, HardAlphaBlend 1, ~0.2 m per UV). Posts every <= 1.4 m, rails BETWEEN the posts (rails
+  run through the posts share their bottom / top faces: 68 sweep clashes), the mesh as two one-sided quads 1 mm apart, a 4 cm collision
+  slab, doors hung in short block frames. Stock shelving on its measured shelf levels (up-facing vertices: prop_shelves_01 0.08 / 0.74 /
+  1.31 / 1.86); a 0.2 m3 crate on the bottom shelf counts as a floor prop for the footprint gate.
+- **Rig UI in shots:** qbx_core's "Qbox Multichar" character menu is an ox_lib context menu; ox_lib exports every `lib` function, so the
+  harness closes it with `exports.ox_lib:hideContext(false)` (check `exports.ox_lib:getOpenContextMenu()` is nil) - no resource stopped.
+  The harness's own screenshot is the game frame only (no NUI): prove UI fixes with a window grab, on the menu reopened as a plant.
