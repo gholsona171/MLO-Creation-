@@ -729,3 +729,8 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
 - **Rig UI in shots:** qbx_core's "Qbox Multichar" character menu is an ox_lib context menu; ox_lib exports every `lib` function, so the
   harness closes it with `exports.ox_lib:hideContext(false)` (check `exports.ox_lib:getOpenContextMenu()` is nil) - no resource stopped.
   The harness's own screenshot is the game frame only (no NUI): prove UI fixes with a window grab, on the menu reopened as a plant.
+- **Secure rooms read windowless (Antonio, 2026-11-01: armory, evidence, interview):** keep the facade's glazing outside, line the room
+  solid inside (no hole in the lining for those bays) but KEEP the bays' limbo portal: from outside the glass then shows the lining, not
+  a void. Weapons sit behind a mesh cage line with a cell-gate door and an issue vestibule in front, not on open shelves.
+- **A briefing room is desks, not chairs:** rows of desks (two officers each, papers, folders, clipboards) facing the lectern and the
+  board; a sea of chairs read as "a detective room facing a whiteboard".
