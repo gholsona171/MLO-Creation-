@@ -689,3 +689,32 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   (the dressing gate found no wall behind them). A model is either hung or standing across the whole build.
 - The drive sweep keeps paying off: every new hall item near a corner (a hose cabinet in the NW turn, the eyewash in the NE turn, an
   extinguisher earlier) was in the car's front swing; put wall items on the aisles' straights.
+
+## Police HQ redesign (Justice Center area 3, 2026-10-31): dense rooms, a colour board, our own insignia
+- **"Too much open space" is a plan problem, not a dressing problem.** Redraw the floor as rooms off narrow corridors (public side and
+  secure side apart, every room with one job) before adding a single prop; then dress each room for its job. One plan module holds
+  the named spaces, the doors (room, name, floor, axis, plane, a0) and every space's finish; the build, the dressing, the gates and the
+  plan drawing all read it.
+- **Partitions inside one MLO room:** run each partition the whole shared edge of its two spaces, then cut the room's OWN lining
+  cells out of it (the same `_grid_lining` cells the lining draws). Only an end with the room all round it (four probes 0.15 m off
+  the joint) is a partition joint (0.1 short of the other's line; at an L or a cross one of them runs through the uncovered 0.2
+  square). Testing "is the end inside the region" with a closed rectangle test counts the region's own boundary as inside: 16 ends
+  ran into the linings and fought them (the sweep caught every one).
+- **Cross walls meeting a glazed face land on a pier**, never on a glass bay (a plan test: every wall line against the bays, proven on
+  the old line that sat on glass) - same rule as the west window gaps.
+- **Doors on partitions get a plan test:** each inner door on the shared edge of two of its room's spaces with 0.2 m of wall at both
+  jambs (the plant: a 1.4 m door in a 1.6 m corridor end, jamb to jamb).
+- **Trim bands (the colour board) in one pass over the built wall faces:** per finish a list of (material, bottom, top, proud):
+  skirting 2 cm, wainscot / cladding 3.5 cm, stripe 4.8 cm; bands of one face never overlap in height, so equal proud steps are fine,
+  and anything hung on them (signs at 5 cm, art panels at 6.5 cm) clears them. Merge collinear face pieces of one finish first (the
+  linings and the partitions are split at every grid line and door), or every split leaves a notch in the stripe. Wall props stand off
+  the band they hang against (`trim_proud(room, u, v, z0, z1)` + 1 cm).
+- **Insignia from public descriptions, drawn in code** (PIL: badge, patch, seal, wall panels) and placed as quads (normal_spec) or
+  decals (decal.sps, name ending `_d`) - never traced from anyone's image. Text on a seal's bottom arc must read left to right the
+  right way up: walk the bottom arc anticlockwise and rotate each letter by -(angle - 90).
+- **Texture rules learned the hard way:** a texture's sides must be powers of two (the DDS writer builds a full mip chain:
+  `cannot reshape array of size 30800 into shape (17,2,110,2,4)` from a 220 x 280 panel); a material / texture name must be
+  file-safe (`COPY / SUPPLY` and `MEN'S LOCKERS` broke the sign texture paths).
+- **Facing of new wall / against-wall models:** `tools/justice/model_facing.py` (area per normal direction from the CodeWalker XML;
+  proven on the notice board +y and the whiteboard -y). Two-sided results (lockers, shelving, toilets) need a second look: a toilet's
+  tank (the tall side) is its back. Models that face along x (FIB urinal row, paper-towel unit) were left out rather than guessed.
