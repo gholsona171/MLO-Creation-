@@ -706,7 +706,9 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   jambs (the plant: a 1.4 m door in a 1.6 m corridor end, jamb to jamb).
 - **Trim bands (the colour board) in one pass over the built wall faces:** per finish a list of (material, bottom, top, proud):
   skirting 2 cm, wainscot / cladding 3.5 cm, stripe 4.8 cm; bands of one face never overlap in height, so equal proud steps are fine,
-  and anything hung on them (signs at 5 cm, art panels at 6.5 cm) clears them. Merge collinear face pieces of one finish first (the
+  and anything hung on them (signs at 5 cm, art panels at 6.5 cm) clears them. Keep every band's top face UNDER 5 cm deep (stripes 4.8 cm, not 5.0): the
+  ground check skips horizontal faces under 5 cm wide as trim; an 11.75 m stripe at exactly 5.0 cm read as walkable ground with no
+  collision (2 MISMATCH cells at 1.13 m). Merge collinear face pieces of one finish first (the
   linings and the partitions are split at every grid line and door), or every split leaves a notch in the stripe. Wall props stand off
   the band they hang against (`trim_proud(room, u, v, z0, z1)` + 1 cm).
 - **Insignia from public descriptions, drawn in code** (PIL: badge, patch, seal, wall panels) and placed as quads (normal_spec) or
