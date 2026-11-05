@@ -734,3 +734,18 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   a void. Weapons sit behind a mesh cage line with a cell-gate door and an issue vestibule in front, not on open shelves.
 - **A briefing room is desks, not chairs:** rows of desks (two officers each, papers, folders, clipboards) facing the lectern and the
   board; a sea of chairs read as "a detective room facing a whiteboard".
+
+## Two bought maps that replace the same vanilla file (2026-11-05, Malmqvist Grove Street vs KQ Davis Pharmacy vs Gabz Bennys)
+- Before installing a bought map, compare its stream file names (case-insensitive) with every stream file already on the server.
+  A SAME FILE hit (`lr_sc1_occl_00.ymap`, `sc1_28_0.ybn`, `lr_sc1_rd_critical_0.ymap` here) means the second one loaded undoes
+  the first: its building gets vanilla occluders (walls vanish) or vanilla collision back. Load order is not a fix.
+- Merge 3-way: pull the vanilla file from the game (newest copy wins: check `update.rpf\dlc_patch\...` before `x64*.rpf`), diff each
+  author against vanilla, take one author's file and apply the other's change. Occluders: compare triangle by triangle per occlude
+  model and box by box. Collision: compare per BVH child, polygon by polygon. Ymaps: match entities by guid, field by field.
+  Install the merged copy in EVERY resource that ships the file, so all copies are identical.
+- CodeWalker cannot round-trip a ybn that another tool exported with off-centre geometry centres: it clamps vertices on import and
+  moves polygons in every child. Use the CodeWalker-built author's file as the base and add the other author's polygons to it.
+- A ymap saved by CodeWalker loses its name unless `.Name` is set first; check name and parent after every import.
+- Tools: `tools/map_merge/` (find_vanilla*.ps1 pulls the vanilla file, occl_diff.py / tri_diff.py / ybn_diff2.py / ent_diff.py diff,
+  merge_occl.ps1 / merge_ybn.py / merge_ents.py merge, cwxml.ps1 / ymap_import.ps1 convert, loadcheck.ps1 / ymap_check.ps1 / ybn_load.py
+  verify). Worked example with every step: the Cleveland RP rebuild's `rebuild/install/malmqvist_merge/merge.md`.
