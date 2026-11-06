@@ -55,11 +55,11 @@ Rules found by testing:
   prints md5s and names the one in force: rebuild the pool file from that one and diff the vanilla part before shipping.
 - Opening the overlay with CodeWalker: give `RpfFile` its real name (`$r.Name = 'update.rpf'`); NG decryption keys off the
   archive's file name + size, so the hashed name fails with "Error in RPF7 file entry".
-- **Rule (open): a water-map quad at a height vanilla doesn't use makes the Land Act reservoir surface vanish.** Quad count and
-  file order are fine. Found with Tower City's pool (z 255.55): loaded by `LoadWaterFromPath`, the reservoir (z 160.339,
-  x 1656..2088, y -114..806) draws no surface (`ResetWater()` brings it back). Not a stale vanilla copy: the file's first
-  504 / 542 / 116 items are identical to the game's water.xml. A cfx.re report has the same symptom (dam surface not drawn, still
-  swimmable) after adding quads to the default water.xml.
+- **Bug (open): some extra water-map quads make the Land Act reservoir surface vanish.** Found with Tower City's pool
+  (25 cells, x -102..-90, y -816..-804, z 255.55): loaded by `LoadWaterFromPath`, the reservoir (z 160.339, x 1656..2088,
+  y -114..806) draws no surface (`ResetWater()` brings it back). Not a stale vanilla copy: the file's first 504 / 542 / 116 items
+  are identical to the game's water.xml. A cfx.re report has the same symptom (dam surface not drawn, still swimmable) after
+  adding quads to the default water.xml.
   A/B tests on the rig, Nov 5 2026 (each = vanilla + one change; camera at the reservoir):
 
   | File | Change | Reservoir |
@@ -73,10 +73,13 @@ Rules found by testing:
   | ab7 | ab2 with the cells first in WaterQuads | DRY |
   | ab8 | ab2 with the cells right after the last reservoir quad | DRY |
   | ab9 | ab2 at z 196.409 (Vinewood lake's height, already in vanilla) | wet |
-  | ab10 | + 25 cells at z 0.0 in open ocean | wet |
+  | ab10 | + 25 cells at z 0.0 in open ocean (x -3000..-2990, y -3000..-2990) | wet |
+  | ab11 | + the ab10 ocean cells at z 3.5 (new height, below vanilla's top) | wet |
+  | ab12 | + the ab10 ocean cells at z 210.0 (new height, above vanilla's top 196.409) | wet |
 
-  So the calming quad, `HasLimitedDepth`, quad count (505..529) and order are innocent; a new height is the trigger. Still open:
-  is it "any 8th distinct height" (vanilla has 7: 0.0, 5.96e-7, 29.9998, 29.9999, 30.0, 160.339, 196.409) or "a height above the
-  highest vanilla level (196.409)"? Tests ab11 (cells at new low z 3.5, ocean) / ab12 (new high z 210.0, ocean). Vinewood lake
-  (x -8..56, y 620..988, z 196.409) not yet checked in any test. Until solved, a pool at a non-vanilla height breaks the reservoir:
-  check it in game before shipping any water map.
+  Vinewood lake (x -8..56, y 620..988, z 196.409) kept its water in ab5, ab11 and ab12.
+  So the calming quad, `HasLimitedDepth`, quad count (505..529), file order and "a new height" on its own are all innocent: an
+  8th distinct height is fine in open ocean, even above vanilla's top. What breaks it so far: the pool's downtown spot at z 255.55
+  (wet there at 196.409). Next tests: ab13 (ocean cells at z 255.55: is that one height bad anywhere?), ab14 / ab15 (pool cells
+  downtown at z 210 / 230: is there a height ceiling at that spot?). Until solved, check the reservoir in game before shipping
+  any water map.
