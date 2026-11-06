@@ -784,6 +784,17 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   while curl and the system Python reached pypi.org fine: something on this PC re-signs HTTPS with a root that is only in the Windows
   store. Blender's pip only trusts its own certifi bundle. Do not turn verification off (`--trusted-host`). Use the Windows store
   (pip's truststore feature, `PIP_USE_FEATURE=truststore`) or find what intercepts TLS.
+  **What fixed it:** fetch the `truststore` wheel with the system Python (whose TLS works: `py -3 -m pip download truststore --no-deps
+  --only-binary=:all: --python-version 3.11 -d <dir>`), install it offline into Blender's Python (`4.5/python/bin/python.exe -m pip
+  install --no-index --no-deps <dir>/truststore-*.whl`), then run `install_sollumz.py` with `PIP_USE_FEATURE=truststore` set and then
+  `configure_sollumz.py` (`native_available: true`). Certificate checks stay on; downloads came from pypi.org and static.cfx.re only.
+- **A wall prop's depth is usually all behind its pivot.** `hei_prop_hei_securitypanel` (keypad): bbox y -0.02 .. +0.136, front -Y,
+  flat back at y +0.136, z +-0.305 (pivot mid-height). Placing its pivot 2 cm off the wall buried 11.6 cm of it in the wall, over the
+  wainscot. Pivot = wall face - R(heading) * (0, bbMax.y, 0) - 5 mm, and lift it so its bbMin.z clears any dado / band below.
+- **MLO entity guids are base + index** (mlo_meta): removing props renumbers every later entity's guid, so an XML diff of the ytyp shows
+  hundreds of guid changes. Compare entities by (archetype, position) and map room attachedObjects through the same keys.
+- **Removing props can drop a manifest dependency** (here `h4_prop_h4_money_01` left west/interior.json). That only reaches the game via
+  site_meta's `_manifest.ymf`; an extra dep left in an older manifest is harmless, a missing one is not.
 - **Facing, measured instead of guessed:** `prop_monitor_w_large` / `prop_monitor_01b` are `.yft` (not `.ydr`, so `ydr_xml.ps1` says
   "not found"; read them with `YftXml`): the screen quad / emissive sits at y = -0.07, front -Y. `prop_off_chair_01`'s backrest is at
   +Y (mean y +0.30 above z 0.75), front -Y. A desk's monitors and its chairs therefore take headings 180 apart, the monitors pointing at
