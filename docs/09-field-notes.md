@@ -778,6 +778,12 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   workshop's own scripts (`2026-10-10/.../work/install_sollumz.py`, then `configure_sollumz.py`, both `blender -b --python`): the zip is
   local (`work/downloads/Sollumz-2.9.0.zip`) but its native deps (szio, pymateria) download from PyPI, so it needs network + an OK.
   Quick test: `blender -b --python-expr "import bl_ext.user_default.sollumz"`.
+  Reinstall attempt 2026-11-06: the extension itself installs from the local zip, but the deps step failed. (1) `szio` is not on PyPI:
+  Sollumz's requirements.txt pulls it from `--extra-index-url https://static.cfx.re/whl/` (pymateria from PyPI), so approve both
+  hosts. (2) Blender's bundled Python failed TLS on both hosts (`CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`)
+  while curl and the system Python reached pypi.org fine: something on this PC re-signs HTTPS with a root that is only in the Windows
+  store. Blender's pip only trusts its own certifi bundle. Do not turn verification off (`--trusted-host`). Use the Windows store
+  (pip's truststore feature, `PIP_USE_FEATURE=truststore`) or find what intercepts TLS.
 - **Facing, measured instead of guessed:** `prop_monitor_w_large` / `prop_monitor_01b` are `.yft` (not `.ydr`, so `ydr_xml.ps1` says
   "not found"; read them with `YftXml`): the screen quad / emissive sits at y = -0.07, front -Y. `prop_off_chair_01`'s backrest is at
   +Y (mean y +0.30 above z 0.75), front -Y. A desk's monitors and its chairs therefore take headings 180 apart, the monitors pointing at
