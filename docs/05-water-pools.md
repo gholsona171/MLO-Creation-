@@ -55,12 +55,28 @@ Rules found by testing:
   prints md5s and names the one in force: rebuild the pool file from that one and diff the vanilla part before shipping.
 - Opening the overlay with CodeWalker: give `RpfFile` its real name (`$r.Name = 'update.rpf'`); NG decryption keys off the
   archive's file name + size, so the hashed name fails with "Error in RPF7 file entry".
-- **Bug (open):** with Tower City's `tc_water.xml` loaded by `LoadWaterFromPath`, the Land Act reservoir (z 160.339, x 1656..2088,
-  y -114..806) shows no water surface; `ResetWater()` brings it back (seen in game twice). It is **not** a stale vanilla copy: the
-  file's first 504 / 542 / 116 items are identical to the game's water.xml, item by item, and a rebuild from the game copy is
-  byte-identical. What our file adds that the game never uses: 25 cells with `HasLimitedDepth = true` (vanilla has none), a new
-  highest water level (z 255.55; vanilla max 196.409, an 8th distinct height; vanilla has 7) and one calming quad.
-  A cfx.re report has the same symptom (dam surface not drawn, still swimmable) after adding quads to the default water.xml.
-  Find the trigger with A/B files loaded one at a time: vanilla only (does `LoadWaterFromPath` itself lose it?), + cells without
-  the calming quad, + calming quad only, + cells with `HasLimitedDepth = false`. Look at the reservoir AND Vinewood lake
-  (x -8..56, y 732..988, z 196.409) each time. Write the result here.
+- **Rule (open): a water-map quad at a height vanilla doesn't use makes the Land Act reservoir surface vanish.** Quad count and
+  file order are fine. Found with Tower City's pool (z 255.55): loaded by `LoadWaterFromPath`, the reservoir (z 160.339,
+  x 1656..2088, y -114..806) draws no surface (`ResetWater()` brings it back). Not a stale vanilla copy: the file's first
+  504 / 542 / 116 items are identical to the game's water.xml. A cfx.re report has the same symptom (dam surface not drawn, still
+  swimmable) after adding quads to the default water.xml.
+  A/B tests on the rig, Nov 5 2026 (each = vanilla + one change; camera at the reservoir):
+
+  | File | Change | Reservoir |
+  |---|---|---|
+  | ab1 | vanilla only, through `LoadWaterFromPath` | wet |
+  | ab3 | + the pool's calming quad only | wet |
+  | ab2 | + 25 pool cells, z 255.55 (appended) | DRY |
+  | ab4 | ab2 with `HasLimitedDepth = false` | DRY |
+  | ab5 | + 1 quad over the pool, z 255.55 | DRY |
+  | ab6 | + the 25 cells merged into 4 rectangles, z 255.55 | DRY |
+  | ab7 | ab2 with the cells first in WaterQuads | DRY |
+  | ab8 | ab2 with the cells right after the last reservoir quad | DRY |
+  | ab9 | ab2 at z 196.409 (Vinewood lake's height, already in vanilla) | wet |
+  | ab10 | + 25 cells at z 0.0 in open ocean | wet |
+
+  So the calming quad, `HasLimitedDepth`, quad count (505..529) and order are innocent; a new height is the trigger. Still open:
+  is it "any 8th distinct height" (vanilla has 7: 0.0, 5.96e-7, 29.9998, 29.9999, 30.0, 160.339, 196.409) or "a height above the
+  highest vanilla level (196.409)"? Tests ab11 (cells at new low z 3.5, ocean) / ab12 (new high z 210.0, ocean). Vinewood lake
+  (x -8..56, y 620..988, z 196.409) not yet checked in any test. Until solved, a pool at a non-vanilla height breaks the reservoir:
+  check it in game before shipping any water map.
