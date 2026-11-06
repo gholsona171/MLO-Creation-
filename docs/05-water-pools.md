@@ -44,3 +44,23 @@ Rules found by testing:
 - The game draws pool water with its sea shader, so a water-map pool rolls like the ocean. Add a `CalmingQuads` item over the pool
   (minX/maxX/minY/maxY + `fDampening`; vanilla lakes use 0.05, we use 0.0) in the same water.xml - `pool_water.py` writes it.
 - Water line: 25 cm under the deck still read as brim-full on screen; 45 cm reads right (and you still swim: 1.75 m deep).
+
+## Which water.xml is the game's, and the missing-reservoir bug (2026-11-05)
+- **The water map in force:** `common.rpf\data\levels\gta5\water.xml` (504 water / 542 calming / 116 wave quads,
+  md5 `1a76f16bbeb4fccb4ec8d22f1a6d3d5f`). No update / dlc_patch copy exists: `update.rpf` only adds `water_heistisland.xml`
+  (Cayo Perico, 62 quads). Checked in the Steam install AND in FiveM's game-build overlay
+  (`%LOCALAPPDATA%\FiveM\FiveM.app\data\game-storage\update+update.rpf_<sha1>`, `update+update2.rpf_<sha1>`; with
+  `sv_enforceGameBuild 3258` the client runs those instead of the Steam `update*.rpf`). If a newer build ever ships one, the newest
+  patch copy wins: FiveM overlay > Steam, `update2.rpf` > `update.rpf` > `common.rpf`. `tools/water_xml.ps1` extracts every copy,
+  prints md5s and names the one in force: rebuild the pool file from that one and diff the vanilla part before shipping.
+- Opening the overlay with CodeWalker: give `RpfFile` its real name (`$r.Name = 'update.rpf'`); NG decryption keys off the
+  archive's file name + size, so the hashed name fails with "Error in RPF7 file entry".
+- **Bug (open):** with Tower City's `tc_water.xml` loaded by `LoadWaterFromPath`, the Land Act reservoir (z 160.339, x 1656..2088,
+  y -114..806) shows no water surface; `ResetWater()` brings it back (seen in game twice). It is **not** a stale vanilla copy: the
+  file's first 504 / 542 / 116 items are identical to the game's water.xml, item by item, and a rebuild from the game copy is
+  byte-identical. What our file adds that the game never uses: 25 cells with `HasLimitedDepth = true` (vanilla has none), a new
+  highest water level (z 255.55; vanilla max 196.409, an 8th distinct height; vanilla has 7) and one calming quad.
+  A cfx.re report has the same symptom (dam surface not drawn, still swimmable) after adding quads to the default water.xml.
+  Find the trigger with A/B files loaded one at a time: vanilla only (does `LoadWaterFromPath` itself lose it?), + cells without
+  the calming quad, + calming quad only, + cells with `HasLimitedDepth = false`. Look at the reservoir AND Vinewood lake
+  (x -8..56, y 732..988, z 196.409) each time. Write the result here.
