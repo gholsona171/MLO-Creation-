@@ -799,3 +799,19 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   "not found"; read them with `YftXml`): the screen quad / emissive sits at y = -0.07, front -Y. `prop_off_chair_01`'s backrest is at
   +Y (mean y +0.30 above z 0.75), front -Y. A desk's monitors and its chairs therefore take headings 180 apart, the monitors pointing at
   the chair side.
+
+## Ambient people inside an MLO: making them panic (Tower City life, 2026-11-06: Antonio "react like they would outside")
+- **Why they never reacted:** the life script spawned them with `SetBlockingOfNonTemporaryEvents(ped, true)`,
+  `SetPedFleeAttributes(ped, 0, false)` and `SetPedKeepTask(ped, true)` (seated ones are also frozen with collision off). The first one
+  is what makes a ped ignore gunfire, explosions and bodies.
+- **Don't just unblock events.** GTA's own flee needs the navmesh, and our interiors have none: freed peds run into walls or freeze.
+  Keep the events blocked and script the panic yourself.
+- **What works:** route the panic over the walk graph the walkers already use. Run Dijkstra once from every route end (one neighbour =
+  a door, corridor end or stair head) to get each node's next step towards its nearest exit. On a threat: unfreeze and re-enable
+  collision on seated peds, `ClearPedTasksImmediately`, a shouted `GENERIC_FRIGHTENED_HIGH`, about 30% `TaskCower` for 2.5-6 s, then
+  `TaskGoStraightToCoord` at speed 3.0 (sprint) node to node, and delete them at the exit once they are off screen. Keep the area from
+  refilling until it has been quiet a while (90 s).
+- **Detecting threats client side:** `IsPedShooting` over `GetGamePool('CPed')` catches players, guards and police alike.
+  `IsPedCurrentWeaponSilenced` gives a short range. `IsExplosionInSphere(-1, ...)` covers explosions. A 60 m gun range left half of a
+  110 m casino floor sitting, so use 100 m and check the floor (|dz| < 8) so other levels stay calm.
+- Leave guards and the functional peds of other scripts (rcore_casino dealers) alone.
