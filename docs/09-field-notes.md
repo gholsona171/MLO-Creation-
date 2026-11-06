@@ -749,3 +749,18 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
 - Tools: `tools/map_merge/` (find_vanilla*.ps1 pulls the vanilla file, occl_diff.py / tri_diff.py / ybn_diff2.py / ent_diff.py diff,
   merge_occl.ps1 / merge_ybn.py / merge_ents.py merge, cwxml.ps1 / ymap_import.ps1 convert, loadcheck.ps1 / ymap_check.ps1 / ybn_load.py
   verify). Worked example with every step: the Cleveland RP rebuild's `rebuild/install/malmqvist_merge/merge.md`.
+
+## Bought maps, round 2 (2026-11-05: Malmqvist Vagos Hood, Grimzy Grove Compound, GreenBeerg Groove Street, Bennys, KQ pharmacy)
+- **bsRadius 0 hides exteriors.** The Vagos Hood's ytyps shipped every plain archetype with bsRadius 0. The game then culls the exterior
+  shell as a single point at its centre: when that point is behind anything (a vanilla building, an occluder) the whole outside vanishes
+  while the MLO interior (its own bounds) still draws, so you see a bare interior shell from the street. Fix: set bsRadius to half the
+  bounding-box diagonal in each ytyp (nothing else changes). Check bsRadius on every bought map's ytyps before blaming occluders.
+- **Occluder files come in variants.** Sector sc1 has `sc1_occl_0N`, `hei_sc1_occl_0N` and `lr_sc1_occl_0N`; a map that cuts only the
+  `lr_` copy still gets the old occluders from the others. Test every occluder against the building footprints rotated to their
+  placements (not axis-aligned boxes) across all variants, and ship cut copies of each variant that overlaps.
+- **Two packs that rebuild the same vanilla building cannot both run** (Grimzy compound vs Lince night club: both ship locked copies of
+  `sc1_21_roundred` and rebuild `sc1_21_0.ybn` in the same place). Pick one; merge only what is mergeable.
+- **CodeWalker traps:** `YmapFile.Save()` drops LOD lights (export XML from the archive entry and rebuild with XmlMeta instead);
+  ybn XML import clamps vertices on Sollumz exports (GeometryCenter 0,0,0) - `tools/map_merge/merge_coll.py` rewrites each child so it
+  round-trips exactly. Compare collision from different exporters by box centre + edge lengths with ~5 cm tolerance.
+- Worked examples: Cleveland RP rebuild `rebuild/install/grove_merge/merge.md` and `rebuild/install/vagos_occl/round2/note.md`.
