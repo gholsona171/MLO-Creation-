@@ -14,7 +14,7 @@ GTA V install and the CodeWalker folder — change them for another PC.
 | `water_xml.ps1` | Extracts every water map (Steam install + FiveM build overlay) and names the gta5 `water.xml` in force | `powershell -File water_xml.ps1 [-Out dir]` |
 | `scan_garage_doors.ps1` | Every garage-door archetype (special attribute 5) with bounds, flags and ytyp | `powershell -File scan_garage_doors.ps1 > garage_doors.tsv` |
 | `pool_water.py` | Vanilla water map + a pool's 2 m swim cells (inside the pool + room floor) + a calming quad → `tc_water.xml` (Tower City build copy; needs its `tower_crown.py`) | `py -3 pool_water.py` |
-| `water.lua` | Client: `LoadWaterFromPath` the map, reload after Cayo, `ResetWater` on stop | ship in the resource |
+| `water.lua` | Client: `LoadWaterFromPath` the map only near the pool (150 m in / 200 m out), `ResetWater` when leaving and on stop, never on Cayo | ship in the resource |
 | `water_diff.lua` | City-wide stray-water check: vanilla vs our water map on a grid, lists every difference | run in a client (rig `t.sh`) |
 | `custom_props/tc_props.py` | Blender build of our own props: the render-target TV, the urinal, the faucet (CW XML) | `blender -b --python tc_props.py` |
 | `custom_props/props_meta.py` | Render-target texture patch, CodeWalker import, ytyp compile, survey update | `py -3 props_meta.py` |

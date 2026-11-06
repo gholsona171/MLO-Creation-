@@ -10,7 +10,7 @@ under the surface make a hard-edged bright square).
 ## Water you can swim in — what works (tested on the rig 2026-10-22)
 **Use the game's water map.** Load a copy of the vanilla `water.xml` with the pool's cells added, via FiveM's
 `LoadWaterFromPath(resource, file)` (file listed under `files {}` in the fxmanifest). Tools: `tools/pool_water.py` (build the file),
-`tools/water.lua` (load it, reload after Cayo Perico, `ResetWater()` on stop), `tools/water_xml.ps1` (extract the vanilla map).
+`tools/water.lua` (load it only near the pool, `ResetWater()` when the player leaves; see the reservoir rule below), `tools/water_xml.ps1` (extract the vanilla map).
 
 Rules found by testing:
 - **Water cells register only on the 2 m grid.** A 2 × 2 m quad on even coordinates works; 1 m, 0.5 m and off-grid quads are
@@ -55,31 +55,34 @@ Rules found by testing:
   prints md5s and names the one in force: rebuild the pool file from that one and diff the vanilla part before shipping.
 - Opening the overlay with CodeWalker: give `RpfFile` its real name (`$r.Name = 'update.rpf'`); NG decryption keys off the
   archive's file name + size, so the hashed name fails with "Error in RPF7 file entry".
-- **Bug (open): some extra water-map quads make the Land Act reservoir surface vanish.** Found with Tower City's pool
-  (25 cells, x -102..-90, y -816..-804, z 255.55): loaded by `LoadWaterFromPath`, the reservoir (z 160.339, x 1656..2088,
-  y -114..806) draws no surface (`ResetWater()` brings it back). Not a stale vanilla copy: the file's first 504 / 542 / 116 items
-  are identical to the game's water.xml. A cfx.re report has the same symptom (dam surface not drawn, still swimmable) after
-  adding quads to the default water.xml.
-  A/B tests on the rig, Nov 5 2026 (each = vanilla + one change; camera at the reservoir):
+- **Rule: a water quad at a height vanilla doesn't use, at the pool's spot downtown, hides the Land Act reservoir surface**
+  (reservoir z 160.339, x 1656..2088, y -114..806: no surface drawn, `ResetWater()` brings it back). The same new heights in open
+  ocean are harmless; quad count, file order, `HasLimitedDepth` and the calming quad are innocent. Not a stale vanilla copy: the
+  file's first 504 / 542 / 116 items are identical to the game's water.xml. (A cfx.re report has the same symptom at the dam.)
+  Rig A/B tests, Nov 5 2026 (each = vanilla + one change, loaded with `LoadWaterFromPath`; camera at the reservoir):
 
   | File | Change | Reservoir |
   |---|---|---|
-  | ab1 | vanilla only, through `LoadWaterFromPath` | wet |
+  | ab1 | vanilla only | wet |
   | ab3 | + the pool's calming quad only | wet |
-  | ab2 | + 25 pool cells, z 255.55 (appended) | DRY |
+  | ab2 | + 25 pool cells (x -102..-90, y -816..-804), z 255.55, appended | DRY |
   | ab4 | ab2 with `HasLimitedDepth = false` | DRY |
   | ab5 | + 1 quad over the pool, z 255.55 | DRY |
   | ab6 | + the 25 cells merged into 4 rectangles, z 255.55 | DRY |
   | ab7 | ab2 with the cells first in WaterQuads | DRY |
   | ab8 | ab2 with the cells right after the last reservoir quad | DRY |
-  | ab9 | ab2 at z 196.409 (Vinewood lake's height, already in vanilla) | wet |
+  | ab9 | ab2 at z 196.409 (Vinewood lake's height, used by vanilla) | wet |
   | ab10 | + 25 cells at z 0.0 in open ocean (x -3000..-2990, y -3000..-2990) | wet |
-  | ab11 | + the ab10 ocean cells at z 3.5 (new height, below vanilla's top) | wet |
-  | ab12 | + the ab10 ocean cells at z 210.0 (new height, above vanilla's top 196.409) | wet |
+  | ab11 | + the ocean cells at z 3.5 (new height, below vanilla's top) | wet |
+  | ab12 | + the ocean cells at z 210.0 (new height, above vanilla's top 196.409) | wet |
+  | ab13 | + the ocean cells at z 255.55 (the pool's height) | wet |
+  | ab14 | + the pool cells downtown at z 210.0 | DRY |
+  | ab15 | + the pool cells downtown at z 230.0 | DRY |
 
-  Vinewood lake (x -8..56, y 620..988, z 196.409) kept its water in ab5, ab11 and ab12.
-  So the calming quad, `HasLimitedDepth`, quad count (505..529), file order and "a new height" on its own are all innocent: an
-  8th distinct height is fine in open ocean, even above vanilla's top. What breaks it so far: the pool's downtown spot at z 255.55
-  (wet there at 196.409). Next tests: ab13 (ocean cells at z 255.55: is that one height bad anywhere?), ab14 / ab15 (pool cells
-  downtown at z 210 / 230: is there a height ceiling at that spot?). Until solved, check the reservoir in game before shipping
-  any water map.
+  Vinewood lake (z 196.409) kept its water in ab5, ab11 and ab12. Not yet known: why the downtown spot matters (no other spot
+  was tried on land), so treat every land pool at a non-vanilla height as breaking the reservoir.
+- **Fix: load the pool's water map only near the pool.** `tools/water.lua` loads the file when the player is within `NEAR`
+  (150 m, 2D) of the pool, calls `ResetWater()` once they are beyond `FAR` (200 m; the gap stops it flapping), checks every 1.5 s,
+  never loads or resets on Cayo Perico (the island has its own water map), and resets on resource stop only if ours is loaded.
+  Everywhere else the game's own map is in force, so the reservoir is wet. Set `POOL` to the pool cells' centre. Check in game:
+  the pool swims, the reservoir is wet from far away, and walking in/out of the radius does not flicker the water.
