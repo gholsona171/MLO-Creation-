@@ -764,3 +764,21 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   ybn XML import clamps vertices on Sollumz exports (GeometryCenter 0,0,0) - `tools/map_merge/merge_coll.py` rewrites each child so it
   round-trips exactly. Compare collision from different exporters by box centre + edge lengths with ~5 cm tolerance.
 - Worked examples: Cleveland RP rebuild `rebuild/install/grove_merge/merge.md` and `rebuild/install/vagos_occl/round2/note.md`.
+
+## Rebuilding one MLO's props: what actually regenerates (Tower City count room, 2026-11-06)
+- **Props live only in the MLO ytyp, but the ytyp comes from the full room build.** A heading change in `tower_lower.py` reaches
+  `tc_tower.ytyp` only through `l3_build.py` (Blender: writes every `tc_tw_*` drawable + `l3/l3_layout.json`, whose `props` list is
+  the source) and then `west_meta.py` (layout -> `work/west/bin/tc_tower.ytyp` + milo ymap). No shortcut: editing the layout json or the
+  ytyp is patchwork. Then `DEPLOY=0 bash assemble.sh` builds `resource/`; a full assemble deploy wipes and replaces the rig copy.
+- **Check the rig copy against `resource/` before deploying.** The C9Test `tower_city` was a 2026-10-25 deploy (104 files older than
+  `resource/`, and other sessions had changed its config.lua / water.lua / README). A full `assemble.sh` would have shipped all of that
+  at once. Diff first (`diff -rq resource/tower_city <rig>`), and say what else goes live with the one fix.
+- **Check Sollumz is there before a Blender build.** After the Windows profile was reset (AppData\Roaming rebuilt 2026-11-05) Blender's
+  user profile was gone and every build died at `TK.init` with `No module named 'bl_ext.user_default.sollumz'`. Reinstall with the
+  workshop's own scripts (`2026-10-10/.../work/install_sollumz.py`, then `configure_sollumz.py`, both `blender -b --python`): the zip is
+  local (`work/downloads/Sollumz-2.9.0.zip`) but its native deps (szio, pymateria) download from PyPI, so it needs network + an OK.
+  Quick test: `blender -b --python-expr "import bl_ext.user_default.sollumz"`.
+- **Facing, measured instead of guessed:** `prop_monitor_w_large` / `prop_monitor_01b` are `.yft` (not `.ydr`, so `ydr_xml.ps1` says
+  "not found"; read them with `YftXml`): the screen quad / emissive sits at y = -0.07, front -Y. `prop_off_chair_01`'s backrest is at
+  +Y (mean y +0.30 above z 0.75), front -Y. A desk's monitors and its chairs therefore take headings 180 apart, the monitors pointing at
+  the chair side.
