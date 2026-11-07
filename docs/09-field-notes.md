@@ -872,3 +872,8 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   the vertex normal (checked on prop_flagpole_1a); `build_props.py fix_winding` enforces it.
 - Check the result offline: `cw_export.ps1` (built binary -> XML + dds) then `counter_kit/rsxview.py`. For a fragment, feed it the
   cloth drawable (the one the game shows).
+- **Which atlas cell a locked decal samples is a guess until seen in game** (Senora fix1, 2026-11-06). Archetype names lied: the
+  exterior `logo_ext_sheriff` sampled the cell I had given the detective badge, and `logo_detective` stands in the lobby, not at a
+  detectives' door. Before giving a cell a SPECIFIC meaning (a unit badge, a room name), check where its decals stand (entity
+  positions in the ytyp / ymap) and have it seen in game. Where cells can't be pinned down, give the uncertain ones art that's right
+  wherever it lands (the main emblem).
