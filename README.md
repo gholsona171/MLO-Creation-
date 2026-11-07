@@ -51,7 +51,7 @@ See [tools/README.md](tools/README.md). The short list:
 | Merge two bought maps that replace the same vanilla occluder / collision / ymap file (3-way vs vanilla, field note 2026-11-05) | `map_merge/` |
 | Clear a whole vanilla block to one flat lot: outline from Rockstar's sidewalk edge, removals, LOD / SLOD cuts, collision, occluders, LOD lights, AI off, gates + rig probes (doc 02 / 07) | `justice/` (`build_p1.sh`) |
 | New exterior shells + their LOD chain plugged into Rockstar's block tree, LOD-level debug colours, Rockstar texture survey by colour, rig walks round / up entrances (doc 13) | `justice/p2/` |
-| Rebrand a bought / escrowed MLO through its readable ytds: DXT + mips writer, swap textures keeping flags (field note 2026-11-06) | `texture_rebrand/` (`encode.py`, `ytd_swap.ps1`) |
+| Rebrand a bought / escrowed MLO through its readable ytds: DXT + mips writer, swap textures keeping flags; locked props replaced by our own (archetype swap, meta round-trip gate, cloth flags re-issued) (field notes 2026-11-06) | `texture_rebrand/` (`encode.py`, `ytd_swap.ps1`, `edit_meta.py`, `cw_meta.ps1`, `cw_import.ps1`, `make_flags.py`) |
 | Ground holes / steps and drawn-vs-collision, offline on the built files (before deploying) | `wow2easy_move/tools/hole_grid_offline.py`, `seen_vs_solid.py` (see 07) |
 
 ## Project tools (copies; the projects stay where they run from)

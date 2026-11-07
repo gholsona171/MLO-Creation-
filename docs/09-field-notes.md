@@ -850,3 +850,25 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
 - **Encrypted models cannot be rendered offline**, so verify decals as mock-ups: lay the cells (read back out of the built ytd) on the
   station's own wall / concrete textures at their real metre size, then check the facade colour in game after the planned restart.
 - Streaming `prop_flag_sheriff.yft` etc. under vanilla names replaces those flags across the whole map: note it when a bought MLO does.
+
+## Replacing a bought MLO's locked props with our own (Senora station, 2026-11-06)
+- **Locked drawable, readable placement:** an FXAP ydr cannot be opened, but its archetype def (bounds, flags, lodDist) sits in a
+  readable ytyp and its placements in the readable MLO ytyp / ymap. Build ours to those bounds (same pivot = the bbox the def
+  states), give it OUR name, swap the def in the same ytyp (no new ytyp to load), rename the placed entities, delete the locked
+  file. No decal over it, no override resource. `tools/texture_rebrand/edit_meta.py` is the worked example.
+- **Meta round-trip gate:** `cw_meta.ps1` compiles CodeWalker XML (ymap / ytyp) and re-exports it; the text must be identical to
+  the source. Run it on the UNEDITED originals first (they passed: ytyp, MLO ytyp, ymap, car-generator ymap), then on the edits.
+  Work on CodeWalker's own export (names as `hash_XXXXXXXX`) and match names by joaat, so nothing else gets renamed.
+- **Bought maps often stream vanilla names** (`prop_flag_sheriff.yft`, `prop_flagpole_2b.yft`...): that replaces the model across the
+  whole map. Our replacement gets its own name (`cpd_flag_police`) placed only at the station; deleting the override returns every
+  other copy to vanilla. Slots that only needed vanilla back (the US / state flag) keep their placement and simply stop being
+  overridden: no gap.
+- **Cloth flags:** CodeWalker exports Rockstar's `prop_flag_*.yft` with its cloth (`YftXml.GetXml`) and imports it again
+  (`XmlYft.GetYft`, cloth kept). Re-issue it under our name: rename every `prop_flag_x` in the XML, put our 256 x 128 DXT1 / 6-mip
+  texture in the `<name>/` folder, import (`make_flags.py`, `cw_import.ps1`). Archetype: ASSET_TYPE_FRAGMENT, Rockstar's bounds,
+  flags 570556416, lodDist 120.
+- **Flat wall props without knowing which face is the front:** a locked poster's bounds say only "plane through x = 0". Build two
+  faces 0.4 mm apart, each readable from its own side (one faces the wall and is culled). GTA winding is counter-clockwise about
+  the vertex normal (checked on prop_flagpole_1a); `build_props.py fix_winding` enforces it.
+- Check the result offline: `cw_export.ps1` (built binary -> XML + dds) then `counter_kit/rsxview.py`. For a fragment, feed it the
+  cloth drawable (the one the game shows).
