@@ -829,3 +829,24 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   `IsPedCurrentWeaponSilenced` gives a short range. `IsExplosionInSphere(-1, ...)` covers explosions. A 60 m gun range left half of a
   110 m casino floor sitting, so use 100 m and check the floor (|dz| < 8) so other levels stay calm.
 - Leave guards and the functional peds of other scripts (rcore_casino dealers) alone.
+
+## Rebranding a bought (escrowed) MLO through its textures (Senora sheriff station -> Cleveland PD, 2026-11-06)
+- **Check what is locked first.** Read the first 4 bytes of every stream file: `RSC7` = readable, `FXAP` = escrow-encrypted. On
+  Ibonoja's station every ydr / yft was FXAP but all three ytds were RSC7, and the author ships a `stream/EDITABLE/` ytd + a PNG
+  layout guide meant for rebranding. Never decrypt or work around FXAP; replace only readable textures, report the rest.
+- **`escrow_ignore` is case sensitive.** `'stream/editable/flags'` did not match the `EDITABLE` folder, so the "editable" flags
+  were encrypted anyway.
+- **Find what a texture drives without opening the models:** dump the ytyps / ymaps with CodeWalker (`MetaXml.GetXml($ytyp, [ref]$fn)`),
+  resolve the `hash_XXXXXXXX` names with joaat over the resource's own file names, and read each archetype's `textureDictionary`
+  (empty = textures embedded in the drawable = locked with it). The archetype's bbMin/bbMax gives each decal quad's size in metres,
+  so its aspect tells you how big its UV cell is in the atlas (room labels 0.313 x 0.045 m = a 250 x 36 px row).
+- **Keep every UV cell.** Measure each element's bbox in the original atlas (alpha > 100) and put the new art in the same cell, same
+  baseline and cap height; a changed word may grow only into free space of its own cell. A sanity pass found a shipped bug: the
+  atlas had no "ROOM" under SHOOTING, so that decal rendered nothing.
+- **Same format, same mips, same flags:** `tools/texture_rebrand/encode.py` writes DXT1 / DXT5 with a full mip chain using Pillow's
+  own block encoder (each level encoded alone, then concatenated under one header; transparent RGB bled from neighbours so mips
+  never darken edges). `ytd_swap.ps1` swaps named textures in the original ytd, copies name / usage / usage flags, refuses a size,
+  format or mip-count change, and reloads the result to check. Every other texture stays byte-identical.
+- **Encrypted models cannot be rendered offline**, so verify decals as mock-ups: lay the cells (read back out of the built ytd) on the
+  station's own wall / concrete textures at their real metre size, then check the facade colour in game after the planned restart.
+- Streaming `prop_flag_sheriff.yft` etc. under vanilla names replaces those flags across the whole map: note it when a bought MLO does.
