@@ -110,3 +110,17 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `ground_check.py` (+ `ybnx.py`, `drawn_dump.py`) | Offline gate, drawn vs walked; `--plant` proves it |
 | `jc_probe.py`, `joint_proof.py`, `scen_pool.py`, `jc_pair.sh` | Rig probes (grid, walk, ai, drive), the multi-map scenario proof, the blocking pool count, before / after shots |
 | `near_ents.ps1`, `ymap_parents.ps1`, `scenarios_all.ps1`, `wire_spans.py`, `ybn_at.ps1` | Survey helpers: entities by bounds, child ymaps of LOD ymaps, every scenario region, wire spans to poles, files covering a point |
+
+### Merging bought maps that ship the same vanilla file (2026-11-05 / 06) - in `map_merge/` (field notes "Two bought maps...", "Bought maps, round 2", "A map's fix to one occluder variant...")
+| Tool | What it does |
+|---|---|
+| `find_vanilla*.ps1`, `vanilla_xml.ps1` | Pull the vanilla file from the game (every copy / one exact archive path, XML straight from the entry) |
+| `occl_diff*.py`, `tri_diff.py`, `occl_tris.ps1` | Occluder diffs: boxes and occlude-model triangles vs vanilla |
+| `merge_occl_n.ps1` | N-way occluder merge on ONE variant (CodeWalker API) |
+| `occl_variant_merge.py` | Every author's occluder edit (vs its own base) applied to ANY variant (sc1_ / hei_ / lr_) by geometry: boxes by centre + size, models by triangle set; untouched data kept exactly; XML in, XML out (then `ymap_import.ps1`) |
+| `occl_lib.py`, `occl_hits.py` | Occluder XML reader; which boxes / triangles of each file overlap a set of oriented footprints (2D SAT + z) |
+| `footprints_grove.py`, `hood_fp.py` | Oriented footprints of packs' exterior entities and MLO rooms (CEntityDef yaw inverted, MLO instance not) - the Grove packs as the example |
+| `arch_bounds_by_hash.ps1` | Bounds + bsRadius of vanilla archetypes by hash from every game ytyp |
+| `xml_export_list.ps1`, `cwxml.ps1`, `ymap_import.ps1`, `ymap_check.ps1` | Batch export to XML, convert, import (name kept), load + name / parent check |
+| `ent_diff*.py`, `merge_ents*.py`, `ybn_diff2.py`, `merge_ybn.py`, `merge_coll.py`, `lod_diff.py`, `merge_lod.py`, `lodlights.py` | Entity, collision and LOD-light diffs / merges |
+

@@ -765,6 +765,20 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   round-trips exactly. Compare collision from different exporters by box centre + edge lengths with ~5 cm tolerance.
 - Worked examples: Cleveland RP rebuild `rebuild/install/grove_merge/merge.md` and `rebuild/install/vagos_occl/round2/note.md`.
 
+## A map's fix to one occluder variant undoes every other pack's cuts in the files it ships (2026-11-06, Grimzy compound "disappearing")
+- The Vagos hood fix shipped `sc1_occl_00` + `hei_sc1_occl_00` built from VANILLA minus only the hood's 5 triangles. The Grove packs
+  (Grimzy, gcom, kq pharmacy) had only cut `lr_sc1_occl_00`, so those two new files put back every occluder they had removed: Grimzy's
+  3 boxes and the big low model it deleted (an empty lot where its compound stands), gcom's 5 boxes, kq's 7 triangles.
+- Rule: when you ship ANY variant of an occluder file (`sc1_` / `hei_` / `lr_` occl_0N), build it from that variant's vanilla with the
+  union of EVERY installed pack's cuts for that file (every resource on the server, plus the rig-only ones like JC), not just your own.
+  Then run the footprint check for every pack, not only the one you were fixing.
+- The variants are not copies of each other: sc1/hei_occl_00 have 9 boxes and one model that lr_ lacks (and the reverse), and shared
+  models list the same triangles in a different order. Match boxes by centre + size (cos/sin +-2) and models by triangle set, never by index.
+- Two resources streaming the same variant name (hood + JC on the rig) fight by load order: ship identical copies to both.
+- Tools: `tools/map_merge/occl_variant_merge.py` (every author's edit vs its own base, applied by geometry to any variant, XML in / XML
+  out, stops on anything it cannot map), `occl_hits.py` + `footprints_grove.py` (oriented footprints vs occluders), `arch_bounds_by_hash.ps1`.
+  Worked example: Cleveland RP rebuild `rebuild/install/grove_occl_variants/note.md`.
+
 ## Rebuilding one MLO's props: what actually regenerates (Tower City count room, 2026-11-06)
 - **Props live only in the MLO ytyp, but the ytyp comes from the full room build.** A heading change in `tower_lower.py` reaches
   `tc_tower.ytyp` only through `l3_build.py` (Blender: writes every `tc_tw_*` drawable + `l3/l3_layout.json`, whose `props` list is
