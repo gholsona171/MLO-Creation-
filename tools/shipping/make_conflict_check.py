@@ -11,6 +11,9 @@ list is always this build's own files - never a hand-kept list.
             (e.g. '^(hei_|hi@|ma@)?(dt1_11|dt1_12)'); empty = off
   --refs    IPL / interior names a script might load there (e.g. ex_dt1_11_office,imp_dt1_11_cargarage)
   --skip    our other resources in the package (the main one is always skipped)
+  --kind    map (default: the Rockstar files we replace, see --ours) | props (a script or prop pack that streams its OWN models:
+            EVERY stream file is listed, because the clash is another resource streaming the same names, e.g. an older copy of
+            the same script; template check_conflicts_props.ps1.in, --area is then the closing line the buyer reads)
 Template: check_conflicts.ps1.in next to this file. Output is CRLF (a Windows PowerShell file). Prove it on a planted conflict
 (a fake resource holding one listed file + one script naming a --refs entry) before shipping: both must be reported."""
 import argparse, os, re
@@ -19,9 +22,10 @@ a = argparse.ArgumentParser()
 a.add_argument('--stream', required=True); a.add_argument('--res', required=True); a.add_argument('--name', required=True)
 a.add_argument('--area', required=True); a.add_argument('--family', default=''); a.add_argument('--refs', default='')
 a.add_argument('--skip', default=''); a.add_argument('--ours', default='tc_'); a.add_argument('--out')
-a.add_argument('--template', default=os.path.join(here, 'check_conflicts.ps1.in'))
+a.add_argument('--kind', default='map', choices=['map', 'props']); a.add_argument('--template')
 o = a.parse_args()
-names = sorted(n for n in os.listdir(o.stream) if not n.startswith(o.ours) and n != '_manifest.ymf')
+if not o.template: o.template = os.path.join(here, 'check_conflicts_props.ps1.in' if o.kind == 'props' else 'check_conflicts.ps1.in')
+names = sorted(n for n in os.listdir(o.stream) if n != '_manifest.ymf' and (o.kind == 'props' or not n.startswith(o.ours)))
 skip = '|'.join(re.escape(r) for r in [o.res] + [s for s in o.skip.split(',') if s])
 refs = ','.join("'" + r.replace("'", "''") + "'" for r in o.refs.split(',') if r)
 s = open(o.template, encoding='utf-8').read()
@@ -32,4 +36,4 @@ assert '@@' not in s, 'template placeholder left unfilled'
 out = o.out or os.path.join(os.path.dirname(os.path.abspath(o.stream)), 'tools', 'check_conflicts.ps1')
 os.makedirs(os.path.dirname(out), exist_ok=True)
 with open(out, 'w', encoding='utf-8', newline='\r\n') as f: f.write(s)
-print(f'CONFLICT_CHECK {out}: {len(names)} replaced Rockstar files listed')
+print(f'CONFLICT_CHECK {out}: {len(names)} ' + ('streamed files listed' if o.kind == 'props' else 'replaced Rockstar files listed'))

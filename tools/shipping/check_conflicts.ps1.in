@@ -17,7 +17,7 @@ $hits = foreach ($f in $files) {
 }
 $refs = @(@@REFS@@)
 $scripts = $files | Where-Object { $_.Extension -in '.lua','.cfg','.json','.js' }
-$refHits = foreach ($s in $scripts) { foreach ($r in $refs) { if (Select-String -Path $s.FullName -SimpleMatch $r -Quiet -ErrorAction SilentlyContinue) { [pscustomobject]@{ Resource = Get-Res $s.FullName; Mentions = $r; Path = $s.FullName } } } }
+$refHits = foreach ($s in $scripts) { foreach ($r in $refs) { if (Select-String -LiteralPath $s.FullName -SimpleMatch $r -Quiet -ErrorAction SilentlyContinue) { [pscustomobject]@{ Resource = Get-Res $s.FullName; Mentions = $r; Path = $s.FullName } } } }
 "`n=== @@NAME@@ (@@RES@@) : file conflicts ==="
 if ($hits) { $hits | Sort-Object Resource, File | Format-Table Resource, File, Match, Path -AutoSize -Wrap; "{0} conflicting file(s) in: {1}" -f @($hits).Count, ((@($hits.Resource) | Sort-Object -Unique) -join ', ') } else { 'No file conflicts found.' }
 "`n=== scripts / configs that use the area or its interiors ==="
