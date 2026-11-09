@@ -24,6 +24,8 @@ a.add_argument('--area', required=True); a.add_argument('--family', default='');
 a.add_argument('--skip', default=''); a.add_argument('--ours', default='tc_'); a.add_argument('--out')
 a.add_argument('--kind', default='map', choices=['map', 'props']); a.add_argument('--template')
 o = a.parse_args()
+# A path Windows Python cannot see (e.g. Git Bash's /c/...) made os.walk return nothing and wrote a check with 0 files (2026-11-09).
+assert os.path.isdir(o.stream), f'stream folder not found: {o.stream} (on Windows use C:\\... paths, not /c/...)'
 if not o.template: o.template = os.path.join(here, 'check_conflicts_props.ps1.in' if o.kind == 'props' else 'check_conflicts.ps1.in')
 # Every streamed game file anywhere under stream/ (subfolders too: bought resources keep ymap/, ybn/, ytyp/ ... folders, and the
 # old top-level listdir wrote those FOLDER names into the check instead of the files, 2026-11-09 17mov). Data files loaded through
