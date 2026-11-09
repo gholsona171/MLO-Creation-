@@ -25,7 +25,13 @@ a.add_argument('--skip', default=''); a.add_argument('--ours', default='tc_'); a
 a.add_argument('--kind', default='map', choices=['map', 'props']); a.add_argument('--template')
 o = a.parse_args()
 if not o.template: o.template = os.path.join(here, 'check_conflicts_props.ps1.in' if o.kind == 'props' else 'check_conflicts.ps1.in')
-names = sorted(n for n in os.listdir(o.stream) if n != '_manifest.ymf' and (o.kind == 'props' or not n.startswith(o.ours)))
+# Every streamed game file anywhere under stream/ (subfolders too: bought resources keep ymap/, ybn/, ytyp/ ... folders, and the
+# old top-level listdir wrote those FOLDER names into the check instead of the files, 2026-11-09 17mov). Data files loaded through
+# data_file (.meta, .xml, .dat) are not matched by name, so they are left out, and so is the package's own _manifest*.ymf.
+STREAMED = {'.ymap', '.ytyp', '.ybn', '.ydr', '.ydd', '.yft', '.ytd', '.ycd', '.ynd', '.ynv', '.ymt', '.ypt', '.awc'}
+names = sorted({f for _, _, fs in os.walk(o.stream) for f in fs
+                if os.path.splitext(f)[1].lower() in STREAMED and not f.lower().startswith('_manifest')
+                and (o.kind == 'props' or not f.lower().startswith(o.ours.lower()))})
 skip = '|'.join(re.escape(r) for r in [o.res] + [s for s in o.skip.split(',') if s])
 refs = ','.join("'" + r.replace("'", "''") + "'" for r in o.refs.split(',') if r)
 s = open(o.template, encoding='utf-8').read()
