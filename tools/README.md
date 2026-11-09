@@ -123,4 +123,7 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `arch_bounds_by_hash.ps1` | Bounds + bsRadius of vanilla archetypes by hash from every game ytyp |
 | `xml_export_list.ps1`, `cwxml.ps1`, `ymap_import.ps1`, `ymap_check.ps1` | Batch export to XML, convert, import (name kept), load + name / parent check |
 | `ent_diff*.py`, `merge_ents*.py`, `ybn_diff2.py`, `merge_ybn.py`, `merge_coll.py`, `lod_diff.py`, `merge_lod.py`, `lodlights.py` | Entity, collision and LOD-light diffs / merges |
+| `merge_ymap_vanilla.py`, `cargen_diff.py` | (2026-11-09, round 3) Entity ymap merge rebuilt from VANILLA + every author's entity (guid) and car-generator edits, header extents = union, stops on overlap or other sections; car-gen diff |
+| `lod_align.py`, `lod_diff2.py`, `lod_merge_vanilla.py` | LOD-light pair: is it index-aligned, diff vs vanilla for any pair name, merge rebuilt from vanilla (`--remove TAG=hashes` for an author whose pair is broken) |
+| `verify_occl.py`, `xml_same.py`, `xml_export_all.ps1`, `import_dir.ps1`, `footprints_17mov.py` | What changed from each reference to merged occluders; merged XML vs its re-export; ymap/ytyp/ybn to XML; XML folder -> ymaps with name/parent check; 17mov car-wash footprints |
 

@@ -779,6 +779,30 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   out, stops on anything it cannot map), `occl_hits.py` + `footprints_grove.py` (oriented footprints vs occluders), `arch_bounds_by_hash.ps1`.
   Worked example: Cleveland RP rebuild `rebuild/install/grove_occl_variants/note.md`.
 
+## Bought maps, round 3: 17mov car washes + mine vs the server (2026-11-09)
+- **Rebuild every merged file from vanilla**, not from one author's file: vanilla XML + each author's edit vs vanilla. Author files carry
+  junk (17mov's `lr_sc1_occl_00` has an unresolved name hash and a broken `instancedData` block). `map_merge/merge_ymap_vanilla.py` does
+  entities (by guid) AND car generators (by position + every field); car-gen edits are real edits (17mov removes 2 at a wash, JC removes 31).
+- **Check a LOD-light pair is index-aligned before trusting it** (`lod_align.py`). Light i is `hash[i]` etc. in `vw_lodlights_X` plus
+  `position[i]` / `RGBI[i]` in `vw_distlodlights_X`. 17mov's medium012 removed 26 hashes from one file but 14 positions (+ the last 12 cut off)
+  from the other, so every light after index 91 got another light's data. Take the author's intent (lights removed in both files, plus ones
+  at its own sites) and rebuild the pair from vanilla with `lod_merge_vanilla.py --remove TAG=h1,h2...`. Removing a street light lowers
+  `numStreetLights`.
+- **A pack can ship its `hei_` occluder as a renamed copy of its `lr_` file** (amb-hospital `hei_sc1_occl_03` = its lr_ file: loses hei_'s 15
+  extra boxes and uses lr_'s version of a model). Take the edit from the lr_ file vs vanilla lr_ and apply it to vanilla hei_ by geometry.
+- **An installed union file already holds other packs' cuts.** Feeding it to `occl_variant_merge.py` next to one of those packs cuts the same
+  triangles twice; the tool now counts them as covered (boxes too) instead of stopping.
+- **A rig-only pack in a merge leaks into production.** "Identical copies everywhere" puts justice_center's ([localtest]) prop and car-gen edits into
+  Grimzy / gcom / hood copies. Build a second set without the rig-only pack for production and say which is which.
+- **Two packs rebuilding one vanilla yard (17mov mine vs EVO K9 wind-farm facility, x 2432..2498 y 1567..1608):** both replace `ch3_01_27.ybn`
+  and `ch3_01_wf_l01.ydr` with different custom geometry; 17mov deletes the vanilla building whose footprint K9's MLO uses and puts props through
+  it. Their MLO rooms do not overlap, but the yards do: stop, write the facts, Antonio picks one.
+- CodeWalker re-exports show a ymap's name as `hash_XXXXXXXX` when it is not in its string table: compare names as joaat (`xml_same.py`), and
+  `<x></x>` equals `<x />`.
+- Tools: `merge_ymap_vanilla.py`, `cargen_diff.py`, `lod_merge_vanilla.py`, `lod_align.py`, `lod_diff2.py`, `verify_occl.py` (what changed from each
+  reference to the merged occluders), `xml_export_all.ps1` (ymap / ytyp / ybn to XML), `import_dir.ps1` (XML dir -> ymaps + name / parent check),
+  `xml_same.py`, `footprints_17mov.py`. Worked example: Cleveland RP rebuild `rebuild/install/17mov_merge/merge.md`.
+
 ## Rebuilding one MLO's props: what actually regenerates (Tower City count room, 2026-11-06)
 - **Props live only in the MLO ytyp, but the ytyp comes from the full room build.** A heading change in `tower_lower.py` reaches
   `tc_tower.ytyp` only through `l3_build.py` (Blender: writes every `tc_tw_*` drawable + `l3/l3_layout.json`, whose `props` list is

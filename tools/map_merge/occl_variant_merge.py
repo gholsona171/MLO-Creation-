@@ -89,20 +89,29 @@ def main():
                 sys.exit(f"STOP: {e['name']} deleted a model ({len(s)} tris) that this variant does not have identically")
             print(f"  {e['name']}: model deleted {mdesc(hit[0])}"); TM.remove(hit[0]); gone.append(s)
     # 2. boxes
+    bgone = []
     for e in E:
         for g in e['rem']:
             hit = [it for it in TB if beq(bvals(it), g)]
-            if hit: TB.remove(hit[0]); print(f"  {e['name']}: box removed {bdesc(g)}")
+            if hit: TB.remove(hit[0]); bgone.append(g); print(f"  {e['name']}: box removed {bdesc(g)}")
+            elif any(beq(g, x) for x in bgone): print(f"  {e['name']}: box {bdesc(g)} already removed by an earlier author (covered)")
             else: print(f"  {e['name']}: box {bdesc(g)} NOT IN THIS VARIANT (nothing removed)")
         for g, it in e['add']:
             if any(beq(bvals(x), g) for x in TB): print(f"  {e['name']}: box already present {bdesc(g)}"); continue
             TB.append(copy.deepcopy(it)); print(f"  {e['name']}: box added {bdesc(g)}")
-    # 3. triangle cuts
+    # 3. triangle cuts. Two authors may cut the same triangles (a pack whose file already holds another pack's cut): triangles an
+    #    earlier author already removed are covered, the rest must still sit in one model.
+    done = set()
     for e in E:
         for s, drop in e['cuts']:
             if any(s == x for x in gone): print(f"  {e['name']}: {len(drop)} cut triangles fall in a model already deleted (covered)"); continue
+            if drop & done:
+                print(f"  {e['name']}: {len(drop & done)} of its {len(drop)} cut triangles already removed by an earlier author (covered)")
+                drop = drop - done
+                if not drop: continue
             hit = [m for m in TM if drop <= tset(m)]
             if len(hit) != 1: sys.exit(f"STOP: {e['name']}'s {len(drop)} cut triangles are not all in one model of this variant")
+            done |= drop
             n = rebuild_model(hit[0], drop); print(f"  {e['name']}: {n} triangles removed from model {mdesc(hit[0])}")
             for k in sorted(drop, key=lambda k: min(p[0] for p in k)): print(f"      - {tdesc(k)}")
     TB.set('itemType', TB.get('itemType') or 'BoxOccluder')
