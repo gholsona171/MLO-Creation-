@@ -901,3 +901,47 @@ and the mall court / tower lobby / casino, with the clock held. `tc_glow_flyby.s
   detectives' door. Before giving a cell a SPECIFIC meaning (a unit badge, a room name), check where its decals stand (entity
   positions in the ytyp / ymap) and have it seen in game. Where cells can't be pinned down, give the uncertain ones art that's right
   wherever it lands (the main emblem).
+
+## Slimming streamed files for client memory (Cleveland RP stream audit follow-up, 2026-11-10)
+Players timed out / lost models from client streaming memory. Three jobs: kq islands' 20 km lodDist, the hospital + DC Beauty texture
+dictionaries, Tower City's embedded textures. Tools: `tools/texture_budget/` (tex_slim, tex_verify, tex_list, rsc_size) and `tools/lod_range/`.
+- **Measure physical size from the saved file, never estimate it.** `rsc_size.py` decodes the RSC7 header like the audit. Page packing
+  inflates it: `tc_mall_avenue.ydr` read 103 MiB with 78.8 MiB of texture data and only 4.2 MiB of vertex + index buffers - "phys minus
+  textures" (24 MiB) is page rounding, not geometry. tex_slim saves and re-measures before every halving decision.
+- **Sollumz-built textures are the Tower City cost.** `mlo_surface.dds()` writes every `tex_mat` / sign texture as uncompressed
+  A8R8G8B8 on purpose (DXT5's 5:6:5 endpoints turned dark greys into purple / green speckle, V13). 4 bytes a pixel: 67 MiB of
+  tc_mall_avenue's 79. BC7 keeps the resolution and the dark greys (7-8 bit endpoints) at 1 byte a pixel. GTA V / FiveM read BC7 in
+  ytd and embedded dictionaries (CodeWalker `D3DFMT_BC7`). Done as a build step (`TowerCity/work/assemble.sh`, tex_slim `-Compress BC7`)
+  after the stream folder is assembled - every build gets it, nothing is hand-edited.
+- **CodeWalker `DDSIO.GetDDSFile` throws "Invalid slice pitch" / "Invalid row pitch"** on non-square textures whose mips run to 1x1
+  (1024 x 256 with 11 levels: every Sollumz sign) - the same error that stopped the Nov 5 gun shrink on `w_pi_pdhkusp.ytd`. tex_slim
+  writes the DDS itself from the texture's fields. Sollumz stores w*h*bpp*4/3 bytes, a few bytes short of the tail mips (2x2, 1x1):
+  pad them; DDSIO.GetPixels says "Mipmap not in texture!" on those levels, so compare levels of 4x4 and up only.
+- **An opaque DXT5 is a DXT1 for free.** A DXT5 colour block is a DXT1 4-colour block; where its endpoints are in 3-colour order
+  (c0 <= c1) swap them and XOR every 2-bit index with 1 (all 0 when c0 == c1). If the alpha block decodes to 255 for every texel
+  (levels 4x4 and up), the DXT1 decodes to the same pixels at half the bytes. Proven pixel-exact with CodeWalker on 303 DC Beauty
+  textures and every hospital one (`tex_verify.ps1`). It runs before any halving.
+- **Embedded textures: change the texture objects IN PLACE.** A drawable's shader parameters point at the texture objects of its
+  embedded dictionary; build a fresh dictionary and the old textures are still referenced (written twice, nothing saved). tex_slim
+  sets Width / Height / Levels / Format / Stride / Data on the same objects, then gates on the whole-file CodeWalker XML with the
+  texture entries left out: identical to the original or the file is not written.
+- **The 512 floor stops some files above 16 MiB.** `dcbeauty_txd.ytd` is 132 textures at 512 x 512 (no mips) + 117 at 256: nothing
+  can be halved, so the lossless DXT1 step is all there is (48.3 -> 32 MiB, under the 48 MiB "Oversized" line, still over 16).
+  Tower City's 1024 x 256 / 1024 x 128 sign strips can't be halved either (256 < 512): such a drawable's halving target falls back to
+  48 MiB so textures are not cut for nothing.
+- **An orphan HD island with lodDist 20000 has no LOD to fall back to.** KuzQuality's islands are single escrowed HD models placed as
+  `LODTYPES_DEPTH_ORPHANHD` with no parent / children, so the whole model + its txd stays resident anywhere within 20 km (the whole
+  map). Lowering lodDist cuts only the far range (no hole: there is no chain). Rockstar's comparable far models (vanilla scan,
+  `lod_range/vanilla_lod_scan.ps1`): Cayo Perico terrain SLOD2 2500 / SLOD3 5000 / SLOD4 10000 and prop SLOD3 4000 / SLOD4 8000, the
+  prologue's distant scenery LODs 4000 - all tiny low-poly models. For a full HD model 4000 m was used: no island is resident in the
+  city, Davis, Grove, Sandy or Paleto; they still draw from the coasts facing them. `ymap_loddist.py` edits only the lodDist values +
+  recomputes streamingExtents (position +- (lodDist + bsRadius)); `cw_ymap.ps1 build` compiles and refuses a non-identical
+  re-export (run it on the unedited original first). The ymaps were in the pack's `escrow_ignore` (meant to be edited).
+- **`Copy-Item $src -LiteralPath $dst` copies $dst onto $src.** With a positional path AND `-LiteralPath`, LiteralPath is the SOURCE
+  and the positional one the destination: it silently put the original ymap over the edited one. For paths with `[brackets]` use
+  `[IO.File]::Copy(src, dst, $true)`, and reload the shipped file to check.
+- **Conflict-check proof layout:** a proof folder named like the resource (`...\kq_islands_pack\resources\...`) hides every hit,
+  because the checker skips any path containing `\<resource>\`. Give the scratch server root a neutral name.
+- **Rebuilding Tower City from source ships everything in `work/` since the rig's last deploy.** The rig / VPS copy was the
+  2026-10-25 build; `resource/` was 2026-10-29 (night-glow vertex colours) and `work/l3` had the 2026-11-06 count-room rebuild not yet
+  assembled. The slimmed build carries all of it: say so and diff (`diff -rq`) before it goes live.

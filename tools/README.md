@@ -127,3 +127,13 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `lod_align.py`, `lod_diff2.py`, `lod_merge_vanilla.py` | LOD-light pair: is it index-aligned, diff vs vanilla for any pair name, merge rebuilt from vanilla (`--remove TAG=hashes` for an author whose pair is broken) |
 | `verify_occl.py`, `xml_same.py`, `xml_export_all.ps1`, `import_dir.ps1`, `footprints_17mov.py` | What changed from each reference to merged occluders; merged XML vs its re-export; ymap/ytyp/ybn to XML; XML folder -> ymaps with name/parent check; 17mov car-wash footprints |
 
+
+### Slimming streamed files for client memory (2026-11-10) - in `texture_budget/` and `lod_range/` (field note "Slimming streamed files...")
+| Tool | What it does |
+|---|---|
+| `texture_budget/tex_slim.ps1` | Texture budget for `.ytd` AND textures embedded in `.ydr` / `.ydd`: cap 2048, then while a file is not under 16 MiB physical (measured on the saved file): compress uncompressed 32-bit (`-Compress BC3` or `BC7` for dark greys), lossless opaque DXT5 -> DXT1, halve the largest (never under 512); a drawable that can't reach 16 at the floor stops halving at 48. Edits textures in place, gates on reload + whole-drawable XML minus textures. `-Mode scan` lists only. Tower City runs it in `assemble.sh` |
+| `texture_budget/tex_verify.ps1` | Original vs slimmed file: every texture kept (name, usage, flags), unchanged ones byte-identical, DXT1 transcodes pixel-exact |
+| `texture_budget/tex_list.ps1` | Every texture of a ytd / ydr / ydd (embedded): size, format, mips, bytes |
+| `texture_budget/rsc_size.py` | Physical (VRAM) / system (RAM) MiB from the RSC7 header, as the stream audit decodes it; FXAP = escrowed |
+| `lod_range/ymap_loddist.py` + `cw_ymap.ps1` | Set entity lodDist in a ymap's CodeWalker XML (text edit), recompute streamingExtents; compile with a byte-exact round-trip gate |
+| `lod_range/vanilla_lod_scan.ps1` | Rockstar's far LOD ranges (every lodDist >= 2500 in LOD / SLOD / Cayo ymaps) to pick a realistic far range |

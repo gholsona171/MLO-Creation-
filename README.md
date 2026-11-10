@@ -53,6 +53,7 @@ See [tools/README.md](tools/README.md). The short list:
 | New exterior shells + their LOD chain plugged into Rockstar's block tree, LOD-level debug colours, Rockstar texture survey by colour, rig walks round / up entrances (doc 13) | `justice/p2/` |
 | Rebrand a bought / escrowed MLO through its readable ytds: DXT + mips writer, swap textures keeping flags; locked props replaced by our own (archetype swap, meta round-trip gate, cloth flags re-issued) (field notes 2026-11-06) | `texture_rebrand/` (`encode.py`, `ytd_swap.ps1`, `edit_meta.py`, `cw_meta.ps1`, `cw_import.ps1`, `make_flags.py`) |
 | Ground holes / steps and drawn-vs-collision, offline on the built files (before deploying) | `wow2easy_move/tools/hole_grid_offline.py`, `seen_vs_solid.py` (see 07) |
+| **Texture budget** for ytd + embedded ydr / ydd textures (cap 2048, under 16 MiB physical, never under 512, lossless DXT1, BC7 for Sollumz textures) and far-LOD range edits for ymaps (field note 2026-11-10) | `texture_budget/tex_slim.ps1`, `tex_verify.ps1`, `rsc_size.py`; `lod_range/` |
 
 ## Project tools (copies; the projects stay where they run from)
 - `tools/towercity/`: level-0 vanilla removal (`l0_cut`, `l0_col`, `l0_maps`), `area_clear.lua` (AI traffic, navmesh and scenarios

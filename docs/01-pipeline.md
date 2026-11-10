@@ -12,6 +12,9 @@
    - *route check*: ambient-life walk routes hitting geometry.
    - unit tests on the pure-Python layout tables (rooms, partitions, doorways, overlaps).
 5. **Assemble** the resource from build outputs only (never edit the resource by hand), copy to the rig, restart.
+   The assemble step ends with the **texture budget** (`tools/texture_budget/tex_slim.ps1 -Compress BC7`, 2026-11-10): Sollumz writes
+   our textures uncompressed (4 bytes a pixel), which made `tc_mall_avenue.ydr` 103 MiB of client memory. The build stops on any
+   FAILED / ERROR line from it.
 
 ## Hard-won rules
 - A build log's "completed" from the launching shell is NOT the build finishing. Watch for the pass line (e.g. `L3_BUILD_PASS`) and the
