@@ -125,6 +125,8 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `ent_diff*.py`, `merge_ents*.py`, `ybn_diff2.py`, `merge_ybn.py`, `merge_coll.py`, `lod_diff.py`, `merge_lod.py`, `lodlights.py` | Entity, collision and LOD-light diffs / merges |
 | `merge_ymap_vanilla.py`, `cargen_diff.py` | (2026-11-09, round 3) Entity ymap merge rebuilt from VANILLA + every author's entity (guid) and car-generator edits, header extents = union, stops on overlap or other sections; car-gen diff |
 | `lod_align.py`, `lod_diff2.py`, `lod_merge_vanilla.py` | LOD-light pair: is it index-aligned, diff vs vanilla for any pair name, merge rebuilt from vanilla (`--remove TAG=hashes` for an author whose pair is broken) |
+| `ymf_drop.ps1` | (2026-11-11) Rebuild a pack's PSO `_manifest.ymf` without the imapDependencies_2 entries of ymaps the build leaves out; round-trip gate on the unedited file first |
+| `game_names.ps1`, `hash_names.py` | (2026-11-11) Every RPF file name in the game -> resolve `hash_XXXXXXXX` names the prop catalogue lacks (vegetation, rubbish, road props) |
 | `verify_occl.py`, `xml_same.py`, `xml_export_all.ps1`, `import_dir.ps1`, `footprints_17mov.py` | What changed from each reference to merged occluders; merged XML vs its re-export; ymap/ytyp/ybn to XML; XML folder -> ymaps with name/parent check; 17mov car-wash footprints |
 
 

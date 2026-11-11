@@ -970,3 +970,21 @@ glass. Proof and the probe numbers: doc 02 "Rain inside". Gate: `rain_cover_chec
   what the map uses (framework + elevators); the Cleveland RP copy lists what was left out in its fxmanifest.
 - Map position from the readable ytyp/ymap: `tools/survey/mlo_world_coords.py` (rooms, exit portals, named props in world coords).
 - The shipped conflict check's `--refs bh1_35` also hits animation lists (`anims.json`) that happen to contain the string: noise.
+
+## Evaluating free / third-party map + script packs (anarchy trap house, uWuCafe, 2026-11-11)
+- **No 7-Zip on the PC:** Windows' own `C:\Windows\System32\tar.exe` (bsdtar / libarchive) lists and extracts `.rar` (`tar -tvf`, `tar -xf x.rar -C dir`).
+  Use it before installing anything.
+- **`find_vanilla2_v2.ps1` needs a short `-Out`** (e.g. `C:\C9Test\eval_vanilla`): the tag folder is the whole RPF path including the file
+  name, so a scratch folder under AppData passes 260 characters and WriteAllBytes fails. Each file lands at `<Out>\<rpf path>\<name>\<name>`.
+- **Name the hashes:** the prop catalogue only knows furniture / clutter. `tools/map_merge/game_names.ps1` dumps every RPF file name
+  (~245k) and `hash_names.py` joaats them: it named the trap house's 87 added `prop_bush_med_03`, weeds, fences and the swapped streetlight.
+- **Leaving one of a pack's Rockstar ymaps out means rebuilding its `_manifest.ymf` too.** The manifest carries an imapDependencies_2
+  entry for every ymap the pack ships, Rockstar ones included; justice_center ships its own entry for the same ymap. `map_merge/ymf_drop.ps1`
+  rebuilds the manifest without the named entries (PSO: `YmfFile.Load(bytes, RpfBinaryFileEntry)` + `PsoXml.GetXml`, back with
+  `XmlPso.GetPso(doc).Save()`; `MetaXml.GetXml` only says "Couldn't find block 0" on a PSO ymf). Gate: the unedited file must round-trip first.
+- **Generic model names** (`shell.ydr`, `shell_col.ybn`, `wash.ytd`, `pounds.ytd`) clash with any other pack using them. Generate the
+  checker with `--ours '~none~'` so EVERY stream file is listed, not just the Rockstar ones; proven with a planted `SHELL.ydr` (case-insensitive).
+- **Old QBCore job scripts "for a Gabz MLO"** often grant items from the CLIENT (`TriggerServerEvent('QBCore:Server:AddItem', ...)`): any
+  player can give himself any item where that event exists, and on Qbox it does not exist (the job does nothing). Not installable; a rewrite.
+- **Prop packs under Rockstar names** (`apa_prop_cs_plastic_cup_01`, `prop_cs_bowl_01b`, `v_ret_247_noodle1` ...) replace those props for
+  every script: grep the server's emote menus for the names (cylex_animmenuv2 uses all five) before installing; re-issue under our own names.
