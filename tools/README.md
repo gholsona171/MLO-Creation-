@@ -137,3 +137,11 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `texture_budget/rsc_size.py` | Physical (VRAM) / system (RAM) MiB from the RSC7 header, as the stream audit decodes it; FXAP = escrowed |
 | `lod_range/ymap_loddist.py` + `cw_ymap.ps1` | Set entity lodDist in a ymap's CodeWalker XML (text edit), recompute streamingExtents; compile with a byte-exact round-trip gate |
 | `lod_range/vanilla_lod_scan.ps1` | Rockstar's far LOD ranges (every lodDist >= 2500 in LOD / SLOD / Cayo ymaps) to pick a realistic far range |
+
+### Rain inside an MLO (Tower City, 2026-11-10) - in `rain/` (doc 02 "Rain inside", doc 07 step 6b)
+| Tool | What it does |
+|---|---|
+| `rain/rainmeter.ps1` | Counts thin moving streak pixels (rain) between consecutive captures of the game window; median of N pairs |
+| `rain/rain_measure.sh` | Rig: teleport to each spot, aim the camera, read interior / rain level, streak count + a shot per spot |
+| `rain/rain_cover_check.py` | Gate (Tower City copy): every room floor point needs an up-facing opaque EXTERIOR face above it; glass only = FAIL |
+| `rain/probe/rain_probe_gen.py`, `rain_probe_gen_onesided.py` | The probe map: opaque slabs over a court, one per model RenderMask / entity flag / face side (CodeWalker XML from a template ydr; `ydr_xml.ps1 -Mode import`, TequiBuild compile) |

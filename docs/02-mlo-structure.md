@@ -416,3 +416,31 @@ interiors, measured with `tools/justice/p3/vcol_stats.py` on CodeWalker XML (med
 Write per room and surface class with `color_srgb` (what Sollumz stores) after `new_drawable` (wrap `TK.K.new_drawable` in the
 build; never edit tc_kit). Emissive-shader faces keep 1.0. Check the BUILT file: `local_xml.ps1` turns a local ydr / ybn into XML,
 then `vcol_stats.py` reads it (the galleria came out 153/107/255 floor, 115/115/255 walls, as written).
+
+## Rain inside: glass roofs need a rain cap (Tower City court, 2026-11-10)
+Antonio: "if it rained outside, it rained in the building". Only the mall court under the glass barrel vault (and the galleries / shop
+rows that look into it) got rain; every room under an opaque roof stayed dry. Proven on the rig (THUNDER, 21:00, the streak meter
+`tools/rain/rainmeter.ps1`, one probe map of test slabs over the court):
+- **GTA stops rain with a top-down height map of the OPAQUE, UP-FACING EXTERIOR faces.** Being inside an MLO room does not stop it
+  (the court is a room of `tc_under`, rain fell anyway); there is no room / portal / MLO flag for it. A room whose portals never reach
+  limbo shows no rain at all (P1 under the court stayed dry with only glass + the court floor over it), but any room that sees the
+  outside through a portal gets the rain box drawn in it, clipped only by that height map.
+- What does NOT count: glass (alpha bucket - the vault's clear panes), interior room drawables, script-spawned props (CreateObject
+  containers over the vault changed nothing), and faces turned DOWN (the map culls back faces). Model render masks without bit 0
+  (2, 16, 32, 64, 128, 252) and entity flag ONLY_RENDER_IN_SHADOWS do not count either.
+- What counts: one up-facing opaque face in an exterior drawable. Streaks under the probe strips (court floor, looking along it;
+  open court 7.5k): two-sided slab 1.6k, **top face only 1.1k, top face only with model RenderMask 253 (no shadow pass) 2.1k**,
+  bottom face only 14.7k. Looking up from below, the top-only face is invisible (a back face).
+- **The fix (tc_kit `rain_cap`)**: every sloped glass pane gets a rain cap - the same polygon 5 cm outside it, wound to face up, opaque
+  (`darkglass`), no collision, in its own exterior drawable (`tc_mall_raincap`) whose model RenderMask is **253** (all passes but
+  shadows, so the sun still falls through the vault). On a curved roof offset radially from the barrel's axis so neighbouring caps
+  share their edges; on a flat or lean-to roof offset STRAIGHT UP (along the normal the lean-to's high edge moved 2 cm off the
+  vault's springing line and the gate caught a 2 cm strip with only glass over it). Upright glass (|n.z| < 0.2: windows, clerestory, fan window) needs none. From inside nothing changes (the cap is
+  a back face); from outside / above the vault reads as dark tinted glass.
+- Gate: `tools/rain/rain_cover_check.py` (Tower City `work/tools/`, in `build_east.sh`): every room floor point (1 m grid) must have
+  an up-facing opaque exterior face above it; "glass only" fails. Rooms with only room geometry or nothing above (underground: the
+  street and vanilla ground over them are not in the build files) are advisory - check them on the rig.
+- Any MLO with a glass roof has this: the Justice Center atrium galleria (doc 02, phase 3) has a glass roof and no cap yet.
+- Result on the rig (2026-11-11, THUNDER 21:00, full restart with the rebuilt resource): no streaks under the vault, in the galleries
+  or the shop rows (before: streaks over the whole court, against the vault and in front of the shopfronts); the vault reads as
+  dark tinted glass from above; pool, lifts and landing doors unchanged; no new FiveM memory warnings.

@@ -11,6 +11,10 @@ Nothing is done until it has been seen on the rig.
 5. **Frame review**: cut a frame every 3 s and review contact sheets (`tools/video_review.py`); list everything wrong by room before
    reporting.
 6. Test interactions for real: push doors, ride lifts with and without access, sit-test every seat, swim in pools.
+6b. **Rain test** (2026-11-10): weather THUNDER at 21:00 (the server's weather script, e.g. Renewed-Weathersync `GlobalState.weather`),
+   walk every room and count streaks with `tools/rain/rain_measure.sh` (`rainmeter.ps1`): rain falling in view reads 11-13k, a dry
+   room under 1.5k - but only when the rain-off baseline (SetRainLevel(0)) at that spot is low: swaying trees and moving peds
+   count too. Otherwise compare cropped shots looking up at the roof (streaks show against the dark sky). See doc 02 "Rain inside".
 7. Write the MLO data file (doors, lifts, spots, TVs, seats) and its README from the build tables, never by hand.
 
 Pitfalls seen:

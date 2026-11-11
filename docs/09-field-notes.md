@@ -945,3 +945,15 @@ dictionaries, Tower City's embedded textures. Tools: `tools/texture_budget/` (te
 - **Rebuilding Tower City from source ships everything in `work/` since the rig's last deploy.** The rig / VPS copy was the
   2026-10-25 build; `resource/` was 2026-10-29 (night-glow vertex colours) and `work/l3` had the 2026-11-06 count-room rebuild not yet
   assembled. The slimmed build carries all of it: say so and diff (`diff -rq`) before it goes live.
+
+## rain-inside-glass-roof (Tower City, 2026-11-10)
+It rained in the mall court under the glass vault. Not a room / portal / flag problem: GTA clips rain with a top-down map of opaque,
+up-facing exterior faces, and glass is not in it. Fix = a rain cap per sloped glass pane (an up-facing opaque face 5 cm outside, own
+exterior drawable, model RenderMask 253 so it casts no shadow). Inside nothing changes (back face); outside the vault reads as tinted
+glass. Proof and the probe numbers: doc 02 "Rain inside". Gate: `rain_cover_check.py`.
+- Editing a running bash script (adding the gate line to `build_east.sh` while it ran) broke the run with "syntax error near `}'":
+  bash reads the file as it goes. Edit build scripts only between runs.
+- Test maps on a live rig without a restart: quit the game (F8 `quit` by keys - `t.sh cmd ... quit` does nothing), `refresh` +
+  `ensure <map>` with nobody in, reconnect. Never `ensure` a stream resource with a player in.
+- A new exterior drawable must be known to every gate: Tower City's `vcol_check.py` classed exteriors by name (`*_ext`) and failed
+  `tc_mall_raincap` as an interior with exterior colours. It now reads every layout's `ext` list (the builds' own truth).
