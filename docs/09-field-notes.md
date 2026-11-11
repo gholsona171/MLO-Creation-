@@ -988,3 +988,8 @@ glass. Proof and the probe numbers: doc 02 "Rain inside". Gate: `rain_cover_chec
   player can give himself any item where that event exists, and on Qbox it does not exist (the job does nothing). Not installable; a rewrite.
 - **Prop packs under Rockstar names** (`apa_prop_cs_plastic_cup_01`, `prop_cs_bowl_01b`, `v_ret_247_noodle1` ...) replace those props for
   every script: grep the server's emote menus for the names (cylex_animmenuv2 uses all five) before installing; re-issue under our own names.
+- **`py -3 -I` hides user site-packages** (Pillow etc.): `-I` is right for scripts that READ untrusted downloads, but contact sheets and
+  other tooling on our own files need a plain `py -3`.
+- Trap house rig result (2026-11-11): installed as Cleveland-RP `1369e7d`. Walk in / out passed both ways, 0 holes in 441 floor + 2,832
+  yard rays, dry under THUNDER, no Pool Full / memory / duplicate-archetype lines of its own. Shell lodDist 100 with no LOD model: it
+  pops in at about 100 m (normal for small free MLOs). Ambient peds sit on its chairs (the chair props carry seat scenarios).
