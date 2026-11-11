@@ -957,3 +957,16 @@ glass. Proof and the probe numbers: doc 02 "Rain inside". Gate: `rain_cover_chec
   `ensure <map>` with nobody in, reconnect. Never `ensure` a stream resource with a player in.
 - A new exterior drawable must be known to every gate: Tower City's `vcol_check.py` classed exteriors by name (`*_ext`) and failed
   `tc_mall_raincap` as an interior with exterior colours. It now reads every layout's `ext` list (the builds' own truth).
+
+## Installing a BrunX map (brnx_courthouse, ULSA campus library, 2026-11-11)
+- **Keymaster API hiccup:** `/v1/me/asset-grants` returned `500 failed to get asset grants` for every query for a few minutes while
+  `/v1/me` worked (the portal page showed an empty list). Retrying a few seconds later with `sort=asset.name` worked; nothing was wrong
+  with the session. Retry before assuming a sign-in problem.
+- **Every BrunX map needs `brnx_bridge`** (fxmanifest `dependencies { 'brnx_bridge' }`, the map will not start without it). The bridge
+  is free on GitHub (brunxscripts/brunx_bridge), not on Keymaster. It holds the maps' elevator coords in its own `shared/config.lua`
+  (`Config.MapElevators['brnx_courthouse']`); the map itself runs no script. Upstream it also streams Cayo Perico files
+  (`h4_islandx_mansion*.ymap`, `h4_beach_party_1.ybn`, `this_is_a_map`) for every player, polls `brnx_cayopericobridge` every 2 s,
+  scans every started resource's stream folder 10 s after start (`/compchecker`) and calls GitHub for a version check. Install only
+  what the map uses (framework + elevators); the Cleveland RP copy lists what was left out in its fxmanifest.
+- Map position from the readable ytyp/ymap: `tools/survey/mlo_world_coords.py` (rooms, exit portals, named props in world coords).
+- The shipped conflict check's `--refs bh1_35` also hits animation lists (`anims.json`) that happen to contain the string: noise.
