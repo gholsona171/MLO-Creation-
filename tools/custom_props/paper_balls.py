@@ -3,8 +3,8 @@ simulation the NUI uses (paper_ball_geom.mjs), so the ball on the ground matches
 
   py -3 paper_balls.py <sim.js> <out dir>        -> <out>/bin/<name>.ydr for each colour + c9sn_balls.ytyp
 
-Each model: a crumpled sheet ~5.5 cm across (a real balled sticky note is 3-4 cm; a bit larger so it reads on the floor), drawn
-double-sided (the sheet has two faces), pivot centred in x/y with z = 0 at its lowest point (it sits on the ground: place it at the
+Each model: a crumpled sheet ~7 cm across (a real balled sticky note is 3-4 cm; larger so it reads on the floor), drawn
+double-sided (the sheet has two faces; the back copy sits 0.4 mm inside so the two never z-fight), pivot centred in x/y with z = 0 at its lowest point (it sits on the ground: place it at the
 ground z, no PlaceObjectOnGroundProperly needed). Shader default.sps like Rockstar's prop_paper_ball, one embedded 128 px
 A8R8G8B8 texture: the paper colour, grain and faint ink lines. Sphere bounds. Archetypes via mlo_meta (TequiBuild), lodDist 40."""
 import json, math, subprocess, sys
@@ -16,13 +16,13 @@ sys.path.insert(0, r'C:\Users\anton\Documents\Codex\TowerCity\work')
 import mlo_meta as MM  # plain_ytyp + compile_all (TequiBuild)
 
 COLOURS = {'yellow': '#fde68a', 'pink': '#fbcfe8', 'blue': '#bfdbfe', 'green': '#bbf7d0', 'orange': '#fed7aa'}
-SIZE = 0.055        # metres across
+SIZE = 0.07         # metres across (a real balled sticky note is 3-4 cm; 7 cm reads on the floor from standing height)
 TEX = 128
 YDR_XML = HERE.parent / 'ydr_xml.ps1'
 
 
 def geometry(sim_js, seed):
-    out = subprocess.run(['node', str(HERE / 'paper_ball_geom.mjs'), sim_js, '12', str(seed)], capture_output=True, text=True, check=True)
+    out = subprocess.run(['node', str(HERE / 'paper_ball_geom.mjs'), sim_js, '20', str(seed)], capture_output=True, text=True, check=True)
     g = json.loads(out.stdout)
     p = np.array(g['pos'], np.float64).reshape(-1, 3)
     uv = np.array(g['uv'], np.float64).reshape(-1, 2)
@@ -77,7 +77,8 @@ def f(v): return f'{v:.7g}'
 def ydr_xml(name, p, uv, tri):
     n = normals(p, tri)
     # two-sided: a second copy with flipped normals and winding
-    P = np.vstack([p, p]); N = np.vstack([n, -n]); UV = np.vstack([uv, uv])
+    # the back copy is pushed 0.4 mm inwards: two faces at the same depth flicker dark under GTA's lighting
+    P = np.vstack([p, p - n * 0.0004]); N = np.vstack([n, -n]); UV = np.vstack([uv, uv])
     T = np.vstack([tri, tri[:, ::-1] + len(p)])
     lo, hi = P.min(0), P.max(0); c = (lo + hi) / 2; r = float(np.linalg.norm(hi - lo) / 2)
     verts = '\n'.join(f'       {f(a[0])} {f(a[1])} {f(a[2])}   {f(b[0])} {f(b[1])} {f(b[2])}   255 255 255 255   {f(t[0])} {f(1 - t[1])}'
