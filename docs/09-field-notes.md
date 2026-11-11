@@ -993,3 +993,11 @@ glass. Proof and the probe numbers: doc 02 "Rain inside". Gate: `rain_cover_chec
 - Trap house rig result (2026-11-11): installed as Cleveland-RP `1369e7d`. Walk in / out passed both ways, 0 holes in 441 floor + 2,832
   yard rays, dry under THUNDER, no Pool Full / memory / duplicate-archetype lines of its own. Shell lodDist 100 with no LOD model: it
   pops in at about 100 m (normal for small free MLOs). Ambient peds sit on its chairs (the chair props carry seat scenarios).
+
+## Finding the file that hangs a player's game (2026-11-11)
+Symptom: the client log floods with `Ignoring Z_BUF_ERROR with avail_in == 0` (thousands a second, from a streaming
+thread) right after the player spawns, then "FiveM has stopped responding". A streamed RSC7 file near the player is cut
+short or damaged: its packed data ends before the size its header promises. Find it with `tools/check_stream_files.ps1`
+(run on the server's resources folder): it unpacks every .ytd/.ydr/.yft/.ydd/.ybn/.ymap/.ytyp/.ycd and compares with the
+header (page-flag sizes: base 0x200 << (flags & 0xF), nine page counts). Encrypted RSC8 / FXAP (escrow) files are skipped.
+If the server's files are all clean, the player's own FiveM cache is broken: clear data\cache, server-cache, server-cache-priv.
