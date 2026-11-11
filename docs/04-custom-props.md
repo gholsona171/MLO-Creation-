@@ -36,6 +36,7 @@ Rockstar's recipe (from `prop_tv_flat_01`): the screen shader (`normal_spec_emis
 | `tc_prop_urinal` | solid vitreous-china body, bowl carved by boolean, chrome flush valve + trap. |
 | `tc_prop_faucet` | chrome gooseneck mixer for inset basins. |
 | `tc_prop_mirror` | 1 × 1 m `mirror_default` panel; stretch with scaleXY / scaleZ; needs a mirror portal on its plane (doc 02). |
+| `c9sn_ball_<colour>` | c9_stickynotes crumpled notes, one per paper colour (`tools/custom_props/paper_balls.py`, no Blender): the shape is the last frame of the NUI's own crumple simulation (`paper_ball_geom.mjs`), so the floor prop matches the 3D ball in the UI. ~5.5 cm, pivot z = 0 at its lowest point (place at the ground z), double-sided `default.sps` like `prop_paper_ball`, 128 px A8R8G8B8 texture written in numpy, Sphere bounds. |
 
 - **Building with Rockstar's own textures without embedding them**: import the vanilla model (Sollumz), reuse its materials on new
   geometry, export without embedding, and give the new archetype the vanilla archetype's `textureDictionary` (e.g. the junkyard
