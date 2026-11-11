@@ -50,6 +50,8 @@ def normals(p, tri):
 def texture(hexcol, seed):
     rng = np.random.default_rng(seed)
     rgb = np.array([int(hexcol[i:i + 2], 16) for i in (1, 3, 5)], np.float64) / 255
+    # the UI's pastel paper bleaches to white under GTA's sun; squaring keeps the hue and gives back the saturation
+    rgb = rgb ** 2.0
     px = np.ones((TEX, TEX, 4))
     px[:, :, :3] = rgb * (1 + rng.normal(0, 0.035, (TEX, TEX, 1)))
     # faint ink: a few wavy handwriting lines
