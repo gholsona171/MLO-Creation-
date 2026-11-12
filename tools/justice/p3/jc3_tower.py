@@ -38,44 +38,55 @@ def rooms():
     out = {'galleria': 1, 'tlobby': 2, 'stair': 3}
     for i, f in enumerate(FLOORS): out.update({f'crt{f}': 4 + 4 * i, f'pub{f}': 5 + 4 * i, f'rst{f}': 6 + 4 * i, f'sec{f}': 7 + 4 * i})
     return out
+AREA5_ROOMS = ['gaud', 'grec', 'gsec', 'mayor', 'govnr']                # area 5 (jc5_court): ids after area 3's (jc3_plan.ROOMS)
 ROOM_NAME = {'tlobby': 'JC_TOWER_LOBBY', 'stair': 'JC_TOWER_STAIR', **{f'{k}{f}': f'JC_{n}_{f}' for f in FLOORS for k, n in
-             (('crt', 'COURTROOM'), ('pub', 'COURT_PUBLIC'), ('rst', 'COURT_RESTRICTED'), ('sec', 'COURT_SECURE'))}}
+             (('crt', 'COURTROOM'), ('pub', 'COURT_PUBLIC'), ('rst', 'COURT_RESTRICTED'), ('sec', 'COURT_SECURE'))},
+             'gaud': 'JC_GOV_AUDITORIUM', 'grec': 'JC_GOV_RECEPTION', 'gsec': 'JC_GOV_SECURITY', 'mayor': 'JC_MAYOR', 'govnr': 'JC_GOVERNOR'}
 TCYC = {k: 'mp_heist_tuner_smshop_default' for k in ROOM_NAME}
 # ---------------- doors (native) ----------------
 GEN = 'v_ilev_ph_gendoor005'                                            # Mission Row's solid office door: leaf along -x (1.30), hinge at 0, mid-height
 GLASS_L, GLASS_R = 'v_ilev_ph_door01', 'v_ilev_ph_door002'              # the glazed pair (as the galleria's street doors)
 CELL = 'v_ilev_ph_cellgate'                                             # Mission Row cell gate: leaf along -x (1.30)
-LEAF = 1.30; LEAF_H = 2.30; JAMB = 0.05
-def door_on(axis, plane, a0, z, model=GEN, sense=1):
-    """one leaf in an opening starting at a0 along the wall (the opening is a0 .. a0 + LEAF + 2 JAMB). axis 'u' = wall plane u = plane
-    (leaf along v), 'v' = plane v = plane (leaf along u). The model's leaf runs along its -x from the hinge: the hinge goes at the
-    opening's far end and the heading points +x along the wall, so the leaf lies back across the opening (rig 2026-10-29: the first
-    headings turned the leaves into the wall beside the opening - every area 2 door walk failed)."""
-    h0 = a0 + JAMB + LEAF
-    if axis == 'u': return (plane, h0, z + LEAF_H / 2, 90.0)           # heading 90: +x -> +v, so the leaf (-x) runs -v from the hinge
-    return (h0, plane, z + LEAF_H / 2, 0.0)                             # heading 0: the leaf (-x) runs -u from the hinge
+LEAF = 1.30; LEAF_H = 2.30                                              # nominal leaf (plan spacing, probes); openings come from each model's bbox
+# (2026-11-01, Antonio: "the cutouts are too big, gaps all over the doors") every opening is fitted by the playbook's door tool
+# (MLO-Creation/tools/doors/door_fit.py) to its leaf's real bbox, as Rockstar fits them in Mission Row: 0 mm at the jambs and the head,
+# the leaf standing on the floor. The first openings were leaf + 5 cm a side + 10 cm over the head.
+import json as _json, sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path.home() / 'Documents' / 'Codex' / 'MLO-Creation' / 'tools' / 'doors')); import door_fit as DF
+ARCH = {k.lower(): v for k, v in _json.load(open(_Path(__file__).with_name('survey') / 'arch_ytyp.json', encoding='utf-8-sig')).items()}
+def leaf_box(model): return DF.leaf_bbox(ARCH, model)
+def pair_fit(a0, z, models=(GLASS_L, GLASS_R)):
+    (l1, h1), (l2, h2) = leaf_box(models[0]), leaf_box(models[1]); return DF.fit_pair(l1, h1, l2, h2, a0, z)
+def door_on(axis, plane, a0, z, model=GEN):
+    """one leaf fitted into the opening starting at a0 along the wall. axis 'u' = wall plane u = plane (leaf along v), 'v' = plane v = plane
+    (leaf along u). The model's leaf runs along its -x from the hinge: the hinge goes at the opening's far end and the heading points +x
+    along the wall, so the leaf lies back across the opening (rig 2026-10-29: the first headings turned the leaves into the wall)."""
+    lo, hi = leaf_box(model); f = DF.fit_single(lo, hi, a0, z)
+    if axis == 'u': return (plane, f['hinge'], f['zc'], 90.0), f          # heading 90: +x -> +v, so the leaf (-x) runs -v from the hinge
+    return (f['hinge'], plane, f['zc'], 0.0), f                            # heading 0: the leaf (-x) runs -u from the hinge
 DOORS = []                                                              # {name, model, room, pos, heading, portal: (from, to) or None}
 OPENINGS = []                                                           # {wall key, axis, plane, a0, a1, z0, z1}: holes the walls leave
 PORTALS = []                                                            # {from, to, kind, P: (axis, plane, a0, a1, z0, z1, into)}
 def single_door(name, frm, to, axis, plane, a0, z, into, model=GEN, wall=None):
-    a1 = a0 + LEAF + 2 * JAMB; u, v, zz, h = door_on(axis, plane, a0, z)
+    (u, v, zz, h), f = door_on(axis, plane, a0, z, model)
     DOORS.append({'name': name, 'model': model, 'room': frm, 'pos': [u, v, zz], 'heading': h, 'portal': (frm, to) if to else None})
-    OPENINGS.append({'axis': axis, 'plane': plane, 'a0': a0, 'a1': a1, 'z0': z, 'z1': z + LEAF_H + 0.10, 'name': name})
-    if to: PORTALS.append({'from': frm, 'to': to, 'kind': name, 'P': (axis, plane, a0, a1, z, z + LEAF_H + 0.10, into), 'door': name})
+    OPENINGS.append({'axis': axis, 'plane': plane, 'a0': f['a0'], 'a1': f['a1'], 'z0': f['z0'], 'z1': f['z1'], 'name': name})
+    if to: PORTALS.append({'from': frm, 'to': to, 'kind': name, 'P': (axis, plane, f['a0'], f['a1'], f['z0'], f['z1'], into), 'door': name})
 def double_door(name, frm, to, axis, plane, a0, z, into, models=(GEN, GEN)):
-    """a pair in one opening a0 .. a0 + 2 LEAF + 2 JAMB: leaf 1 hinged at a0's side, leaf 2 at the far side, meeting in the middle.
-    (Same model twice: the second turned 180 deg so its leaf runs the other way.)"""
-    a1 = a0 + 2 * LEAF + 2 * JAMB
-    for k, (hinge, hd) in enumerate(((a0 + JAMB, 0.0), (a1 - JAMB, 180.0))):
+    """a pair fitted into one opening: leaf 1 hinged at a0, leaf 2 at the far end, meeting in the middle. (Same model twice: the first
+    turned 180 deg so its leaf runs the other way.)"""
+    f = pair_fit(a0, z, models)
+    for k, hinge in enumerate(f['hinges']):
         m = models[k]
         if m == GLASS_L or m == GLASS_R:                                    # the Mission Row pair: door01 leaf +x, door002 leaf -x
             h = 90.0 if axis == 'u' else 0.0
         else:
             h = (90.0 if axis == 'u' else 0.0) + (180.0 if k == 0 else 0.0)   # leaf 2 runs -a from its hinge; leaf 1 (turned 180) runs +a
         u, v = (plane, hinge) if axis == 'u' else (hinge, plane)
-        DOORS.append({'name': f'{name}_{k}', 'model': m, 'room': frm, 'pos': [u, v, z + LEAF_H / 2], 'heading': h % 360.0, 'portal': (frm, to) if to else None})
-    OPENINGS.append({'axis': axis, 'plane': plane, 'a0': a0, 'a1': a1, 'z0': z, 'z1': z + LEAF_H + 0.10, 'name': name})
-    if to: PORTALS.append({'from': frm, 'to': to, 'kind': name, 'P': (axis, plane, a0, a1, z, z + LEAF_H + 0.10, into), 'door': name})
+        DOORS.append({'name': f'{name}_{k}', 'model': m, 'room': frm, 'pos': [u, v, f['zc'][k]], 'heading': h % 360.0, 'portal': (frm, to) if to else None})
+    OPENINGS.append({'axis': axis, 'plane': plane, 'a0': f['a0'], 'a1': f['a1'], 'z0': f['z0'], 'z1': f['z1'], 'name': name})
+    if to: PORTALS.append({'from': frm, 'to': to, 'kind': name, 'P': (axis, plane, f['a0'], f['a1'], f['z0'], f['z1'], into), 'door': name})
 def holes_on(axis, plane, tol=0.35):
     return [(o['a0'], o['a1'], o['z0'], o['z1']) for o in OPENINGS if o['axis'] == axis and abs(o['plane'] - plane) < tol]
 # ---------------- window bays (phase 2's openings) on the courtroom floors ----------------
@@ -96,7 +107,8 @@ def lobby_runs():
     for face in PL.face_list('tower'):
         for run in PL.arcade_runs('tower', face): out.append((face[0], run[0][0], run[-1][1], run[0][2], run[0][3]))
     return out
-GALLERIA_DOORS = [(23.9, 'lobby_a'), (27.2, 'lobby_b')]                # a0 of each glazed pair (2 x 1.30 + jambs = 2.70)
+GALLERIA_DOORS = [(23.0, 'lobby_a'), (26.0, 'lobby_b')]                # a0 of each glazed pair (2.60, fitted by the door tool), both wholly
+# on the screened side of the galleria's screen line (u 29.0): pair b used to straddle it, its north leaf on the public side (2026-11-01)
 # ---------------- the stair (0.20 / 0.27, switchback per 1.8 m half storey) ----------------
 SC = (CORE[0] + 0.2, CORE[1] - 0.2, CORE[2] + 3.35, CORE[3] - 0.2)     # stair clear u 35.2 .. 42.4, v 32.35 .. 35.45
 LIFT_BODY = CORE[2] + 3.15                                             # 32.15: the lift bank's back (stair's south wall from here)
@@ -113,21 +125,25 @@ def flights():
         out.append((E_LAND, -1, z, z + 1.8, LANE_S)); out.append((W_LAND, 1, z + 1.8, z + 3.6, LANE_N)); z += 3.6
     return out
 # ---------------- lifts ----------------
-LIFT_STOPS = [('L1', 'tlobby', F1, LOB_CEIL), ('L3', 'pubA', F3, F3 + ROOM_H), ('L5', 'pubB', F5, F5 + ROOM_H)]
+LIFT_STOPS = [('L1', 'tlobby', F1, LOB_CEIL), ('L3', 'pubA', F3, F3 + ROOM_H), ('L5', 'pubB', F5, F5 + ROOM_H),
+              ('L13', 'mayor', LV[12], LV[12] + 3.15), ('L25', 'govnr', LV[24], LV[24] + 3.15)]   # area 5: the Mayor (mid tower), the Governor (top)
 # the lobby's core dressing (Antonio 2026-10-29): a walnut band with brass edges round the core above the doors, a floor number over
 # every lift door (every stop), a brass-framed directory board between the two lift doors
 CORE_BAND = (F1 + 3.0, F1 + 3.4)                                       # z: above the lift doors (2.6) and their floor numbers (2.64 .. 2.86)
 CORE_BAND_EDGE = 0.03                                                  # the brass edge strips (top and bottom of the band)
 LIFT_IND = (2.75, 0.9, 0.22)                                           # floor number over a lift door: centre z above the floor, w, h
-DIRECTORY = ['DIRECTORY', 'L5    COURTROOM 5B', 'L3    COURTROOM 3A', 'L1    CLERK OF COURTS', 'L1    JURY ASSEMBLY',
-             'L1    LOBBY']                                              # what the tower holds (the board is made from this)
+DIRECTORY = ['DIRECTORY', 'L25   OFFICE OF THE GOVERNOR', 'L13   OFFICE OF THE MAYOR', 'L5    COURTROOM 5B', 'L3    COURTROOM 3A',
+             'L1    GOVERNMENT OFFICES', 'L1    CLERK OF COURTS  -  JURY']                                              # what the tower holds (the board is made from this)
 # Antonio 2026-10-29: the L1 information desk is the Clerk of Courts counter; the seating by the east glass (north) is Jury Assembly
-CLERK_DESK = (24.6, 29.4, 22.6, 23.4, 1.05)                             # the counter (u0, u1, v0, v1, height); its sign is its public (south) face
-JURY_ASSEMBLY = (45.4, 43.0, 3.1, 2.6, 0.5)                             # the hanging sign over the east benches: u, v, centre z above the floor, w, h
+# (area 5, 2026-11-11: the Clerk of Courts front desk, statues, flags and benches are jc5_court's; the Jury Assembly sign hangs over the
+# east hall's benches, south of the Government Offices wing)
+JURY_ASSEMBLY = (45.0, 33.0, 3.1, 2.6, 0.5)                             # the hanging sign over the east benches: u, v, centre z above the floor, w, h
 DIRECTORY_BOARD = (1.6, 1.3, 1.5)                                      # centre z above the floor, w, h (between the lift doors)
-LOBBY_FLAGS = [('v_20_flag01', 34.45, 30.3), ('v_20_flag02', 34.45, 31.0), ('v_20_flag03', 34.45, 31.7)]   # against the core's west face, clear of the lift doors
-SEC_STOPS = [('L3', 'secA', F3), ('L5', 'secB', F5)]
-SEC_B1 = 22.8                                                          # the secure bank's B1 stop: jc-jail's prisoner tunnel (work/jail/jj_plan.B1)
+LOBBY_FLAGS = [('jc_courts_flag_us', 15.25, 29.9), ('jc_courts_flag_ohio', 15.25, 34.7), ('jc_courts_flag_us', 34.35, 29.9),
+               ('jc_courts_flag_ohio', 34.35, 34.7)]                    # area 5: our flags either side of each statue (jc5_court.STATUES)
+SEC_B1 = 22.8                                                          # the secure bank's B1 stop: the prisoner tunnel's floor (jc6_tunnel; Jail I's secure stair lands here)
+TUN_H = 2.8                                                            # the prisoner tunnel's clear height (jc6_tunnel)
+SEC_STOPS = [('B1', 'tunnel', SEC_B1, SEC_B1 + TUN_H), ('L3', 'secA', F3, F3 + ROOM_H), ('L5', 'secB', F5, F5 + ROOM_H)]   # (stop, room, floor, ceiling)
 SEC_CAB = (SLIFT[0] + 0.7, SLIFT[1] - 0.7, SLIFT[2] + 0.2, SLIFT[3] - 0.6)   # one car: u 31.9 .. 34.3, v 23.0 .. 25.2; front wall to 25.5, doors face +v
 SEC_LAND = 1.8                                                         # the secure lift's landing: front wall face (25.5) .. the cells' south wall
 CELL_S = SEC_CAB[3] + 0.3 + SEC_LAND                                   # the cells' south wall (27.3) (rig 2026-10-29: at 25.8 the lift opened onto a 0.3 m slot)
@@ -147,56 +163,66 @@ def floor_plan(f):
     single_door(f'{f}_witness', rst, None, 'v', WIT_N, 16.2, F, -1)
     single_door(f'{f}_conference', pub, None, 'v', CONF_S, 41.0, F, 1)
     for k, v0 in enumerate(CELL_V0): single_door(f'{f}_cell{k + 1}', sec, None, 'u', 32.675, v0 + 0.6, F, 1, model=CELL)
-WALL_MAT = {'crt': 'slat', 'pub': 'plaster', 'rst': 'plaster', 'sec': 'block'}
 def court_fittings(f):
-    """[(kind, args)] the courtroom's built fittings (kit) and its props / seats; z is relative to the floor."""
-    out = {'boxes': [], 'props': [], 'seats': []}
+    """[(kind, args)] the courtroom's built fittings (kit) and its props / seats; z is relative to the floor. Area 5 (2026-11-11): the
+    BrunX look - mahogany (bx_mahog) with black marble caps and tops (bx_nero), the well's floorboards; the plan (bench, witness stand,
+    12-seat jury box, clerk, two counsel tables, lectern, the bar and its gate, 66 gallery seats) is area 2's."""
+    out = {'boxes': [], 'props': [], 'seats': [], 'cols': []}
     B = out['boxes']; P = out['props']; S = out['seats']
+    W, N, PL_ = 'bx_mahog', 'bx_nero', 'bx_plank'
     def box(u0, u1, v0, v1, z0, z1, mat, col=True): B.append((u0, u1, v0, v1, z0, z1, mat, col))
-    # dais (+0.40) and its steps (east, going -u), the bench
-    box(22.3, 28.3, 37.7, CV1, -0.4, DAIS, 'plank')
-    box(22.6, 28.0, 37.65, 38.3, 0.0, 1.30, 'panel'); box(22.6, 28.0, 38.3, 39.0, 1.14, 1.18, 'plank')           # bench front (5 cm proud of the dais) + desk top
-    for u in (22.75, 27.85): box(u - 0.06, u + 0.06, 38.3, 39.0, DAIS, 1.14, 'panel')                            # desk ends
+    # dais (+0.40, two risers) and the bench: a panelled front 5 cm proud of the dais, a black marble desk top
+    box(22.3, 28.3, 37.7, CV1, -0.4, DAIS, PL_)
+    box(22.6, 28.0, 37.65, 38.3, 0.0, 1.22, W); box(22.55, 28.05, 37.6, 38.35, 1.22, 1.30, N)
+    box(22.6, 28.0, 38.3, 39.0, 1.10, 1.14, W)                                                                 # the judge's writing surface
+    for u in (22.75, 27.85): box(u - 0.06, u + 0.06, 38.3, 39.0, DAIS, 1.10, W)                               # desk ends
     P.append(('ex_prop_offchair_exec_01', 25.3, 39.6, DAIS, 0.0))
-    for u in (22.7, 23.3, 27.6): P.append(('v_20_flag01' if u < 23 else 'v_20_flag02' if u < 27 else 'v_20_flag03', u, 40.5, DAIS, 0.0))
-    # witness stand (+0.20) west of the dais: front + a side panel, entered from the west aisle
-    box(20.6, 22.3, 38.0, 39.6, -0.4, 0.20, 'plank')
-    box(20.6, 22.3, 38.0, 38.12, 0.20, 1.10, 'panel'); box(20.6, 20.72, 38.12, 38.9, 0.20, 1.10, 'panel')
+    # witness stand (+0.20) west of the dais: panelled front and side, marble cap
+    box(20.6, 22.3, 38.0, 39.6, -0.4, 0.20, PL_)
+    box(20.6, 22.3, 38.0, 38.12, 0.20, 1.04, W); box(20.6, 20.72, 38.12, 38.9, 0.20, 1.04, W)
+    box(20.58, 22.3, 37.97, 38.15, 1.04, 1.10, N); box(20.58, 20.75, 38.15, 38.9, 1.04, 1.10, N)
     P.append(('v_corp_bk_chair1', 21.5, 39.0, 0.20, 0.0))
-    # jury box: two tiers (back +0.40, front +0.20), a rail, open at its north end
-    box(CU0, 20.6, 30.5, 35.8, -0.4, 0.40, 'plank'); box(20.6, 21.85, 30.5, 35.8, -0.4, 0.20, 'plank')
-    box(21.85, 22.0, 30.5, 35.2, 0.0, 1.0, 'panel'); box(CU0, 22.0, 30.38, 30.5, 0.0, 1.0, 'panel')
+    # jury box: two tiers (back +0.40, front +0.20), a panelled rail with a marble cap, open at its north end
+    box(CU0, 20.6, 30.5, 35.8, -0.4, 0.40, PL_); box(20.6, 21.85, 30.5, 35.8, -0.4, 0.20, PL_)
+    box(21.85, 22.0, 30.5, 35.2, 0.0, 0.95, W); box(CU0, 22.0, 30.38, 30.5, 0.0, 0.95, W)
+    box(21.83, 22.02, 30.38, 35.2, 0.95, 1.01, N); box(CU0, 21.83, 30.36, 30.52, 0.95, 1.01, N)
     for k in range(6):
         v = 31.0 + k * 0.85
         P.append(('v_ilev_leath_chr', 20.0, v, 0.40, 90.0)); P.append(('v_ilev_leath_chr', 21.2, v, 0.20, 90.0))
-    # clerk desk (front panel to the well) and two chairs facing south
-    box(23.0, 27.6, 36.1, 36.75, 0.72, 0.76, 'plank'); box(23.0, 27.6, 36.0, 36.1, 0.0, 1.05, 'panel')     # top behind the front panel
-    for u in (23.1, 27.5): box(u - 0.05, u + 0.05, 36.1, 36.75, 0.0, 0.72, 'panel')
+    # clerk desk (panelled front to the well, marble top) and two chairs facing south
+    box(23.0, 27.6, 36.1, 36.75, 0.72, 0.76, N); box(23.0, 27.6, 36.0, 36.1, 0.0, 1.05, W)
+    for u in (23.1, 27.5): box(u - 0.05, u + 0.05, 36.1, 36.75, 0.0, 0.72, W)
     for u in (24.2, 26.4):
         P.append(('prop_off_chair_05', u, 37.25, 0.0, 0.0))
         P.append(('prop_monitor_01a', u, 36.5, 0.76, 180.0)); P.append(('prop_keyboard_01a', u, 36.25, 0.76, 180.0))
-    # counsel tables (kit: top + legs: legroom) + chairs facing the bench; the lectern
+    # counsel tables (mahogany, black marble tops, legroom) + chairs facing the bench; the lectern
     for u0, u1 in ((22.8, 25.0), (26.3, 28.5)):
-        box(u0, u1, 32.0, 32.9, 0.72, 0.76, 'plank')
+        box(u0, u1, 32.0, 32.9, 0.72, 0.77, N)
         for uu in (u0 + 0.08, u1 - 0.08):
-            for vv in (32.08, 32.82): box(uu - 0.04, uu + 0.04, vv - 0.04, vv + 0.04, 0.0, 0.72, 'panel', False)
+            for vv in (32.08, 32.82): box(uu - 0.04, uu + 0.04, vv - 0.04, vv + 0.04, 0.0, 0.72, W, False)
+        box(u0 + 0.12, u1 - 0.12, 32.78, 32.86, 0.30, 0.70, W, False)                                          # modesty panel between the legs
         for uu in (u0 + 0.55, u1 - 0.55):
             P.append(('v_corp_bk_chair1', uu, 31.45, 0.0, 180.0))
-        P.append(('prop_cd_folder_pile2', (u0 + u1) / 2, 32.5, 0.76, 0.0))
-    box(25.35, 25.95, 34.2, 34.6, 0.0, 1.15, 'panel')
-    # the bar (0.95) across the room, a gap for its gate in the aisle
-    for u0, u1 in ((CU0, 25.2), (26.1, CU1)): box(u0, u1, 29.9, 30.0, 0.0, 0.95, 'panel')
-    # gallery pews: 6 rows facing north, a west block (8 seats) and an east block (3), centre + east aisles. The east aisle lines up with
-    # the public double door: both leaves' walking lanes clear of the pew ends (rig 2026-10-29: a 4-seat east block put its ends in
-    # leaf 0's lane, the walker stuck on them)
+        P.append(('prop_cd_folder_pile2', (u0 + u1) / 2, 32.5, 0.77, 0.0))
+    box(25.35, 25.95, 34.2, 34.6, 0.0, 1.10, W); box(25.32, 25.98, 34.17, 34.63, 1.10, 1.15, N)
+    # the bar: turned-spindle balustrade (posts, base rail, black marble cap), a gap for its gate in the aisle
+    for u0, u1 in ((CU0, 25.2), (26.1, CU1)):
+        box(u0, u1, 29.9, 30.0, 0.0, 0.12, W); box(u0, u1, 29.88, 30.02, 0.88, 0.95, N)
+        n = int((u1 - u0) // 0.16)
+        for i in range(n):
+            c = u0 + (u1 - u0) * (i + 0.5) / n; box(c - 0.025, c + 0.025, 29.925, 29.975, 0.12, 0.88, W, False)
+        out['cols'].append((u0, u1, 29.9, 30.0, 0.0, 0.95))                                                   # one collision slab per run
+    for a0 in (25.14, 26.04): box(a0, a0 + 0.12, 29.86, 30.04, 0.0, 1.0, W)                                   # newel posts at the gate
+    # gallery pews: 6 rows facing north, a west block (8 seats) and an east block (3), centre + east aisles (the east aisle lines up with
+    # the public double door: both leaves' walking lanes clear of the pew ends, rig 2026-10-29). Mahogany, a black marble cap on each back.
     for k in range(6):
         vb = 23.25 + k * 0.95
         for u0, n in ((19.6, 8), (26.2, 3)):
             u1 = u0 + n * 0.62
-            box(u0 + 0.05, u1 - 0.05, vb + 0.08, vb + 0.55, 0.40, 0.45, 'plank')                                   # seat (between the ends)
-            box(u0 + 0.05, u1 - 0.05, vb, vb + 0.08, 0.0, 0.95, 'plank')                                           # back
-            for uu in (u0, u1 - 0.05): box(uu, uu + 0.05, vb, vb + 0.55, 0.0, 0.70, 'panel')                     # ends
-            box(u0 + 0.05, u1 - 0.05, vb + 0.30, vb + 0.36, 0.0, 0.40, 'panel', False)                              # the seat's apron
+            box(u0 + 0.05, u1 - 0.05, vb + 0.08, vb + 0.55, 0.40, 0.45, W)                                        # seat (between the ends)
+            box(u0 + 0.05, u1 - 0.05, vb, vb + 0.08, 0.0, 0.90, W); box(u0 + 0.03, u1 - 0.03, vb - 0.02, vb + 0.10, 0.90, 0.95, N)   # back + cap
+            for uu in (u0, u1 - 0.05): box(uu, uu + 0.05, vb, vb + 0.55, 0.0, 0.72, W)                          # ends
+            box(u0 + 0.05, u1 - 0.05, vb + 0.30, vb + 0.36, 0.0, 0.40, W, False)                                  # the seat's apron
             for j in range(n): S.append((u0 + 0.31 + j * 0.62, vb + 0.30, 0.45, 180.0, 'gallery pew'))   # (u, v, seat z, facing as a prop heading, what)
     return out
 def sec_fittings(f):
@@ -226,9 +252,10 @@ def room_props(f):
     out += [(rst, 'v_ilev_leath_chr', tc[0], 46.6, 0.0, 180.0), (rst, 'v_ilev_leath_chr', tc[0], 51.4, 0.0, 0.0)]
     out += [(rst, 'prop_watercooler', 15.0, 44.0, 0.0, 90.0), (rst, 'v_corp_offshelfdark', JURY_E - 0.1 - 0.27, 52.5, 0.0, 270.0),
             (rst, 'v_corp_potplant1', RU0 + 0.75, RV1 - 0.8, 0.0, 0.0)]
+    # the judge's chambers (area 5: the BrunX office - bookcases, the seal and flags are jc3_tower_build.chambers(); here the furniture)
     out += [(rst, 'v_corp_officedesk', 28.45, 51.8, 0.0, 0.0), (rst, 'ex_prop_offchair_exec_01', 28.45, 53.0, 0.0, 0.0),
-            (rst, 'v_corp_lazychair', 27.5, 50.0, 0.0, 180.0), (rst, 'v_corp_lazychair', 29.4, 50.0, 0.0, 180.0),
-            (rst, 'v_corp_offshelfdark', JURY_E + 0.1 + 0.27, 46.0, 0.0, 90.0), (rst, 'v_corp_offshelfdark', JURY_E + 0.1 + 0.27, 48.6, 0.0, 90.0),
+            (rst, 'v_res_m_armchair', 27.5, 50.0, 0.0, 180.0), (rst, 'v_res_m_armchair', 29.4, 50.0, 0.0, 180.0),
+            (rst, 'v_corp_cd_desklamp', 27.7, 51.85, 0.76, 0.0), (rst, 'prop_cd_folder_pile2', 29.0, 51.75, 0.76, 0.0),
             (rst, 'v_corp_potplant1', CHAMB_E - 0.85, RV1 - 0.8, 0.0, 0.0)]
     out += [(rst, 'v_corp_offshelfdark', RST_E - 0.1 - 0.27, 47.0, 0.0, 270.0), (rst, 'v_corp_lazychair', 35.0, 52.0, 0.0, 180.0),
             (rst, 'v_corp_lazychair', 36.6, 52.0, 0.0, 180.0), (rst, 'v_corp_sidetable', 35.8, 53.0, 0.0, 0.0)]
@@ -236,8 +263,8 @@ def room_props(f):
     ct = (44.8, 50.2)
     out.append((pub, 'v_corp_conftable2', *ct, 0.0, 0.0))
     for u in (43.4, 44.8, 46.2): out += [(pub, 'v_ilev_leath_chr', u, ct[1] - 1.0, 0.0, 180.0), (pub, 'v_ilev_leath_chr', u, ct[1] + 1.0, 0.0, 0.0)]
-    for u in (22.0, 26.0, 34.0, 38.0): out.append((pub, 'v_ilev_ph_bench', u, RV0 + 0.5, 0.0, 180.0))
-    for v in (27.0, 33.0, 39.0): out.append((pub, 'v_ilev_ph_bench', RU1 - 0.5, v, 0.0, 270.0))
+    for u in (22.0, 26.0, 34.0, 38.0): out.append((pub, 'v_res_fh_benchlong', u, RV0 + 0.55, 0.0, 180.0))   # area 5: the BrunX hallway benches
+    for v in (27.0, 33.0, 39.0): out.append((pub, 'v_res_fh_benchlong', RU1 - 0.55, v, 0.0, 270.0))
     out += [(pub, 'v_corp_potplant1', u, v, 0.0, 0.0) for u, v in ((RU0 + 0.75, RV0 + 0.8), (RU1 - 0.75, RV0 + 0.8), (RU1 - 0.75, 43.9))]
     out += [(pub, 'prop_watercooler', 42.95, 30.0, 0.0, 90.0), (pub, 'prop_bin_11b', 43.3, 28.5, 0.0, 0.0)]
     return out

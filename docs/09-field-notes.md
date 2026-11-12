@@ -1001,3 +1001,26 @@ short or damaged: its packed data ends before the size its header promises. Find
 (run on the server's resources folder): it unpacks every .ytd/.ydr/.yft/.ydd/.ybn/.ymap/.ytyp/.ycd and compares with the
 header (page-flag sizes: base 0x200 << (flags & 0xF), nine page counts). Encrypted RSC8 / FXAP (escrow) files are skipped.
 If the server's files are all clean, the player's own FiveM cache is broken: clear data\cache, server-cache, server-cache-priv.
+
+## A reversed portal hides the whole building (Justice Center auditorium, 2026-11-11)
+Symptom (Antonio on the rig): from the lobby the auditorium looked empty; inside it, the chairs vanished and came back as he
+turned; back out in the lobby EVERYTHING was gone except a few door / window frames, and it stayed gone.
+Cause: the door portal lobby -> auditorium had its corners wound so the normal pointed OUT of its `roomTo` (the build passed
+`into = -1` for a room on the +v side). Drawing through it works from both sides, so no render or gate showed anything. The game's
+room tracker does not: it ignored the walk IN (ped and camera stayed "in the lobby" while standing in the auditorium, so the
+auditorium drew only through the door) and took the walk OUT as the walk in (standing in the lobby, the tracker said
+"auditorium", a room whose only way to the rest is that door behind you: nothing of the building drew). Two other doors of the
+same wing had the same flip.
+How it was found: `tools/justice/p3/jc6_roomwalk.py` walks the ped through each door (TaskGoStraightToCoord, real portal
+crossings, never a teleport across the door) and at every waypoint reads `GetRoomKeyFromEntity(ped)`,
+`GetRoomKeyForGameViewport()` and `GetInteriorFromGameplayCam()`; the room it should be in is the smallest zone rect holding the
+spot. Before the fix: lobby OK, auditorium "lobby", lobby again "auditorium". Collision room ids, room boxes and portal counts
+were all fine; only the walk shows it.
+Rule: every portal's normal points INTO its `roomTo` (limbo: away from the room). `tools/justice/p3/jc6_portal_gate.py` checks every
+portal of a built layout (a point 0.4 m along the normal must be in the 'to' room's zone, 0.4 m against it in the 'from' room's),
+proven on a planted reversed portal; it runs in the build. After any portal change, walk every door both ways with the roomwalk
+probe and turn the camera a full circle inside: the view room must hold.
+Also from this hunt: a room whose only portal is one door (no window to limbo) cannot recover once the tracker is wrong in it, so
+give glazed rooms their window portal even when curtains line the glass; and keep a sibling MLO's box off the other MLO's rooms
+(the jail's prisoner tunnel ran under the courts and stretched Jail I's box over the lobby and the auditorium: the tunnel became a
+room of the courts MLO). Neither was the cause here, both were removed while looking.

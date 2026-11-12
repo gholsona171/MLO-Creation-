@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 P3 = Path(__file__).resolve().parent; sys.path.insert(0, str(P3))
 import jc3_tower as JT, p2_plan as PL
 L = json.load(open(P3 / 'out/jc3_layout.json'))
-A = {k.lower(): v for k, v in json.load(open(P3 / 'survey/arch_ytyp.json', encoding='utf-8-sig')).items()}
+import jc3_arch; A = jc3_arch.load()
 def bb(m): a = A[m.lower()]; f = lambda s: [float(x[2:]) for x in s.split()]; return f(a['bbMin']), f(a['bbMax'])
 def foot(m, u, v, h):
     lo, hi = bb(m); t = math.radians(h); c, s = math.cos(t), math.sin(t)

@@ -444,3 +444,29 @@ rows that look into it) got rain; every room under an opaque roof stayed dry. Pr
 - Result on the rig (2026-11-11, THUNDER 21:00, full restart with the rebuilt resource): no streaks under the vault, in the galleries
   or the shop rows (before: streaks over the whole court, against the vault and in front of the shopfronts); the vault reads as
   dark tinted glass from above; pool, lifts and landing doors unchanged; no new FiveM memory warnings.
+
+## Wall finishes are a shell round the walls, never boards on faces (Justice Center police HQ, 2026-11-11)
+Antonio walked the police side and found "walls that are not connected, walls at weird angles, weird lips ... it didn't texture
+everything properly". Cause, all in one pass: the skirting / wainscot / rail bands were laid AFTER the walls by reading each wall
+FACE and putting a box proud of it. That pass skipped faces under 0.45 m (returns, jambs, pier sides), so bands broke at every
+convex corner; it cut each band against whatever was already laid, so ends stood out as lips beside door casings; and the navy, gold,
+skirting and tile were flat paints (64 px colour, no normal map). The courthouse side had a cousin: walls built as horizontal bands per
+lining plus free-standing partitions, which crossed at every T-junction (coplanar faces, ~2600 sweep clashes once an "overlap 2 cm"
+patch was tried; ~500 without it).
+- **Build walls as a core + a shell.** Every wall (lining strips, partitions) is recorded as a 2D footprint in its plain finish. The
+  finish bands are then one SOLID SHELL computed from those footprints: cut the room's plan on every wall edge +- each band depth;
+  each cell knows its square distance to the walls and which wall it fronts; it gets a band where it is nearer than the band is deep.
+  The shell wraps convex corners and meets itself in concave ones by construction; cells never overlap, so nothing z-fights.
+  Tool: `tools/justice/p3/jc_shell.py` (`record`, `keep_clear`, `build(rooms, holes, bands_at, depths)`).
+- Built-ins claim wall space: the shell is cut by door / window holes, by every solid box already standing (counters, casings,
+  kit, bookcases, pilasters) and by keep_clear boxes for meshes (arched backdrops, framed boards), so bands stop on their sides.
+- Partitions are core walls like any other: never draw a partition with its own bands - the shell gives it bands on both faces.
+- Built-ins and plaques stand ON the core face (the shell stops round them) or off the shell's depth plus 2-3 cm, never 1 cm.
+- A soffit / tray ring starts at the lining faces, not the room rect (it otherwise sits inside the lining: coplanar outer faces).
+- No flat paint on a wall: re-colour a Rockstar surface (luminance kept, its normal map) or paint your own 256-512 px texture with a
+  normal map (tiles with recessed grout, brushed metal streaks). Keep the approved colours.
+- Gate: `tools/justice/p3/jc5_surface_gate.py` on the build's saved scene: SLIT (two solids facing 1 mm - 6 cm apart with an
+  open gap of 10 x 10 cm or more), ANGLE (wall-sized faces off the lot grid), FLAT (64 px diffuse and no bump), UV (faces of
+  0.25 m2+ with texture density off by 3x). Proven on a planted rotated cube + 2 cm slit + flat paint before each run.
+- Audit at ped height before and after: 4 diagonal views per named space (`jc5_audit_cams.py`). Force the city lights on for the
+  shots (`SetArtificialLightsState(false)`): the server's electrician job runs citywide blackouts that make rooms read black.

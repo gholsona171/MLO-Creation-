@@ -11,11 +11,11 @@ import math
 import jc3_pgarage as G, jc3_police as P
 ZB, CEIL = G.ZB, G.CEIL_B - 0.02                                          # B1 floor, the ceiling plate's underside
 C = G.CLEAR                                                               # the linings' faces (11.15, 44.05, -58.55, -8.25)
-WALL = {'prop_fire_exting_2a', 'prop_cctv_cam_06a', 'v_serv_firealarm', 'v_serv_emrglgt_off', 'prop_fire_hosebox_01'}
+WALL = {'prop_fire_exting_2a', 'prop_cctv_cam_06a', 'v_serv_firealarm', 'v_serv_emrglgt_off', 'prop_fire_hosebox_01', 'prop_fire_hosereel'}
 DEPTH = {'prop_fire_exting_2a': 0.01, 'v_serv_firealarm': 0.0, 'v_serv_emrglgt_off': 0.09, 'prop_shelves_01': 0.40, 'prop_shelves_02': 0.40,
          'prop_toolchest_05': 0.36, 'prop_toolchest_04': 0.38, 'prop_toolchest_03': 0.39, 'prop_tool_bench02': 1.03, 'prop_barier_conc_02a': 0.32,
          'prop_sacktruck_02a': 0.27, 'prop_tyre_rack_01': 0.14, 'prop_mp_barrier_02b': 0.43, 'prop_tool_box_06': 0.24,
-         'prop_fire_hosebox_01': 0.05}
+         'prop_fire_hosebox_01': 0.05, 'prop_fire_hosereel': 0.18}
 def on(face_u, face_v, axis, side, model, a, bottom):
     """a model's back on a face (no lining beyond: the faces given are the linings' / the columns' own), the room on `side`."""
     d = DEPTH.get(model, 0.02) + 0.01
@@ -48,6 +48,7 @@ def dress():
     # (Antonio 2026-10-31: break up the long parking hall) hose cabinets, more extinguishers, supply pallets in the south-west
     # recess (off the IN turn); no wall-hung tyre racks: the model also stands free in the workshop (one model, one kind)
     L += [on(C[0], 0, 'u', 1, 'prop_fire_hosebox_01', v, 0.8) for v in (-38.0, -28.0)]   # (-16: in the NW turn's swing) + [on(0, C[3], 'v', -1, 'prop_fire_hosebox_01', 20.0, 0.8)]
+    L += [on(0, C[3], 'v', -1, 'prop_fire_hosereel', 37.3, 0.9)]                       # the wash bay's hose reel, on the north wall (a wall reel)
     L += [on(u - 0.27, 0, 'u', -1, 'prop_fire_exting_2a', -19.4, 0.9) for u in (22.35, 28.35)]
     L += [on(C[1], 0, 'u', -1, 'prop_fire_exting_2a', v, 0.9) for v in (-20.0, -30.0)]
     L += [('pdeck', 'prop_boxpile_06a', 13.0, -57.5, ZB, 0.0), ('pdeck', 'prop_boxpile_01a', 15.4, -57.6, ZB, 0.0)]
@@ -117,14 +118,14 @@ def boxes():
         out.append((lo, hi, 'conc', True)); out.append(((lo[0], lo[1], hi[2]), (hi[0], hi[1], hi[2] + 0.003), 'yellow_d', False))   # painted top
     for u in (25.8, 26.8):                                                # the first-aid and eyewash stations: small wall cabinets (no Rockstar prop),
         w, hgt, z0 = (0.45, 0.5, ZB + 1.25) if u == 25.8 else (0.35, 0.35, ZB + 1.1)   # on the north aisle's straight (not in the NE turn)
-        out.append(((u - w / 2, C[3] - 0.15, z0), (u + w / 2, C[3] - 0.02, z0 + hgt), 'kit_white', False))
+        out.append(((u - w / 2, C[3] - 0.15, z0), (u + w / 2, C[3], z0 + hgt), 'kit_white', False))
     for u, v in G.COLUMNS: out.append(((u - 0.27, v - 0.27, ZB), (u + 0.27, v + 0.27, ZB + 1.2), 'hazard', False))   # 2 cm proud (sweep: 1.2 cm)
     zp = CEIL - 0.28
     out += [((C[0] + 0.12, C[3] - 0.24, zp), (C[1] - 0.12, C[3] - 0.12, zp + 0.12), 'pipe_red', False),                 # the fire main, north wall
             ((C[0] + 0.12, C[3] - 0.42, zp + 0.02), (C[1] - 0.12, C[3] - 0.34, zp + 0.10), 'steel', False),             # a service pipe
             ((C[0] + 0.12, -48.5, zp + 0.04), (C[0] + 0.18, C[3] - 0.5, zp + 0.10), 'steel', False)]                    # conduit, west wall
     for u in (18.0, 32.0): out.append(((u - 0.03, C[3] - 0.18, ZB + 1.3), (u + 0.03, C[3] - 0.14, zp + 0.06), 'steel', False))   # drops to the panels (2 cm clear of their faces)
-    for u in (18.0, 32.0): out.append(((u - 0.25, C[3] - 0.22, ZB + 0.8), (u + 0.25, C[3] - 0.02, ZB + 1.4), 'panel_grey', False))  # electrical panels
+    for u in (18.0, 32.0): out.append(((u - 0.25, C[3] - 0.22, ZB + 0.8), (u + 0.25, C[3], ZB + 1.4), 'panel_grey', False))  # electrical panels
     out.append(((C[0] - 0.05, -16.85, CEIL - 0.32), (C[1] + 0.05, -16.35, CEIL - 0.08), 'steel', False))               # the supply duct (under the lamps)
     return out
 WARM = (1.0, 0.82, 0.62)

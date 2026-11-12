@@ -6,6 +6,10 @@ B="/c/Users/anton/Documents/Codex/2026-10-10/our-goal-is-to-build-machine/output
 py -3 -m pytest tests -q | tail -1
 "$B" -b --python jc3_build.py > logs/jc3_build.log 2>&1; grep -o "JC3_BUILD_PASS.*" logs/jc3_build.log || { grep -A12 Traceback logs/jc3_build.log; exit 1; }
 grep -q '"zfight": {}' logs/jc3_build.log || { echo 'SWEEP FAILED (out/zfight.json)'; exit 1; }
+"$B" -b out/jc3_scene.blend --python jc5_surface_gate.py -- --plant 2>&1 | grep JC5_SURFACE_PLANT_FOUND          # wall joints, angles, flat paint, UV
+"$B" -b out/jc3_scene.blend --python jc5_surface_gate.py > logs/surface_gate.log 2>&1; grep JC5_SURFACE_PASS logs/surface_gate.log || { grep -A5 '^JC5_SURFACE ' logs/surface_gate.log; exit 1; }
+py -3 jc6_portal_gate.py --plant | grep JC6_PORTAL_PLANT_FOUND                  # every portal's winding points into its 'to' room
+py -3 jc6_portal_gate.py | tail -6 | grep -B5 JC6_PORTAL_PASS
 py -3 jc3_meta.py | grep JC3_META_PASS
 for f in jc_courts_galleria.ydr jc_courts.ybn; do powershell -NoProfile -ExecutionPolicy Bypass -File tools/local_xml.ps1 -In "$(cygpath -w $PWD/out/$f)" -Out "$(cygpath -w $PWD/out/xml/$f.xml)" > /dev/null; done
 py -3 -c "import xml.etree.ElementTree as E; r=E.parse('out/xml/jc_courts.ybn.xml').getroot(); ids=[int(i.find('RoomID').get('value')) for m in r.iter('Materials') for i in m]; assert ids and min(ids)>=1, ids; print('ROOM_IDS_OK', sorted(set(ids)))"
@@ -16,6 +20,8 @@ py -3 jc3_gap_check.py --plant tower 2>/dev/null | grep JC3_GAP_PLANT_FOUND
 py -3 jc3_gap_check.py 2>/dev/null | grep JC3_GAP_PASS
 py -3 jc3_footprint.py --plant | grep JC3_FOOTPRINT_PLANT_FOUND
 py -3 jc3_footprint.py | grep JC3_FOOTPRINT_PASS
+py -3 jc3_door_gate.py --plant | grep JC3_DOORS_PLANT_FOUND                    # every door fitted to its leaf (playbook door tool)
+py -3 jc3_door_gate.py | tail -1 | grep JC3_DOORS_PASS
 py -3 jc3_dress_check.py --plant | grep JC3_DRESS_PLANT_FOUND
 py -3 jc3_dress_check.py | tail -42 | tee logs/dress_check.log | grep JC3_DRESS_PASS
 py -3 jc3_mlo_data.py

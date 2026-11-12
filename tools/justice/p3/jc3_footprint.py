@@ -9,7 +9,9 @@ FC = r'C:\Users\anton\Documents\Codex\MLO-Creation\tools\footprint_check.py'
 L = json.load(open(P3 / 'out/jc3_layout.json'))
 inset = JP.FIN_P + 0.01
 import jc3_police_dress as JD, jc3_pgarage_dress as GD
-WALL_HUNG = {'prop_fire_exting_2a'} | JD.WALL | GD.WALL | JD.FLAT          # hung on a wall / ceiling by design: not floor props (jc3_dress_check.py checks them)
+ARCH = P3 / 'out/arch_with_custom.json'                                 # Rockstar's bounds + our own archetypes' (the build's custom_props)
+import jc3_arch; json.dump(jc3_arch.load(), open(ARCH, 'w'))
+WALL_HUNG = {'prop_fire_exting_2a', 'jc_courts_seal_court', 'jc_courts_seal_city', 'jc_courts_seal_state', 'jc_courts_chandelier'} | JD.WALL | GD.WALL | JD.FLAT          # hung on a wall / ceiling by design: not floor props (jc3_dress_check.py checks them)
 def inset_rects(zs, t):
     """inset a room's region by its lining, only on the sides that are the region's boundary (pieces of one room abut, no wall)."""
     out = []
@@ -51,7 +53,8 @@ def police_spaces(lev):
     sp = {}
     if lev == 'P1':
         sp.update({k: [ins(r, 0.21) for r in rs] for k, rs in JPOL.SPACES1.items()})
-        sp['plobby'] = [ins(r, 0.31) for r in JPOL.REGIONS['plobby']]; sp['pdesk'] = [ins(r, 0.21) for r in JPOL.REGIONS['pdesk']]
+        sp.update({k: [ins(r, 0.31) for r in rs] for k, rs in JPOL.SPACES_LOBBY.items()})          # the public side's outer linings: 0.3
+        sp.update({k: [ins(r, 0.21) for r in rs] for k, rs in JPOL.SPACES_DESK.items()})
     if lev == 'P2':
         sp.update({k: [ins(r, 0.21) for r in rs] for k, rs in JPOL.SPACES2.items()}); sp.update({k: [ins(r, 0.21)] for k, r in JPOL.SUITES.items()})
     if lev == 'B1':
@@ -95,7 +98,7 @@ for lev in ('L1', 'A', 'B', 'P1', 'P2', 'B1'):
         for q in props: q[0] = space_of(rooms, q[2], q[3]) or q[0]
     if PLANT and lev == 'L1': s0, s1 = JP.entrance_span('entry'); props.append(['galleria', JP.BENCH, JP.UA1 - 0.6, (s0 + s1) / 2, 0.0, 90.0, 1.0])
     pj = P3 / f'out/footprint_props_{lev}.json'; json.dump({'rooms': rooms, 'doors': doors, 'props': props}, open(pj, 'w'))
-    r = subprocess.run([sys.executable, FC, str(pj), str(P3 / 'survey/arch_ytyp.json')], capture_output=True, text=True)
+    r = subprocess.run([sys.executable, FC, str(pj), str(ARCH)], capture_output=True, text=True)
     lines = [l for l in r.stdout.strip().splitlines() if not (l.startswith('OVERLAP') and l.split()[2] == JP.ROPE and l.split()[3] == JP.ROPE)]
     found = [l for l in lines if l.split()[0] in ('WALL', 'OVERLAP', 'DOORWAY', 'NO')]
     for l in found: print(lev, l)

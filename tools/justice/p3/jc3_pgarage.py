@@ -143,8 +143,8 @@ def fitout():
     L += [('prop_gas_pump_1a', u, (FUEL[2] + FUEL[3]) / 2, ISLAND[4], 0.0) for u in (FUEL[0] + 2.0, FUEL[1] - 2.0)]
     L += [('prop_bollard_04', u, (FUEL[2] + FUEL[3]) / 2, ISLAND[4], 0.0) for u in (FUEL[0] + 0.3, FUEL[1] - 0.3)]
     L += [('prop_compressor_03', FUEL[1] - 0.6, (FUEL[2] + FUEL[3]) / 2 + 0.1, ISLAND[4], 0.0)]                     # the air pump
-    L += [('prop_hose_1', WASH[0] + 0.5, WASH[3] - 0.6, 0.0, 0.0), ('prop_bucket_02a', WASH[0] + 1.2, WASH[3] - 0.5, 0.0, 0.0),
-          ('prop_fire_hosereel', WASH[1] - 0.2, WASH[3] - 0.8, 0.0, 270.0)]
+    L += [('prop_hose_1', WASH[0] + 0.5, WASH[3] - 0.6, 0.0, 0.0), ('prop_bucket_02a', WASH[0] + 1.2, WASH[3] - 0.5, 0.0, 0.0)]
+    # (the wall hose reel is wall-hung on the north wall: jc3_pgarage_dress; 2026-11-11, Antonio: it stood free in the wash bay)
     L += [('prop_bollard_04', U_FOOT - 0.4, (DIV[0] + DIV[1]) / 2, 0.0, 0.0), ('prop_cctv_cam_01a', U_FOOT - 0.3, DIV[1], CEIL_B - 0.5 - ZB, 270.0)]
     return [(m, u, v, ZB + z, h) for m, u, v, z, h in L]
 # ---------------- rooms in the MLO ----------------

@@ -9,7 +9,7 @@ Run: blender -b --python jc3_build.py   (pass line JC3_BUILD_PASS)"""
 import sys, json, math, shutil, time
 from pathlib import Path
 P3 = Path(__file__).resolve().parent; WK = P3.parent
-sys.path[:0] = [r'C:\Users\anton\Documents\Codex\TowerCity\work', str(P3), str(WK / 'p2'), str(WK)]
+sys.path[:0] = [r'C:\Users\anton\Documents\Codex\TowerCity\work', str(P3), str(WK / 'p2'), str(WK), str(WK / 'interior')]
 import bpy, numpy as np
 import tc_kit as TK
 import jc_frame as F
@@ -36,6 +36,7 @@ for _k in JP.ROOMS:
     elif _k in ('pstaff1', 'pstaff2', 'pint1', 'pint2'): VCOL[_k] = _WIN                        # area 3: rooms on the west windows
     elif _k in ('pdesk', 'pstair', 'pobs1', 'pobs2', 'pdeck', 'pramp_in', 'pramp_out'): VCOL[_k] = _IN   # inner rooms, the garage
 VCOL['plobby'] = VCOL['tlobby']                                                               # behind the colonnade glass, as the tower lobby
+VCOL['grec'] = VCOL['tlobby']; VCOL['gaud'] = VCOL['gsec'] = VCOL['tunnel'] = _IN; VCOL['mayor'] = VCOL['govnr'] = _WIN   # area 5 (curtained rooms = enclosed)
 DRAW2ROOM = {}
 _orig_new = TK.K.new_drawable
 def _new_drawable(name, parts, *a, **kw):
@@ -110,29 +111,104 @@ rs('speckle', 'normal_detail.sps', {'DiffuseSampler': 'xj_v_speckledfloor01', 'D
 rs('conc', 'normal.sps', {'DiffuseSampler': 'xj_v_conc_wall', 'BumpSampler': 'xj_v_concrete01_n'},
    {'bumpiness': 1.0, 'specularIntensityMult': 0.125, 'specularFalloffMult': 20.0, 'specularFresnel': 0.97})              # Mission Row's concrete
 TK.MAT['obsglass'] = TK.clear_glass('JC obs glass', (0.05, 0.06, 0.07), 0.45)          # the observation rooms' dark one-way glass
-_hz = np.zeros((32, 32, 4), np.float32); _hz[..., 3] = 1.0; _yy, _xx = np.mgrid[0:32, 0:32]
-_hz[..., :3] = np.where((((_xx + _yy) // 8) % 2 == 0)[..., None], (0.92, 0.72, 0.06), (0.06, 0.06, 0.06))
-TK.MAT['hazard'] = TK.tex_mat('JC3 hazard', _hz)                                      # B1: the columns' yellow / black safety bands
-TK.MAT['pipe_red'] = TK.flat('JC3 pipe_red', (0.55, 0.07, 0.05)); TK.MAT['panel_grey'] = TK.flat('JC3 panel_grey', (0.42, 0.43, 0.44))
-TK.MAT['skirt'] = TK.flat('JC3 skirt', (0.07, 0.07, 0.08), spec=0.3)                        # area 3: skirting boards
-TK.MAT['kit_white'] = TK.flat('JC3 kit_white', (0.86, 0.87, 0.86))                             # B1: first-aid / eyewash cabinets
+# ---------------- our own textured paints (2026-11-11: no flat paint on a wall): Rockstar's surface, our colour ----------------
+def _px_of(name):
+    im = _img(name, False); px = np.array(im.pixels[:], np.float32).reshape(im.size[1], im.size[0], 4); return px
+def tinted(key, src, rgb, bump, contrast=0.18, params=None, shader='normal_spec.sps'):
+    """Rockstar texture `src` re-coloured to rgb (its light / dark detail kept at `contrast`), with Rockstar's normal map `bump`."""
+    px = _px_of(src)
+    while max(px.shape[:2]) > 512: px = px[::2, ::2]                                # (512 px: the drawable embeds it uncompressed, keep it under 16 MiB)
+    lum = 0.3 * px[..., 0] + 0.59 * px[..., 1] + 0.11 * px[..., 2]; lum = (lum - lum.mean()) / (lum.std() + 1e-6)
+    out = np.ones_like(px); out[..., :3] = np.clip(np.array(rgb)[None, None, :] * (1 + contrast * lum[..., None]), 0, 1)
+    m = TK.create_shader(shader); m.name = 'JC3 ' + key
+    nd = m.node_tree.nodes['DiffuseSampler']; nd.image = TK.dds('jc3_' + key, out, TK.OUT / 'tex', False, 'B8G8R8A8_UNORM'); nd.texture_properties.embedded = True
+    nd = m.node_tree.nodes.get('BumpSampler'); nd.image = _img(bump, True); nd.texture_properties.embedded = True
+    nd = m.node_tree.nodes.get('SpecSampler')
+    if nd is not None:
+        sp = np.ones((8, 8, 4), np.float32) * 0.5; nd.image = TK.dds(f'jc3_spec_{key}', sp, TK.OUT / 'tex', True); nd.texture_properties.embedded = True
+    for k, v in (params or {}).items():
+        q = m.node_tree.nodes.get(k)
+        if q is not None: q.set_float(v)
+    TK.MAT[key] = m; return m
+def painted(key, px, nrm, params):
+    """our own painted texture (tiles, safety stripes) with its own normal map."""
+    m = TK.create_shader('normal_spec.sps'); m.name = 'JC3 ' + key
+    for smp, img, nc in (('DiffuseSampler', px, False), ('BumpSampler', nrm, True), ('SpecSampler', np.ones((8, 8, 4), np.float32) * 0.6, True)):
+        nd = m.node_tree.nodes.get(smp); nd.image = TK.dds(f'jc3_{key}_{smp[:4].lower()}', img, TK.OUT / 'tex', nc, 'B8G8R8A8_UNORM'); nd.texture_properties.embedded = True
+    for k, v in params.items():
+        q = m.node_tree.nodes.get(k)
+        if q is not None: q.set_float(v)
+    TK.MAT[key] = m; return m
+def _normal_from(h, k=3.0):
+    gy, gx = np.gradient(h); n = np.stack([-gx * k, -gy * k, np.ones_like(h)], -1); n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    out = np.ones(h.shape + (4,), np.float32); out[..., :3] = n * 0.5 + 0.5; return out
+_rng = np.random.default_rng(7)
+def _tiles(n, size, grout, face, gw=3):
+    """n x n glazed tiles on a size-px texture: grout lines (recessed in the normal map), a little tone variation tile to tile."""
+    yy, xx = np.mgrid[0:size, 0:size]; step = size // n; g = ((xx % step) < gw) | ((yy % step) < gw)
+    tone = _rng.normal(0, 0.012, (n, n))[(yy // step) % n, (xx // step) % n]
+    px = np.ones((size, size, 4), np.float32); px[..., :3] = np.where(g[..., None], grout, np.clip(np.array(face)[None, None] + tone[..., None], 0, 1))
+    px[..., :3] *= (1 + _rng.normal(0, 0.01, (size, size, 1)))
+    return np.clip(px, 0, 1), _normal_from(np.where(g, 0.0, 1.0).astype(np.float32))
+_yy, _xx = np.mgrid[0:256, 0:256]; _st = (((_xx + _yy) // 64) % 2 == 0)
+_hz = np.ones((256, 256, 4), np.float32); _hz[..., :3] = np.where(_st[..., None], (0.92, 0.72, 0.06), (0.06, 0.06, 0.06)) * (1 + _rng.normal(0, 0.04, (256, 256, 1)))
+painted('hazard', np.clip(_hz, 0, 1), _normal_from(_rng.normal(0, 0.15, (256, 256)).astype(np.float32), 1.0),
+        {'bumpiness': 0.5, 'specularIntensityMult': 0.3, 'specularFalloffMult': 40.0})              # yellow / black safety bands (painted steel)
+def _brushed(size, rgb, amp, seed):
+    """a brushed / satin finish: fine streaks along u (row noise smeared along the row), and its normal map."""
+    r = np.random.default_rng(seed); n = r.normal(0, 1, (size, size)); k = np.ones(24) / 24
+    st = np.array([np.convolve(np.tile(row, 2), k, 'same')[size // 2: size // 2 + size] for row in n], np.float32)
+    st = (st - st.mean()) / (st.std() + 1e-6)
+    px = np.ones((size, size, 4), np.float32); px[..., :3] = np.clip(np.array(rgb)[None, None] * (1 + amp * st[..., None]), 0, 1)
+    return px, _normal_from(st * 0.05, 1.0)
+# the shared kit's metals and the B1 / police kit paints, re-made textured for this build (2026-11-11: no flat paint anywhere)
+painted('steel', *_brushed(256, (0.32, 0.32, 0.34), 0.10, 1), {'bumpiness': 0.3, 'specularIntensityMult': 0.6, 'specularFalloffMult': 80.0})
+painted('brass', *_brushed(256, (0.34, 0.235, 0.085), 0.08, 2), {'bumpiness': 0.2, 'specularIntensityMult': 0.9, 'specularFalloffMult': 120.0})
+painted('dark', *_brushed(256, (0.03, 0.03, 0.035), 0.25, 3), {'bumpiness': 0.2, 'specularIntensityMult': 0.15, 'specularFalloffMult': 30.0})
+painted('pipe_red', *_brushed(256, (0.55, 0.07, 0.05), 0.05, 4), {'bumpiness': 0.2, 'specularIntensityMult': 0.4, 'specularFalloffMult': 40.0})
+painted('panel_grey', *_brushed(256, (0.42, 0.43, 0.44), 0.06, 5), {'bumpiness': 0.2, 'specularIntensityMult': 0.4, 'specularFalloffMult': 40.0})
+tinted('skirt', 'gz_v_ss_wood06', (0.07, 0.07, 0.08), 'gz_v_ss_wood06_n', 0.25,
+       {'bumpiness': 0.6, 'specularIntensityMult': 0.35, 'specularFalloffMult': 60.0})                 # area 3: skirting boards (dark lacquered wood)
+painted('kit_white', *_brushed(256, (0.86, 0.87, 0.86), 0.02, 6), {'bumpiness': 0.1, 'specularIntensityMult': 0.5, 'specularFalloffMult': 60.0})   # B1: first-aid / eyewash cabinets (enamel)
+# area 3 redesign (2026-10-31, the approved board): navy (24/38/78) and gold (201/162/39) paint, white wall tile and grey floor tile
+rs('brick', 'normal.sps', {'DiffuseSampler': 'sc1_19_rsd_jp_brick_0001', 'BumpSampler': 'sc1_19_rsd_jp_brick_0001_n'},   # Rockstar's brick (the old plaza's)
+   {'bumpiness': 1.0, 'specularIntensityMult': 0.15, 'specularFalloffMult': 40.0, 'specularFresnel': 0.9})
+rs('metmesh', 'normal_cutout.sps', {'DiffuseSampler': 'xj_v_metmesh2xj_v_metmesh', 'BumpSampler': 'xj_v_metmesh_n'},   # Mission Row's armoury mesh
+   {'HardAlphaBlend': 1.0, 'bumpiness': 1.0, 'specularIntensityMult': 0.125, 'specularFalloffMult': 100.0, 'specularFresnel': 0.97})   # (v_20_armoury_gate)
+tinted('navy', 'gz_dlc_bwallpaint1', (0.094, 0.149, 0.306), 'gz_dlc_bwallpaint1_n', 0.22,
+       {'bumpiness': 1.0, 'specularIntensityMult': 0.15, 'specularFalloffMult': 40.0})                # the board's navy: the bank's wall paint, re-coloured
+tinted('gold', 'gz_v_ss_wood06', (0.79, 0.64, 0.15), 'gz_v_ss_wood06_n', 0.08,
+       {'bumpiness': 0.15, 'specularIntensityMult': 0.8, 'specularFalloffMult': 120.0})               # the gold rail: brushed brass (fine streaks)
+painted('tile', *_tiles(4, 512, (0.62, 0.63, 0.64), (0.90, 0.91, 0.91), 4), {'bumpiness': 0.8, 'specularIntensityMult': 0.6, 'specularFalloffMult': 150.0})       # 15 cm wall tile
+painted('tilefloor', *_tiles(2, 512, (0.30, 0.31, 0.32), (0.52, 0.53, 0.54), 5), {'bumpiness': 0.8, 'specularIntensityMult': 0.3, 'specularFalloffMult': 80.0})  # 30 cm floor tile
+import jc5_mats                                                                     # area 5: the BrunX-look materials (open textures, our names)
+jc5_mats.make()
 M_PER_UV = {'granite': 4.05, 'marble': 2.4, 'slat': 2.0, 'carpet': 2.0, 'plaster': 3.0, 'ceiltile': 1.2, 'panel': 1.0, 'plank': 2.0,
-            'block': 2.0, 'speckle': 2.0, 'conc': 3.0, 'hazard': 0.6}             # (bfloormrble1 = 2 x 2 tiles: 1.2 m tiles)
+            'block': 2.0, 'speckle': 2.0, 'conc': 3.0, 'hazard': 0.6, 'tile': 0.6, 'tilefloor': 0.6, 'brick': 1.5, 'metmesh': 0.2,
+            'navy': 3.0, 'gold': 1.2, 'skirt': 1.8}             # (bfloormrble1 = 2 x 2 tiles: 1.2 m tiles)
+M_PER_UV.update(jc5_mats.MPU)
+json.dump(M_PER_UV, open(OUT / 'mpu.json', 'w'), indent=1)                              # (the surface gate reads the same numbers)
+# ---------------- area 5: our own prop models (seals, flags, Lady Justice, ballot booth, chandelier): built + exported first ----------------
+import jc5_props_build
+CUSTOM5 = jc5_props_build.build(OUT, {k: TK.MAT[v] for k, v in jc5_mats.PROP_MATS.items()})
 # ---------------- helpers ----------------
 R = 'galleria'
 ARCH = {k.lower(): v for k, v in json.load(open(P3 / 'survey/arch_ytyp.json', encoding='utf-8-sig')).items()}
+for _n, _b in CUSTOM5.items():                                                   # our props' bounds, as the survey writes them
+    ARCH[_n] = {'bbMin': ' '.join(f'{a}:{x}' for a, x in zip('XYZ', _b['bb_lo'])), 'bbMax': ' '.join(f'{a}:{x}' for a, x in zip('XYZ', _b['bb_hi']))}
 def bb(model):
     a = ARCH[model.lower()]; f = lambda s: [float(x[2:]) for x in s.split()]
     return f(a['bbMin']), f(a['bbMax'])
-def place(model, u, v, base, heading, room=R, flags=None, centre=False):
+def place(model, u, v, base, heading, room=R, flags=None, centre=False, scale=None):
     """a prop standing on `base`: z = base + max(0, -bbMin.z) (mid-height pivots, playbook 03); centre=True puts the CENTRE of its
     bounds (not its pivot) at (u, v)."""
     lo, hi = bb(model); z = base + max(0.0, -lo[2])
     if centre:
         cx, cy = (lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2; h = math.radians(heading)
         u -= cx * math.cos(h) - cy * math.sin(h); v -= cx * math.sin(h) + cy * math.cos(h)
-    TK.prop(room, model, u, v, z, heading, flags)
-    PLACED.append({'room': room, 'model': model, 'u': round(u, 3), 'v': round(v, 3), 'z': round(z, 3), 'heading': heading, 'base': base})
+    if scale: z = base + max(0.0, -lo[2]) * scale
+    TK.prop(room, model, u, v, z, heading, flags, scale)
+    PLACED.append({'room': room, 'model': model, 'u': round(u, 3), 'v': round(v, 3), 'z': round(z, 3), 'heading': heading, 'base': base, **({'scale': scale} if scale else {})})
 PLACED = []
 def B(lo, hi, mat, col=True): TK.box(R, lo, hi, mat, col)
 G = JP.G
@@ -186,6 +262,12 @@ for v0, v1 in JP.screen_runs():
     v0 = max(v0, JP.VA0 + JP.SKIRT_P); v1 = min(v1, JP.VA1 - JP.SKIRT_P)
     if v1 - v0 > 0.13: screen('u', JP.SCREEN_U, v0, v1)
 screen('v', JP.EXIT_SPLIT_V, JP.EXIT_SPLIT_U[0] + JP.SCREEN_T / 2, JP.EXIT_SPLIT_U[1])
+# the street entrances: phase 2's curtain bays are wider and taller than the Mission Row pair; the playbook door tool's fillers close each
+# bay down to the leaves: phase 2's steel jambs reach them, a steel transom in the glass plane closes the head (2026-11-01)
+for k in JP.ENTRANCES:
+    s0, s1 = JP.entrance_span(k); jamb = ((s1 - s0) - 2 * JP.LEAF_W) / 2
+    for a0, a1, z0, z1 in JT.DF.fillers({'a0': s0 + jamb, 'a1': s1 - jamb, 'z0': G, 'z1': JP.DOOR_TOP}, s0 + jamb, s1 - jamb, G + JP.LEAF_H):
+        B((JP.DOOR_U - 0.06, a0, z0), (JP.DOOR_U + 0.06, a1, z1), 'steel', False)   # (head height: no collision)          # (the transom: phase 2's jambs already reach the leaves)
 # ---------------- the screening lanes ----------------
 for bv, dv in JP.LANES:
     place(JP.XRAY, JP.SCREEN_U, bv, G, 90.0)                         # the belt runs along u through the screen line
@@ -246,13 +328,17 @@ TK.LCOL[R] = (1.0, 0.95, 0.86)
 REGIONS = TB.build_rooms()
 REGIONS.update(PB.build(JGAR.ZB))                                                # area 3: the Police HQ L1 / L2, the stair, the interview suites
 REGIONS.update(GB.build())                                                       # area 3: the B1 garage and its two ramps
-for room, m, u, v, z, h in TB.OPS['props']:
-    place(m, u, v, z, h, room=room)
+import jc6_tunnel as JTUN
+REGIONS.update(JTUN.build(TB))                                                   # area 6: the prisoner tunnel (Jail I's secure stair -> the secure lift)
+for room, m, u, v, z, h, *sc in TB.OPS['props']:
+    place(m, u, v, z, h, room=room, scale=sc[0] if sc else None)
     if m == JP.BENCH: SEATS.extend([tuple(x) + (room, 'PROP_HUMAN_SEAT_BENCH') for x in JP.seat_points(m, u, v, z, h)])
     cs = JT.CHAIR_SEAT.get(m)
     if cs:
         hh = math.radians(h); y = cs[1]; SEATS.append((u - y * math.sin(hh), v + y * math.cos(hh), z + cs[0], (h + 180.0) % 360.0, room, 'PROP_HUMAN_SEAT_CHAIR'))   # (0, y) in the chair's frame
 for u, v, z, h, what, room, sc in TB.OPS['seats']: SEATS.append((u, v, z, (h + 180.0) % 360.0, room, sc))
+for room, m, u, v, z, h, sc in TB.OPS.get('hung', []):                           # area 5: chandeliers hung at the ceiling (pivot = the rod's top)
+    TK.prop(room, m, u, v, z, h, None, sc); PLACED.append({'room': room, 'model': m, 'u': round(u, 3), 'v': round(v, 3), 'z': round(z, 3), 'heading': h, 'base': z - 1.16 * sc, 'scale': sc})
 # ---------------- UVs at Rockstar's texel density for his textures ----------------
 def uv_pass():
     for o in [o for k in JP.ROOMS for o in TK.PARTS[k]]:
@@ -282,7 +368,7 @@ DRAWN = {k: ('jc_courts_' + k).lower() for k in JP.ROOMS}     # lower case: the 
 for k, d in DRAWN.items(): DRAW2ROOM[d] = k
 pieces = len(TK.COLS)
 info = TK.export_all(DRAWN, {}, JP.MLO, 'jc_courts_extcol')
-custom = {JPOL.MIRROR_PROP[0]: PB.export_mirror(OUT)}                              # our own prop archetypes in jc_courts.ytyp (the interview mirrors)
+custom = {JPOL.MIRROR_PROP[0]: PB.export_mirror(OUT), **CUSTOM5}                  # our own prop archetypes in jc_courts.ytyp (the interview mirrors, area 5's)
 missing_vc = [d for d in DRAWN.values() if not VC_DONE.get(d)]
 assert not missing_vc, f'vertex colours were not written: {missing_vc}'
 def corners_of(P):
@@ -313,10 +399,17 @@ lifts = {}
 for L_ in TK.LIFTS + TB.OPS['lifts']: lifts.setdefault(L_['bank'], {'bank': L_['bank'], 'heading': L_['heading'], 'floors': []})['floors'].append({'name': L_['floor'], 'z': L_['z'], 'cabs': L_['cabs']})
 json.dump(list(lifts.values()), open(OUT / 'lifts.json', 'w'), indent=1)
 zones = {'galleria': [[JP.UA0, JP.UA1, JP.VA0, JP.VA1, G, JP.ROOF], [JP.UB0, JP.UB1, JP.VB0, JP.VB1, G, JP.ROOF]]}
-ZONE3 = {'plobby': (JPOL.P1, JPOL.CEIL), 'pdesk': (JPOL.P1, JPOL.P1 + PB.ROOM_H), 'pstaff1': (JPOL.P1, JPOL.P1 + PB.ROOM_H), 'pstair': (JGAR.ZB, JPOL.P2 + PB.ROOM_H),
+ZONE3 = {'plobby': None,                                                  # (per rect below: only the lobby runs to the ceiling)
+          'pdesk': (JPOL.P1, JPOL.P1 + PB.ROOM_H), 'pstaff1': (JPOL.P1, JPOL.P1 + PB.ROOM_H), 'pstair': (JGAR.ZB, JPOL.P2 + PB.ROOM_H),
          'pdeck': (JGAR.ZB, JGAR.CEIL_B), 'pramp_in': (JGAR.ZB, GB.RAMP_CEIL), 'pramp_out': (JGAR.ZB, GB.RAMP_CEIL),
          **{k: (JPOL.P2, JPOL.P2 + PB.ROOM_H) for k in ('pstaff2', 'pint1', 'pobs1', 'pobs2', 'pint2')}}
+import jc5_court as C5
+ZONE3.update({'tunnel': (JTUN.B1, JTUN.Z1), 'gaud': (JT.F1, JT.LOB_CEIL), 'grec': (JT.F1, JT.LOB_CEIL), 'gsec': (JT.F1, C5.WING_TOP['gsec']),
+              **{k: (C5.office_F(k), C5.office_F(k) + C5.OFF_H) for k in C5.OFFICE_FLOORS}})
 for k, rs_ in REGIONS.items():
+    if k == 'plobby':
+        zones[k] = [[round(r[0], 3), round(r[1], 3), round(r[2], 3), round(r[3], 3), JPOL.P1, JPOL.CEIL if r in (JPOL.LOBBY, JPOL.NE) else JPOL.P1 + PB.ROOM_H] for r in rs_]
+        continue
     if k in ZONE3: z0, z1 = ZONE3[k]
     else: z0 = JT.F1 if k in ('tlobby', 'stair') else JT.FLOORS[k[-1]]; z1 = {'tlobby': JT.LOB_CEIL, 'stair': JT.STAIR_TOP + 3.2}.get(k, z0 + (JT.CEIL_T if k.startswith('crt') else JT.ROOM_H))
     zones[k] = [[round(r[0], 3), round(r[1], 3), round(r[2], 3), round(r[3], 3), z0, z1] for r in rs_]
@@ -324,7 +417,7 @@ lay = {'mlo': JP.MLO, 'origin': [F.OX, F.OY, 0.0], 'heading': F.HDEG, 'drawables
        'rooms': [{'key': k, 'name': JP.ROOM_NAME[k], 'id': i, 'drawable': ('jc_courts_' + k).lower(), 'timecycle': JP.TCYC[k]} for k, i in JP.ROOMS.items()],
        'portals': ports, 'props': props, 'placed': PLACED, 'doors': door_ents, 'rollups': rollups, 'custom_props': custom, 'seats': [[round(x, 3) if isinstance(x, float) else x for x in s_] for s_ in SEATS],
        'lights': sum(len(TK.LIGHTS[k]) for k in JP.ROOMS), 'vcol': {k: VCOL[DRAW2ROOM[k]] for k in VC_DONE}, 'lifts': list(lifts.values()),
-       'mlo_box': [[JP.RA[0], JP.RA[2], G - JP.SLAB_T], [PL.B['tower']['box'][1], PL.B['tower']['box'][3], JT.F7]],
+       'mlo_box': [[JP.RA[0], JP.RA[2], G - JP.SLAB_T], [PL.B['tower']['box'][1], PL.B['tower']['box'][3], C5.office_F('govnr') + C5.OFF_H + 0.4]],
        'openings': JT.OPENINGS, 'zones': zones, 'collision': {'children': len(TK.COLS), 'pieces_merged': pieces}}
 json.dump(lay, open(OUT / 'jc3_layout.json', 'w'), indent=1)
 bpy.ops.wm.save_as_mainfile(filepath=str(OUT / 'jc3_scene.blend'), compress=True)        # the built rooms as drawn, for the preview renders (a Sollumz re-import of

@@ -13,7 +13,7 @@ import numpy as np
 P3 = Path(__file__).resolve().parent; sys.path[:0] = [str(P3), str(P3.parent)]
 import jc_frame as F, jc3_police_dress as PD, jc3_pgarage_dress as GD
 L = json.load(open(P3 / 'out/jc3_layout.json'))
-A = {k.lower(): v for k, v in json.load(open(P3 / 'survey/arch_ytyp.json', encoding='utf-8-sig')).items()}
+import jc3_arch; A = jc3_arch.load()
 fv = lambda s: [float(x[2:]) for x in s.split()]
 ROOMS = ('plobby', 'pdesk', 'pstaff1', 'pstaff2', 'pint1', 'pobs1', 'pobs2', 'pint2', 'pdeck')
 WALL = PD.WALL | GD.WALL; CEIL = PD.CEILING | {'prop_cctv_cam_06a'}
@@ -65,7 +65,7 @@ def main():
         q0 = next(q for q in placed if q['model'] == 'v_20_notbrd01' and q['room'] == 'plobby')
         moved = dict(q0); moved['u'] += 0.3                                      # 0.3 m off the lobby's west wall
         wrong = dict(next(q for q in placed if q['model'] == 'v_ilev_ph_bench' and q['room'] == 'plobby')); wrong['room'] = 'pstaff1'
-        o = next(o for o in openings if o['name'] == 'P_in_brief')
+        o = next(o for o in openings if o['name'] == 'P_in_pstaff1_brief')
         door = {'room': 'pstaff1', 'model': 'v_20_notbrd01', 'u': o['plane'] - 0.1 - 0.06, 'v': (o['a0'] + o['a1']) / 2, 'z': o['z0'] + 1.5,
                 'base': o['z0'] + 0.9, 'heading': 270.0}
         bad = check([moved, wrong, door], openings)

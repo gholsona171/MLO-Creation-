@@ -29,8 +29,11 @@ import jc3_tower as JT                           # area 2: the tower lobby, stai
 import jc3_police as JPOL, jc3_pgarage as JGAR   # area 3: the Police HQ (L1, L2, the stair, the interview suites) and its B1 garage
 ROOMS = JT.rooms()                               # collision room ids (1..31, 0 = limbo)
 ROOMS.update({k: max(ROOMS.values()) + 1 + i for i, k in enumerate(JPOL.KEYS + JGAR.KEYS)})
-ROOM_NAME = {'galleria': 'JC_GALLERIA', **JT.ROOM_NAME, **JPOL.ROOM_NAME, **JGAR.ROOM_NAME}
-TCYC = {'galleria': 'mp_heist_tuner_smshop_default', **JT.TCYC, **JPOL.TCYC, **JGAR.TCYC}   # pins exposure (-1 .. 0.1), bloom .25, no sky light (TC LIT_TC, lower case)
+ROOMS.update({k: max(ROOMS.values()) + 1 + i for i, k in enumerate(JT.AREA5_ROOMS)})   # area 5: Government Offices wing, Mayor, Governor (24..28)
+import jc6_tunnel as JTUN                        # area 6: the prisoner tunnel from Jail I (B1) to the secure lift (29)
+ROOMS[JTUN.KEY] = max(ROOMS.values()) + 1
+ROOM_NAME = {'galleria': 'JC_GALLERIA', **JT.ROOM_NAME, **JPOL.ROOM_NAME, **JGAR.ROOM_NAME, **JTUN.ROOM_NAME}
+TCYC = {'galleria': 'mp_heist_tuner_smshop_default', **JT.TCYC, **JPOL.TCYC, **JGAR.TCYC, **JTUN.TCYC}   # pins exposure (-1 .. 0.1), bloom .25, no sky light (TC LIT_TC, lower case)
 # ---------------- the atrium box (phase 2) ----------------
 AB = PL.B['atrium']; D = AB['depth']             # 0.3: the atrium's stone depth = our linings' thickness
 RA, RB = PL.rects('atrium')                      # (-8.5, 37.9, -7.2, 17.3), (-8.5, 13.7, 17.3, 49.6)
@@ -80,16 +83,16 @@ SKIRT_H, SKIRT_P = 0.15, 0.02                    # dark granite skirting
 RESERVED = {   # wall stretches kept free for the next areas' doors: (wall, a0, a1, z0, z1, what)
     'police_link': ('police', 18.0, 22.0, G, G + 3.0, 'police HQ public lobby link (area 3)'),
 }
-# the tower lobby's doorway in the galleria's tower wall (area 2): two glazed pairs (jc3_tower.GALLERIA_DOORS), each 2 x 1.30 + jambs
-TOWER_DOORS = [(a0, a0 + 2 * JT.LEAF + 2 * JT.JAMB) for a0, _ in JT.GALLERIA_DOORS]
+# the tower lobby's doorway in the galleria's tower wall (area 2): two glazed pairs (jc3_tower.GALLERIA_DOORS), each fitted to its leaves
+TOWER_DOORS = [(a0, JT.pair_fit(a0, G)['a1']) for a0, _ in JT.GALLERIA_DOORS]     # fitted to the leaves (playbook door tool)
 def wall_holes(wall):
     """3D boxes cut out of a lining (the doorways through it): the tower's two pairs, the police HQ's link pair (area 3)."""
     if wall == 'police':
         lo, hi = WALLS['police'][1]; a0 = JPOL.LINK[0]
-        return [(a0, a0 + 2 * JT.LEAF + 2 * JT.JAMB, lo - 0.3, hi + 0.3, G, G + JT.LEAF_H + 0.10)]
+        f = JT.pair_fit(a0, G); return [(f['a0'], f['a1'], lo - 0.3, hi + 0.3, f['z0'], f['z1'])]
     if wall != 'tower_s': return []
     lo, hi = WALLS['tower_s'][1]
-    return [(a0, a1, lo - 0.3, hi + 0.3, G, G + JT.LEAF_H + 0.10) for a0, a1 in TOWER_DOORS]
+    return [(a0, a1, lo - 0.3, hi + 0.3, G, JT.pair_fit(a0, G)['z1']) for a0, a1 in TOWER_DOORS]
 def fins(wall):
     """fin centres along a wall: the tower's bay rhythm (7.2 m bays, 0.7 m fins) on the tower walls; 6 m elsewhere; never inside a
     reserved stretch or within 0.6 m of an end."""
