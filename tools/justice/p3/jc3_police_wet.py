@@ -5,14 +5,12 @@ dresser with a toilet stuck to its end", "the stalls are horrible", "see into th
     dresser WITH a toilet modelled into its end) and the fast-food prep sink are gone from the building.
   * Toilets stand only inside stalls (or alone in a single-user WC behind its own solid door): stalls are kit (no Rockstar stall fits
     these rooms: v_73_p_ap_banostall_az is 7.2 x 2.9 m): 25 mm laminate partitions 0.3 m off the floor to 2.1 m, floor-mounted front
-    panels, a steel headrail, and a 0.6 m door per stall standing ajar inward (an 8-corner solid with collision, as Rockstar's stall
-    doors are static models).
+    panels, a steel headrail, and a 0.6 m door per stall standing open inward at 90 deg along the lot grid (static, with collision,
+    as Rockstar's stall doors are static models; an angled leaf would be the one face off the grid).
   * Men's rooms: Rockstar's urinal row (v_73_p_ap_banourinal_aa003, four urinals with privacy screens, front = the model's -x).
   * Every restroom / locker-room door is Rockstar's solid office door (v_ilev_fib_door1, no glass: jc3_police.DOOR_MODEL).
   props() -> [(room, model, u, v, z over the floor, heading)]   kit() -> [(room, lo, hi, material, collision)]
-  doors() -> [(room, eight corners, material, collision)]   (the stall doors, kit solids at an angle)
 Heading: 0 faces -v (a model's front is -y), 90 +u, 180 +v, 270 -u."""
-import math
 import jc3_police as P
 from jc3_police_dress import W, bb, face_of, local
 P1, P2 = P.P1, P.P2
@@ -22,7 +20,6 @@ COUNTER_BOTTOM = 0.15                    # the counter's 0.71 m depth hangs from
 BASIN_BOTTOM = 0.24                      # prop_sink_02: rim at 0.86 (its pivot 0.44 over its bottom, the rim 0.18 over the pivot)
 STALL_D, DOOR_W, PANEL_T = 1.55, 0.6, 0.025
 PART_Z, TOP_Z = 0.3, 2.1
-DOOR_OPEN = 60.0                         # the stall doors stand ajar this far inward (deg from shut)
 SHOWER1 = (11.8, 12.9, 14.0)             # men's shower partitions (u) on the south wall (G_EA), kept as approved
 SHOWER2 = (18.5, 19.6, 20.7)             # women's shower partitions (u) on G_LOCK, in the strip by the stair
 def centred(room, model, axis, line, side, a, bottom=0.0):
@@ -42,14 +39,14 @@ def urinals(room, axis, line, side, a, floor_z):
 def stalls(room, axis, line, side, a0, a1, n, floor_z, ends=(True, True)):
     """n toilet stalls against the wall `line` (the room on `side`) between a0 .. a1 along it: partitions between them (and at an end
     that is not a wall: ends), front panels either side of a centred 0.6 m door, a headrail, each door ajar inward, a toilet on the
-    back wall facing the door. -> (props, boxes, doors)"""
+    back wall facing the door. -> (props, boxes)"""
     f = face_of(room, axis, line, side, (a0 + a1) / 2); F = f + side * STALL_D
     z = floor_z
     def bx(n0, n1, b0, b1, z0, z1, mat='panel_grey', col=True):
         lo_n, hi_n = min(n0, n1), max(n0, n1)
         lo, hi = ((lo_n, b0, z + z0), (hi_n, b1, z + z1)) if axis == 'u' else ((b0, lo_n, z + z0), (b1, hi_n, z + z1))
         return (room, lo, hi, mat, col)
-    props, boxes, doors = [], [], []
+    props, boxes = [], []
     w = (a1 - a0) / n; cuts = [a0 + w * i for i in range(n + 1)]
     for i, c in enumerate(cuts):
         if (i == 0 and not ends[0]) or (i == n and not ends[1]): continue
@@ -58,46 +55,41 @@ def stalls(room, axis, line, side, a0, a1, n, floor_z, ends=(True, True)):
     for i in range(n):
         s0, s1 = cuts[i], cuts[i + 1]; c = (s0 + s1) / 2; d0, d1 = c - DOOR_W / 2, c + DOOR_W / 2
         boxes += [bx(F, F + side * PANEL_T, s0, d0, 0.0, TOP_Z), bx(F, F + side * PANEL_T, d1, s1, 0.0, TOP_Z)]   # front panels (floor to rail)
-        t = math.radians(DOOR_OPEN); hn, ha = F + side * PANEL_T / 2, d1                    # the hinge on the door's far jamb
-        dn, da = -side * math.sin(t), -math.cos(t)                                          # leaf direction: inward, toward d0
-        pn, pa = -da, dn                                                                    # across the leaf (its thickness)
-        q = [(hn + k * DOOR_W * dn + e * PANEL_T / 2 * pn, ha + k * DOOR_W * da + e * PANEL_T / 2 * pa) for k, e in ((0, -1), (1, -1), (1, 1), (0, 1))]
-        corners = [((x, y, z + zz) if axis == 'u' else (y, x, z + zz)) for zz in (PART_Z, TOP_Z - 0.05) for x, y in q]
-        doors.append((room, corners, 'panel_grey', True))
+        boxes.append(bx(F, F - side * DOOR_W, d1 - PANEL_T, d1, PART_Z, TOP_Z - 0.05))   # the door, open inward on its far jamb's hinge
         props.append(W(room, TOILET, axis, line, side, c))
     boxes.append(bx(F, F + side * 0.04, a0, a1, TOP_Z, TOP_Z + 0.05, 'steel', False))      # the headrail over the fronts
-    return props, boxes, doors
+    return props, boxes
 def l2_restrooms():
     """L2 (pstaff2): the men's and women's restrooms, 8.8 x 2.75 m each, entered from the corridor's east wall (u 24) at their west end:
     the counter along one long wall, two stalls across the east end, the men's urinal row on the other long wall."""
-    S, z = 'pstaff2', P2; props, boxes, doors = [], [], []
+    S, z = 'pstaff2', P2; props, boxes = [], []
     for name, v0, v1, cw, cs in (("men's restroom", -32.75, -30.0, -30.0, -1), ("women's restroom", -35.5, -32.75, -35.5, 1)):
         props.append(centred(S, COUNTER, 'v', cw, cs, 27.85, COUNTER_BOTTOM))              # u 25.4 .. 30.3 (the door's swing: u < 25.3)
         props += [W(S, DRYER, 'v', cw, cs, 30.75, 1.05), W(S, BIN, 'v', cw, cs, 30.75)]
         a0, a1 = face_of(S, 'v', v0, 1, 31.9), face_of(S, 'v', v1, -1, 31.9)                # between the long walls' faces
-        p, b, d = stalls(S, 'u', P.LOB_W, -1, a0, a1, 2, z, ends=(False, False)); props += p; boxes += b; doors += d
+        p, b = stalls(S, 'u', P.LOB_W, -1, a0, a1, 2, z, ends=(False, False)); props += p; boxes += b
         if name.startswith('men'): props += urinals(S, 'v', v0, 1, 27.1, z)                 # the south wall, u 25.4 .. 28.8
-    return props, boxes, doors
+    return props, boxes
 def l1_showers():
     """L1 (pstaff1): the men's showers / WC (three showers on the south wall, two stalls on the stair wall, the counter on the north
     wall west of the door, urinals); the women's: two showers in the strip by the stair, two stalls on the south wall, the counter on
     the north wall (the lockers move to the west wall: dress2). The men's door moves east (u 16.75: jc3_police.INNER_DOORS) so the
     counter fits west of it."""
-    S, z = 'pstaff1', P1; props, boxes, doors = [], [], []
+    S, z = 'pstaff1', P1; props, boxes = [], []
     # men's: showers (racks) + their partitions
     props += [W(S, 'prop_shower_rack_01', 'v', P.G_EA, 1, (a + b) / 2, 1.3) for a, b in zip((P.WI + 0.2,) + SHOWER1[:-1], SHOWER1)]
     boxes += [(S, (u - 0.025, P.G_EA + 0.1, z), (u + 0.025, P.G_EA + 1.1, z + 2.0), 'tile', True) for u in SHOWER1]
     props.append(centred(S, COUNTER, 'v', P.G_MEN, -1, 13.2, COUNTER_BOTTOM))              # u 10.75 .. 15.65 (the door: u 16.75 ..)
-    p, b, d = stalls(S, 'u', P.STAIR_B[0], -1, face_of(S, 'v', P.G_EA, 1, 17.5), -32.9, 2, z, ends=(False, True)); props += p; boxes += b; doors += d
-    props += [W(S, DRYER, 'u', P.WI, 1, -32.3, 1.05), W(S, BIN, 'u', P.WI, 1, -31.75)]
+    p, b = stalls(S, 'u', P.STAIR_B[0], -1, face_of(S, 'v', P.G_EA, 1, 17.5), -32.9, 2, z, ends=(False, True)); props += p; boxes += b
+    props += [W(S, DRYER, 'v', P.G_MEN, -1, 16.2, 1.05), W(S, BIN, 'u', P.WI, 1, -31.75)]   # the dryer between the counter and the door (the west wall: windows)
     props += [(S, 'hei_heist_stn_benchshort', 14.9, -33.6, 0.0, 90.0), (S, 'v_res_fh_towelstack', 14.9, -33.2, 0.45, 0.0)]
     # women's: the strip's two showers (racks + partitions), two stalls on the south wall of the locker room, the counter on its north wall
     props += [W(S, 'prop_shower_rack_01', 'v', P.G_LOCK, 1, (a + b) / 2, 1.3) for a, b in zip(SHOWER2, SHOWER2[1:])]
     boxes += [(S, (u - 0.025, P.G_LOCK + 0.1, z), (u + 0.025, P.G_LOCK + 1.1, z + 2.0), 'tile', True) for u in SHOWER2]
-    p, b, d = stalls(S, 'v', P.G_LOCK, 1, 15.6, P.STAIR_B[0], 2, z); props += p; boxes += b; doors += d
+    p, b = stalls(S, 'v', P.G_LOCK, 1, 15.6, P.STAIR_B[0], 2, z); props += p; boxes += b
     props.append(centred(S, COUNTER, 'v', P.G_EA, -1, 13.8, COUNTER_BOTTOM))               # u 11.35 .. 16.25 (the lockers: the west wall)
     props += [W(S, DRYER, 'v', P.G_EA, -1, 16.75, 1.05), W(S, BIN, 'v', P.G_EA, -1, 17.5)]
-    return props, boxes, doors
+    return props, boxes
 def l1_public():
     """L1 (plobby): the two single-user public WCs off the hall (2.25 x 3.44 m, door on the north wall): the toilet on the back
     (south) wall, the wall basin on the side wall clear of the door's swing, a hand dryer, a bin."""
@@ -112,5 +104,3 @@ def props():
     return [(r, m, u, v, z, h) for r, m, u, v, z, h in a] + l1_public()
 def kit():
     return l2_restrooms()[1] + l1_showers()[1]
-def doors():
-    return l2_restrooms()[2] + l1_showers()[2]

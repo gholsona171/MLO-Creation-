@@ -253,9 +253,9 @@ def room_props(f):
     out += [(rst, 'prop_watercooler', 15.0, 44.0, 0.0, 90.0), (rst, 'v_corp_offshelfdark', JURY_E - 0.1 - 0.27, 52.5, 0.0, 270.0),
             (rst, 'v_corp_potplant1', RU0 + 0.75, RV1 - 0.8, 0.0, 0.0)]
     # the judge's chambers (area 5: the BrunX office - bookcases, the seal and flags are jc3_tower_build.chambers(); here the furniture)
-    out += [(rst, 'v_corp_officedesk', 28.45, 51.8, 0.0, 0.0), (rst, 'ex_prop_offchair_exec_01', 28.45, 53.0, 0.0, 0.0),
-            (rst, 'v_res_m_armchair', 27.5, 50.0, 0.0, 180.0), (rst, 'v_res_m_armchair', 29.4, 50.0, 0.0, 180.0),
-            (rst, 'v_corp_cd_desklamp', 27.7, 51.85, 0.76, 0.0), (rst, 'prop_cd_folder_pile2', 29.0, 51.75, 0.76, 0.0),
+    import jc_desk as JD                                              # the workstation faces its chair (jc_desk, 2026-11-11)
+    out += JD.workstation(rst, 28.45, 51.8, 0.0, 'ex_prop_offchair_exec_01', items=[('v_corp_cd_desklamp', 0.26, 0.0, 90.0), ('prop_cd_folder_pile2', -0.35, 0.0, 90.0)])
+    out += [(rst, 'v_res_m_armchair', 27.5, 50.0, 0.0, 180.0), (rst, 'v_res_m_armchair', 29.4, 50.0, 0.0, 180.0),
             (rst, 'v_corp_potplant1', CHAMB_E - 0.85, RV1 - 0.8, 0.0, 0.0)]
     out += [(rst, 'v_corp_offshelfdark', RST_E - 0.1 - 0.27, 47.0, 0.0, 270.0), (rst, 'v_corp_lazychair', 35.0, 52.0, 0.0, 180.0),
             (rst, 'v_corp_lazychair', 36.6, 52.0, 0.0, 180.0), (rst, 'v_corp_sidetable', 35.8, 53.0, 0.0, 0.0)]

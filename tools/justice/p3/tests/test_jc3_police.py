@@ -16,7 +16,9 @@ def _west_partitions(spaces):
 def test_west_partitions_land_between_bays():
     gaps = P.west_gaps()
     def bad(vs): return [v for v in vs if not any(g0 - 1e-6 <= v - 0.1 and v + 0.1 <= g1 + 1e-6 for g0, g1 in gaps)]
-    for sp in (P.SPACES1, P.SPACES2, {k: [r] for k, r in P.SUITES.items()}): assert not bad(_west_partitions(sp)), bad(_west_partitions(sp))
+    shut = set(P.WINDOWLESS['pstaff1'])                                    # (windowless rooms: their west bays are lined solid)
+    open1 = {k: v for k, v in P.SPACES1.items() if k not in shut}
+    for sp in (open1, P.SPACES2, {k: [r] for k, r in P.SUITES.items() if k != 'pint1'}): assert not bad(_west_partitions(sp)), bad(_west_partitions(sp))
     assert bad([-30.0]), 'the gap check did not find a partition planted across a window bay'
 
 def test_spaces_tile_their_side():
@@ -40,7 +42,9 @@ def test_stair_is_rockstars():
         for base, d, z0, z1, lane in fl: assert abs((z1 - z0) / P.RISE - P.RISERS) < 1e-6 and lane[1] - lane[0] >= 1.5
     assert abs(P.P1 - G.ZB - 3.2) < 1e-6 and P.RISE == 0.20 and P.GO == 0.27
     run = (P.RISERS - 1) * P.GO
-    assert P.SB_SLAND[1] + run <= P.SB_NLAND[0] + 1e-6, 'the flights do not fit between the landings'
+    def joined(sland, nland): return abs(sland[1] + run - nland[0]) < 1e-6
+    assert joined(P.SB_SLAND, P.SB_NLAND), 'a flight does not meet its landing (each flight runs from one landing edge to the other)'
+    assert not joined(P.SB_SLAND, (P.STAIR_B[3] - 0.15 - 1.3, P.STAIR_B[3] - 0.15)), 'the join check passed the old 1.3 m landing (a 0.71 m hole)'
 
 def test_stair_doors_on_the_landing():
     for n, frm, to, z, ax, plane, a0, kind in P.PORTAL_DOORS:
@@ -100,3 +104,40 @@ def test_mirror_faces_the_interview_room():
     assert not into(0.0 if 1 > 0 else 180.0, 1) and not into(180.0, -1), 'the plant (old headings) was not caught'
     for intr, obs, ax, plane, side in P.MIRROR:
         assert ax == 'u' and into(P.mirror_heading(side), side), f'{intr}: the mirror does not face the interview room'
+
+
+def _door_ok(room, ax, plane, a0, spaces, opens):
+    """an inner door sits on a partition between two of its room's named spaces (not an open pair), 0.1 m of wall at each jamb."""
+    a1 = a0 + 1.4
+    names = list(spaces)
+    for i, x in enumerate(names):
+        for y in names[i + 1:]:
+            if (x, y) in opens or (y, x) in opens: continue
+            for ra in spaces[x]:
+                for rb in spaces[y]:
+                    for pa, pb in ((ra[1], rb[0]), (ra[0], rb[1])) if ax == 'u' else ((ra[3], rb[2]), (ra[2], rb[3])):
+                        if abs(pa - plane) > 1e-6 or abs(pb - plane) > 1e-6: continue
+                        lo, hi = (max(ra[2], rb[2]), min(ra[3], rb[3])) if ax == 'u' else (max(ra[0], rb[0]), min(ra[1], rb[1]))
+                        if lo + 0.2 - 1e-6 <= a0 and a1 <= hi - 0.2 + 1e-6: return True
+    return False
+
+def test_inner_doors_on_partitions():
+    S = {'plobby': (P.SPACES_LOBBY, P.OPEN_LOBBY), 'pdesk': (P.SPACES_DESK, P.OPEN_DESK), 'pstaff1': (P.SPACES1, P.OPEN1), 'pstaff2': (P.SPACES2, P.OPEN2)}
+    bad = [(r, n) for r, n, z, ax, plane, a0 in P.INNER_DOORS if not _door_ok(r, ax, plane, a0, *S[r])]
+    assert not bad, bad
+    assert len({(r, n) for r, n, *_ in P.INNER_DOORS}) == len(P.INNER_DOORS), 'two inner doors share a name in one room'
+    assert not _door_ok('pstaff2', 'v', P.GAR_N, 33.0, *S['pstaff2']), 'the door check did not find the planted corridor-filling door'
+
+def test_space_tiling_public_and_desk():
+    def area(r): return (r[1] - r[0]) * (r[3] - r[2])
+    for sp, reg in ((P.SPACES_LOBBY, P.REGIONS['plobby']), (P.SPACES_DESK, P.REGIONS['pdesk'])):
+        assert abs(sum(area(r) for rs in sp.values() for r in rs) - sum(area(r) for r in reg)) < 1e-3
+
+def test_east_walls_on_piers():
+    """every cross wall meeting the east colonnade glass lands on a pier between its bays - proven on the old -35.0."""
+    f = [x for x in P.PL.face_list('police') if x[0] == 'E'][0]
+    bays = [(b[0], b[1]) for r in P.PL.arcade_runs('police', f) for b in r]
+    def on_glass(v): return any(a0 - 0.1 < v < a1 + 0.1 for a0, a1 in bays)
+    vs = {r[k] for sp in (P.SPACES_LOBBY, P.SPACES2) for rs in sp.values() for r in rs if abs(r[1] - P.EG) < 1e-6 for k in (2, 3)}
+    assert not [v for v in vs if on_glass(v)], sorted(vs)
+    assert on_glass(-35.0), 'the pier check did not find the planted wall'

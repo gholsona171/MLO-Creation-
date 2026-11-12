@@ -57,7 +57,8 @@ STAIR_B = (18.4, 22.0, -35.75, -30.0)
 SB_LANES = ((18.55, 20.1), (20.3, 21.85))                                 # west lane, east lane (u); the 0.2 wall between them
 SB_MIDW = (20.1, 20.3)
 SB_SLAND = (STAIR_B[2] + 0.15, STAIR_B[2] + 1.7)                          # the south landing (v), 1.55 deep
-SB_NLAND = (STAIR_B[3] - 0.15 - 1.3, STAIR_B[3] - 0.15)                   # the north half landing (v)
+SB_NLAND = (SB_SLAND[1] + (RISERS - 1) * GO, STAIR_B[3] - 0.15)           # the north half landing (v), 2.0 deep: it starts at the top riser
+                                                                          # of each flight (2026-11-11: a 1.3 m landing left a 0.71 m hole)
 def flights(zb0):
     """the flights from the floor at zb0 to the next (+3.2): up the west lane northward to the north half landing, then up the east lane
     southward to the next floor's south landing. [(v_start, direction, z_bottom, z_top, lane)]"""

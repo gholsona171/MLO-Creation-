@@ -19,7 +19,7 @@ def stock(room, shelf, u, v, h, items):
             m = items[(li * 3 + si * 2) % len(items)]; out.append((room, m, *local(u, v, h, x, 0.0), z, (h + 7.0 * ((li + si) % 3)) % 360))
     return out
 def pod(room, cu, cv):
-    """two desks back to back across a 1.2 m screen (kit2): users north and south."""
+    """two workstations back to back across the 1.2 m screen (kit2): users north and south, each desk's cables ending at the screen."""
     return desk(room, cu, cv + 0.56, 0.0) + desk(room, cu, cv - 0.56, 180.0)
 def staff1():
     L, S = [], 'pstaff1'
@@ -64,8 +64,7 @@ def staff1():
     L += [W(S, 'prop_coathook_01', 'v', P.G_LOCK, 1, u, 1.65) for u in (11.6, 12.6, 13.6)]
     # evidence intake: the pass-through evidence lockers, the intake desk with bags, a packing bench, boxes
     L += [W(S, FCAB, 'v', P.G_LOCK, -1, 16.6 + 0.6 * i) for i in range(6)]
-    L += desk(S, 19.0, -41.7, 180.0, extra=False) + [(S, 'v_20_evidence01', 18.5, -41.75, TOP + 0.02, 0.0), (S, 'v_20_evidence01', 19.4, -41.6, TOP + 0.02, 30.0),
-                                                     (S, 'p_amb_clipboard_01', 19.9, -41.55, TOP, 10.0)]
+    L += desk(S, 19.0, -41.7, 180.0, end=[('v_20_evidence01', 0.0, 0.0, 90.0)])
     L += [W(S, 'prop_tool_bench01', 'u', COR[0], -1, -40.9), (S, 'v_20_evidence01', 21.5, -40.9, 0.86, 90.0), (S, 'v_res_filebox01', 16.6, -44.0, 0.0, 0.0)]
     # evidence cage (mesh walls: the build): three shelving runs stocked on every level with boxes and bagged evidence, crates, a camera
     L += [W(S, 'v_ind_cf_shelf', 'u', 16.0, 1, -46.7), W(S, 'v_med_cor_shelfrack', 'u', COR[0], -1, -46.2)]

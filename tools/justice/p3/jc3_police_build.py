@@ -148,19 +148,40 @@ def _west(room, F, region):
         holes += [(P.WI - 0.01, plane + 0.01, a0, a1, z0, z1) for a0, a1, z0, z1 in ins if not _shut(room, a0, a1)]
         if ins: OPS['portals'].append({'from': room, 'to': 'limbo', 'kind': f'{room} W windows', 'P': ('u', plane, min(i[0] for i in ins), max(i[1] for i in ins), ins[0][2], ins[0][3], -1)})
     return holes
+RAIL_H, RAIL_OFF, RAIL_W, RAIL_T = 0.9, 0.06, 0.04, 0.05                # handrail: 0.9 m over the nosing line, its face 6 cm off the wall
+def _handrail(room, wall, side, base, d, zb):
+    """a wall handrail along one flight (lane along v): a 4 x 5 cm steel bar from the bottom riser to the top riser (the stretch the
+    lane walls run beside: the mid wall ends at both landings) on the nosing line + RAIL_H, its inner face RAIL_OFF off the wall face
+    `wall` (the lane on `side` of it), and three brackets into the wall."""
+    run = (P.RISERS - 1) * P.GO; foot = base - d * P.GO; top = base + d * run
+    z = lambda a: zb + (a - foot) * d / P.GO * P.RISE + RAIL_H
+    c0, c1 = sorted((wall + side * RAIL_OFF, wall + side * (RAIL_OFF + RAIL_W)))
+    cs = [(c, a, z(a) + dz) for dz in (-RAIL_T / 2, RAIL_T / 2) for c, a in ((c0, base), (c1, base), (c1, top), (c0, top))]
+    TK.mesh(room, cs, [(0, 1, 2, 3), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], 'steel', False, 'stair_handrail')
+    b0, b1 = sorted((wall, wall + side * RAIL_OFF))
+    for t in (0.12, 0.5, 0.88):
+        a = base + d * run * t; TK.box(room, (b0, a - 0.015, z(a) - RAIL_T / 2 - 0.06), (b1, a + 0.015, z(a) - RAIL_T / 2), 'steel', col=False)
 def _stair(holes, zb1):
-    """the police stair (kept as approved): one room from B1 (zb1) to L2, lanes along v, the south landing of each floor, the north half landings."""
+    """the police stair (rebuilt 2026-11-11, Antonio at postal 446: "the landing is missing and the flights don't connect"): one room
+    from B1 (zb1) to L2, two lanes along v split by a block wall, a south landing on every floor and a north half landing between,
+    each flight running from one landing's edge to the other's (P.SB_NLAND starts at the top riser), a wall handrail on both sides
+    of every flight, and a steel balustrade on L2 where the west lane drops to the flight below (L2 is the top floor)."""
     room = 'pstair'; S = P.STAIR_B; z0, z1 = zb1, P.P2 + ROOM_H; reg = [S]
     TB.lining(room, reg, [], z0, z1, 'block', holes, ext_t=0.15, int_t=0.15)
     TB.slab(room, reg, z0 - 0.4, z0, 'speckle'); TB.slab(room, reg, z1, z1 + 0.2, 'ceiltile', col=False)
+    (w0, w1), (e0, e1) = P.SB_LANES
     for zf in (zb1, P.P1):
         for base, d, zb, zt, lane in P.flights(zf):
             TK.stair(room, 'v', base, d, zb, zt, lane, 'speckle', 'steel', fill_to=None, depth=0.45)
+            _handrail(room, lane[0], 1, base, d, zb); _handrail(room, lane[1], -1, base, d, zb)
         zh = zf + P.RISERS * P.RISE
         TK.box(room, (S[0] + 0.15, P.SB_NLAND[0], zh - 0.3), (S[1] - 0.15, P.SB_NLAND[1], zh), 'speckle')   # the north half landing
     for zl in (P.P1, P.P2):
         TK.box(room, (S[0] + 0.15, P.SB_SLAND[0], zl - 0.3), (S[1] - 0.15, P.SB_SLAND[1], zl), 'speckle')    # the south landings L1 / L2
     TK.box(room, (P.SB_MIDW[0], P.SB_SLAND[1], z0), (P.SB_MIDW[1], P.SB_NLAND[0], z1), 'block')               # the wall between the lanes
+    g = P.SB_SLAND[1]                                                                                          # L2: the west lane's edge
+    TK.box(room, (w0, g, P.P2), (w1, g + 0.02, P.P2 + 0.95), 'steel')                                          # the balustrade panel
+    TK.box(room, (w0, g - 0.01, P.P2 + 0.95), (w1, g + 0.05, P.P2 + 1.0), 'steel', col=False)                 # its top rail
     for zl in (zb1, P.P1, P.P2): TK.lamp(room, (S[0] + S[1]) / 2, sum(P.SB_SLAND) / 2, zl + ROOM_H, energy=0.6, falloff=6.0, size=(0.9, 0.3))
     return reg
 WIN = {}                                                                  # room -> its window / mirror cuts (the wall finishes keep clear)
@@ -273,10 +294,11 @@ def door_casings(R):
     for o in JT.OPENINGS:
         if not o['name'].startswith('P_') or o['name'] in MESH_DOORS: continue
         ax, pa, a0, a1, z0 = o['axis'], o['plane'], o['a0'], o['a1'], o['z0']
-        strip = [b for b in TK.SOLIDS if (b[0][2] <= z0 + 1.0 <= b[1][2]) and
+        k = 0 if ax == 'u' else 1                                        # the strip: only the wall the door stands in, solids <= 0.6 thick across
+        strip = [b for b in TK.SOLIDS if (b[0][2] <= z0 + 1.0 <= b[1][2]) and b[1][k] - b[0][k] <= 0.6 and   # its plane (2026-11-11: the
                  ((ax == 'u' and b[0][1] < a0 - 0.005 and b[1][1] > a0 - 0.04 and b[0][0] < pa + 0.6 and b[1][0] > pa - 0.6) or
                   (ax == 'v' and b[0][0] < a0 - 0.005 and b[1][0] > a0 - 0.04 and b[0][1] < pa + 0.6 and b[1][1] > pa - 0.6))]
-        k = 0 if ax == 'u' else 1
+        # stair's south lining, a wall ACROSS the stair doors' wall, put their casings 2 m out in the shaft: the "diagonal blue rail")
         if not strip: continue
         n0 = min(b[0][k] for b in strip); n1 = max(b[1][k] for b in strip)
         for side, face in ((-1, n0), (1, n1)):
@@ -350,9 +372,6 @@ def build(zb1):
         for rs in spaces.values(): TB.lights_grid(room, rs, F + ROOM_H, 3.2)
     # ---------------- kit (no Rockstar prop for these), props, signs, insignia, door casings, the wall finishes ----------------
     for room, lo, hi, mat, col in D.kit(): TK.box(room, lo, hi, mat, col=col); PF.keep_clear(room, lo, hi)
-    for room, cs, mat, col in D.kit_doors():                                     # the stall doors, ajar (eight-corner solids)
-        TK.mesh(room, cs, [(0, 1, 2, 3), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], mat, col, 'stall_door')
-        PF.keep_clear(room, [min(c[i] for c in cs) for i in range(3)], [max(c[i] for c in cs) for i in range(3)])
     for room, m, u, v, z, h in D.dress(): OPS['props'].append((room, m, u, v, z, h))
     for room, c, face, w, h_, lines, name, bg, fg in D.signs(): TK.sign(room, c, face, w, h_, lines, name, bg=bg, fg=fg, emis=False, scale=1.0)
     insignia()

@@ -1024,3 +1024,29 @@ Also from this hunt: a room whose only portal is one door (no window to limbo) c
 give glazed rooms their window portal even when curtains line the glass; and keep a sibling MLO's box off the other MLO's rooms
 (the jail's prisoner tunnel ran under the courts and stretched Jail I's box over the lobby and the auditorium: the tunnel became a
 room of the courts MLO). Neither was the cause here, both were removed while looking.
+
+## Prove the live interior is your build: count its rooms in game (Justice Center, 2026-11-12)
+- Symptom: after a deploy and a restart, the new government rooms tracked as the lobby. The ped's room key stayed the lobby even
+  when it was teleported into them, although their collision carried the right RoomID and the ytyp was right.
+- Cause: a repo mirror run between the deploy and the restart copied an old copy of the same resource over the rig build. The
+  live ytyp was 3 days old and had 24 rooms, not 30.
+- Check after every deploy and restart, before any test: stand in the interior, then
+  `GetInteriorRoomCount(GetInteriorFromEntity(ped))` must equal the ytyp's room count, and
+  `GetInteriorRoomIndexByHash(int, joaat(name))` must be >= 0 for the newest room. A file-hash check that runs before the restart
+  does not prove what the game loaded.
+- Keep rig-only resources out of any mirror or sync that writes the rig (C9Test: mirror_cleveland.py RIG_BUILT).
+
+## Built-in workstations: read the model before dressing it (Justice Center desks, 2026-11-12)
+- v_corp_officedesk is a whole workstation. Its screens (the emissive face points -y), keyboard, tower and cables are part of
+  the model, its top is at z 0.90, and its only clear area is the end at x -1.25 .. -0.75. The user sits on its -y side.
+- Our desk sets had put the chair at +y (the cable side), added monitors facing that chair, and set them on a 0.76 top. Players
+  saw reversed screens, a third monitor half inside the desk, and monitors poking up out of it.
+- Rule: before you dress a furniture model, split its ydr.xml by shader / texture (screen, keyboard, cables) and map what stands
+  on its top. Put the chair facing the model's own screens, and put clutter only on the clear area
+  (tools/justice/p3/jc_desk.py `workstation`).
+
+## Door casings: find the door's own wall, not a wall across it (2026-11-12)
+- The casing finder took any solid at the door's edge as "the wall". The stair's south lining runs across the door's wall, and
+  its far face became the casing plane. A navy door frame stood 2 m out in the stairwell (the "diagonal blue rail" a player
+  reported).
+- Rule: only solids up to 0.6 m thick across the door's plane count as its wall (jc3_police_build.door_casings).

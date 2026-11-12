@@ -14,6 +14,7 @@ L1 public + front of house here; the staff floors in jc3_police_dress2.py."""
 import json, math
 from pathlib import Path
 import jc3_police as P
+import jc_desk as JD
 A = {k.lower(): v for k, v in json.load(open(Path(__file__).with_name('survey') / 'arch_ytyp.json', encoding='utf-8-sig')).items()}
 def bb(m):
     f = lambda s: [float(x[2:]) for x in s.split()]; a = A[m.lower()]; return f(a['bbMin']), f(a['bbMax'])
@@ -27,10 +28,11 @@ WALL = set(BOARDS) | {'v_med_cor_whiteboard', 'v_med_cor_pinboard', 'prop_game_c
         'prop_shower_rack_01', 'v_res_mountedprojector', 'prop_handdry_01', 'prop_sink_02', 'v_73_p_ap_banosink_aa001'}
 CEILING = {'prop_cctv_cam_06a', 'v_med_smokealarm', 'v_serv_metro_ceilingvent', 'v_res_mountedprojector'}
 FLAT = {'apa_mp_h_01_acc_rug'}                                             # lies on the floor under furniture: not a footprint
-BENCH, DESK, OCH, LCH, EXC = 'v_ilev_ph_bench', 'v_corp_officedesk', 'prop_off_chair_05', 'v_ilev_leath_chr', 'ex_prop_offchair_exec_01'
+BENCH, OCH, LCH, EXC = 'v_ilev_ph_bench', 'prop_off_chair_05', 'v_ilev_leath_chr', 'ex_prop_offchair_exec_01'
+CONSOLE, CONSOLE_TOP = 'v_ind_dc_desk03', 0.80                         # the dispatch consoles: a plain 2.5 x 1.08 desk (no built-in screens)
 FCAB, TCAB, LCAB, LOCK, SIDE = 'v_corp_filecabtall', 'v_corp_tallcabdark01', 'v_corp_lowcabdark01', 'v_ind_rc_locker', 'v_corp_sidetable'
 CHAIRS = (OCH, 'prop_off_chair_04', 'prop_off_chair_03', 'v_corp_offchair')
-TOP = 0.76                                                                 # v_corp_officedesk's top
+TOP = JD.TOP                                                               # v_corp_officedesk's top (0.90: jc_desk)
 NAVY, WHITE, GOLD = (24, 38, 78), (255, 255, 255), (201, 162, 39)
 def _seed(u, v): return int(abs(u * 7.31 + v * 13.17) * 10) % 97
 def floor_of(room): return P1 if room in ('plobby', 'pdesk', 'pstaff1') else P2
@@ -64,32 +66,30 @@ def local(u, v, h, x, y):
 def look(u, v, tu, tv):
     """the heading that turns a model's front (-y) from (u, v) toward (tu, tv)."""
     return math.degrees(math.atan2(tu - u, -(tv - v))) % 360.0
-def desk(room, u, v, h=0.0, chair=None, extra=True):
-    """v_corp_officedesk (the user on its +y side) with a chair, a monitor or two, keyboard + mouse, and clutter that varies desk to desk."""
+PAPERS = (('v_res_paperfolders', 0.18, 90.0), ('prop_cd_folder_pile1', 0.05, 90.0), ('v_ret_gc_trays', 0.2, 0.0), ('v_res_binder', 0.2, 0.0))
+def desk(room, u, v, h=0.0, chair=None, extra=True, end=None):
+    """an office workstation (jc_desk.workstation: v_corp_officedesk carries its own screens, keyboard, tower and cables; the chair at
+    local +y 1.2 of (u, v, h) faces them) with clutter that varies desk to desk on its one clear end; end: [(model, y, dz, dh)] there
+    instead of the clutter."""
     s = _seed(u, v); ch = chair or CHAIRS[s % len(CHAIRS)]
-    out = [(room, DESK, u, v, 0.0, h), (room, ch, *local(u, v, h, 0.0, 1.15), 0.0, h)]
-    put = lambda m, x, y, z=TOP, dh=180.0: out.append((room, m, *local(u, v, h, x, y), z, (h + dh) % 360))
-    put('prop_monitor_w_large' if s % 3 == 0 else 'prop_monitor_01a', -0.05, -0.25)
-    if s % 4 == 1: put('prop_monitor_01a', 0.55, -0.22, TOP, 200.0)
-    put('prop_keyboard_01b' if s % 2 else 'prop_keyboard_01a', 0.0, 0.18); put('prop_mouse_01a', 0.38, 0.2)
-    if not extra: return out
-    put('v_res_mmug' if s % 2 else 'v_ret_gc_mug03', 0.75, 0.12)
-    put(('v_res_paperfolders', 'prop_cd_folder_pile1', 'v_ret_gc_trays', 'v_res_binder')[s % 4], -0.85, -0.05, TOP + (0.11 if s % 4 == 0 else 0.0))
-    put('v_ret_gc_phone', 0.95, -0.25, TOP + 0.05)
-    if s % 3 != 1: put('v_corp_cd_desklamp', -1.0, -0.35)
-    if s % 5 == 2: put('v_20_copfile01', -0.45, 0.2, TOP + 0.002, 170.0)
-    if s % 5 == 4: put('prop_cs_walkie_talkie', 0.6, -0.05, TOP + 0.13, 90.0)
-    if s % 6 == 3: put('prop_food_cb_donuts', 0.75, -0.3)
-    return out
+    if end is None:
+        end = []
+        if extra:
+            m, y, dh = PAPERS[s % 4]
+            end.append((m, y, 0.0, dh) if s % 3 != 1 else ('v_corp_cd_desklamp', 0.26, 0.0, 90.0))
+            if s % 6 == 3: end.append(('prop_food_cb_donuts', -0.36, 0.0, 0.0))
+            elif s % 2: end.append(('v_res_mmug' if s % 4 == 1 else 'v_ret_gc_mug03', -0.38, 0.0, 0.0))
+    return JD.workstation(room, u, v, h, ch, items=end)
 def console(room, u, v, h):
-    """a dispatch console: one desk, two positions (chairs at x -0.6 / +0.6), three screens per position, radio, phone."""
-    out = [(room, DESK, u, v, 0.0, h)]
-    put = lambda m, x, y, z=TOP, dh=180.0: out.append((room, m, *local(u, v, h, x, y), z, (h + dh) % 360))
-    for x in (-0.6, 0.6):
-        out.append((room, OCH, *local(u, v, h, x, 1.1), 0.0, h))
-        put('prop_monitor_01a', x - 0.42, -0.24, TOP, 160.0); put('prop_monitor_w_large', x, -0.3); put('prop_monitor_01a', x + 0.42, -0.24, TOP, 200.0)
-        put('prop_keyboard_01b', x, 0.15); put('prop_mouse_01a', x + 0.3, 0.17); put('prop_police_radio_main', x - 0.35, 0.05, TOP + 0.04)
-        put('prop_off_phone_01', x + 0.38, -0.02)
+    """a dispatch console: a plain desk (CONSOLE), two positions (chairs at x -0.62 / +0.62 on its +y side), two screens per position
+    angled in toward the chair, keyboard, mouse, radio, phone - everything inside its position's 1.25 m."""
+    out = [(room, CONSOLE, u, v, 0.0, h)]
+    put = lambda m, x, y, dh=180.0: out.append((room, m, *local(u, v, h, x, y), CONSOLE_TOP, (h + dh) % 360))
+    for x in (-0.62, 0.62):
+        out.append((room, OCH, *local(u, v, h, x, 1.05), 0.0, h))
+        put('prop_monitor_01a', x - 0.25, -0.28, 170.0); put('prop_monitor_01a', x + 0.25, -0.28, 190.0)
+        put('prop_keyboard_01b', x, 0.2); put('prop_mouse_01a', x + 0.34, 0.22); put('prop_police_radio_main', x - 0.45, 0.12)
+        put('prop_off_phone_01', x + 0.42, -0.02)
     return out
 def ceiling(room, model, u, v, h=0.0):
     """a ceiling-mounted model: its top 1 cm under the ceiling."""
@@ -163,7 +163,7 @@ def front():
     L += [W(R, 'prop_tv_flat_01', 'u', P.DESK_W, 1, -23.9, 1.05), W(R, 'prop_tv_flat_01', 'u', P.DESK_W, 1, -21.3, 1.05)]
     L += [W(R, 'v_47_map02', 'v', -26.0, 1, 24.95, 0.95), W(R, TCAB, 'u', 28.0, -1, -19.2)]   # (2j: no rack in front of the consoles)
     # the watch commander: his desk facing the door, the CCTV monitor, the roster whiteboard, a rack, lockers, a visitor's chair
-    L += desk(R, 29.6, -27.55, 180.0, chair=EXC) + [(R, 'prop_cctv_mon_02', 28.9, -27.45, TOP, 0.0)]
+    L += desk(R, 29.6, -27.55, 180.0, chair=EXC, end=[('prop_cctv_mon_02', 0.05, 0.0, 0.0)])
     L += [W(R, 'v_med_cor_whiteboard', 'v', P.DESK_S, 1, 27.2, 1.0), W(R, 'v_serv_tvrack', 'u', P.LOB_W, -1, -28.0)]
     L += [W(R, LOCK, 'u', P.DESK_W, 1, v) for v in (-29.25, -28.45, -27.65)] + [(R, 'v_corp_lazychair', 31.6, -26.75, 0.0, 225.0)]
     # copy and supply: copier, mail slots, shelving with paper boxes, shredder, a side table with a printer
@@ -277,7 +277,4 @@ def kit():
            ('plobby', (a0, b0, P1), (a1, b1, P1 + 1.1), 'panel', True), ('plobby', (a0 - 0.05, b0 - 0.05, P1 + 1.1), (a1 + 0.05, b1 + 0.05, P1 + 1.13), 'granite', False)]
     import jc3_police_wet as WET
     return out + D2.kit2() + WET.kit()
-def kit_doors():
-    """the stall doors (ajar: eight-corner solids) -> [(room, corners, material, collision)]"""
-    import jc3_police_wet as WET
-    return WET.doors()
+

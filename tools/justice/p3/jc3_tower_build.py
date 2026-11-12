@@ -4,6 +4,7 @@ boundary: 0.1 m against another room, so two rooms make a 0.2 m partition back t
 cut by its door openings and window bays (p2_plan.box_minus, exact), so partitions touch and never overlap."""
 import math
 import tc_kit as TK
+import jc_desk as JD
 import p2_plan as PL
 import jc3_tower as JT
 import jc5_court as C5
@@ -339,9 +340,8 @@ def office_floor(k):
     (governor_office if k == 'govnr' else mayor_office)(room, F, top, OFF[0] + JT.OL, OFF[3] - JT.OL, seal, flag)
     # the reception: the secretary's desk, sofas, the flags and seal on the partition, the office placard by its door
     v0 = OFF[2] + JT.OL
-    OPS['props'] += [(room, 'v_corp_officedesk', 45.6, 22.4, F, 270.0), (room, 'prop_off_chair_05', 46.7, 22.4, F, 270.0),
-                     (room, 'prop_monitor_01a', 45.8, 22.4, F + 0.76, 90.0), (room, 'v_ret_gc_phone', 45.6, 21.7, F + 0.76, 90.0),
-                     (room, 'v_club_officesofa', 37.0, v0 + 0.55, F, 180.0), (room, 'v_club_officesofa', 37.0, v0 + 3.6, F, 0.0),
+    OPS['props'] += JD.workstation(room, 45.6, 22.4, 270.0, 'prop_off_chair_05', z=F, items=[('v_ret_gc_phone', 0.1, 0.0, 0.0)])
+    OPS['props'] += [(room, 'v_club_officesofa', 37.0, v0 + 0.55, F, 180.0), (room, 'v_club_officesofa', 37.0, v0 + 3.6, F, 0.0),
                      (room, 'v_res_fh_coftableb', 37.0, v0 + 2.1, F, 0.0), (room, 'apa_mp_h_acc_plant_palm_01', 48.9, 19.0, F, 0.0)]
     ps = C5.OFF_SPLIT + 0.1
     OPS['props'] += [(room, 'jc_courts_seal_' + seal, ps + 0.001, 27.0, F + 1.45, 90.0, 0.9), (room, 'jc_courts_flag_us', ps + 0.5, 26.0, F, 270.0),
@@ -350,9 +350,9 @@ def office_floor(k):
     return {k: reg}
 def _desk(room, u, v, F):
     """the executive desk at (u, v) facing south (the visitors), its chair behind it, a lamp and papers, two visitors' armchairs."""
-    OPS['props'] += [(room, 'v_corp_officedesk', u, v, F, 0.0), (room, 'ex_prop_offchair_exec_01', u, v + 1.05, F, 0.0),
-                     (room, 'v_corp_cd_desklamp', u - 0.6, v - 0.1, F + 0.76, 0.0), (room, 'prop_cd_folder_pile2', u + 0.5, v - 0.05, F + 0.76, 0.0),
-                     (room, 'v_res_m_armchair', u - 0.7, v - 1.4, F, 180.0), (room, 'v_res_m_armchair', u + 0.7, v - 1.4, F, 180.0)]
+    OPS['props'] += JD.workstation(room, u, v, 0.0, 'ex_prop_offchair_exec_01', z=F,
+                                   items=[('v_corp_cd_desklamp', 0.26, 0.0, 90.0), ('prop_cd_folder_pile2', -0.35, 0.0, 90.0)])
+    OPS['props'] += [(room, 'v_res_m_armchair', u - 0.7, v - 1.4, F, 180.0), (room, 'v_res_m_armchair', u + 0.7, v - 1.4, F, 180.0)]
 def mayor_office(room, F, top, west, north, seal, flag):
     """the Mayor's office (7 m): the city seal on the north wall between the US and Cleveland flags, bookcases either side, the desk
     before it facing the door side; a sofa group on the west wall; one chandelier."""
