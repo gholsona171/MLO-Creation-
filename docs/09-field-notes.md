@@ -1050,3 +1050,24 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   its far face became the casing plane. A navy door frame stood 2 m out in the stairwell (the "diagonal blue rail" a player
   reported).
 - Rule: only solids up to 0.6 m thick across the door's plane count as its wall (jc3_police_build.door_casings).
+
+## Taking a rig-only map live: one merged set for every shared Rockstar name (Justice Center, 2026-11-12)
+- A map that was rig-only (`[localtest]`) and is now going live needs its shared vanilla names re-merged, not just copied: the
+  other packs on the rig were carrying the no-JC "production" copies, so JC and the hood / Grove / 17mov / amb-hospital / Bennys
+  each held a different file of the same name, and only one of each loads.
+- Scan by name first (`tools/map_merge/jc_live/scan_live.py <stream dir>`): every stream file of the map against every stream file
+  on the server. Then rebuild each name from the newest vanilla + each AUTHOR's own copy (never a previous merge, never an author file
+  as the base). The previous merges' installed copies are NOT sources, only backups: take each author's edit from the copy it shipped
+  (17mov, amb, Bennys, Grimzy, gcom), and a pack that was already cut by us in steps from each step vs the file that step started from
+  (hood `lr_sc1_occl_01`: its first cut vs vanilla, its round-2 cut vs the file it was cut from).
+- A name only the new map ships (`sc1_occl_03`) still gets the other packs' cuts when it is a variant of a shared file.
+- Feed the merge into the map's build instead of editing its output: the build keeps its own vanilla-based files as the merge's
+  input, the merged files sit in `work/live_merge/bin`, and assemble copies them in only when `jc_inputs.md5` still matches the inputs
+  (else it stops: "LIVE MERGE STALE"). A later rebuild cannot silently ship an unmerged copy.
+- A pack whose live copies were never in the repo (the hood's `*_occl_01` on the rig only) has to be added there too, or the VPS keeps fighting.
+- Repo mirror runs write the rig: until the repo carries the merged files, a mirror puts the old copies back.
+- Prove it in game with a FULL restart (stream files changed), a scripted-camera photo set of every merged spot, and a ground probe at
+  each (`ground_probe.sh`). `photo_set.sh` takes the frame through the harness's screenshot-basic grab (no HUD / NUI) and writes 1920 px jpgs.
+- PowerShell `Resolve-Path` treats `[maps]` as a wildcard: pass `[` / `]` escaped with a backtick (`` `[ ``) when a script resolves a
+  resource path; Git Bash eats `\` in inline Python / sed, so write scripts that touch Windows paths to a file.
+- Worked example: Cleveland RP rebuild `rebuild/install/jc_live_merge/merge.md` (12 files, 27 copies).

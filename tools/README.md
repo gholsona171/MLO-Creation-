@@ -128,6 +128,7 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `ymf_drop.ps1` | (2026-11-11) Rebuild a pack's PSO `_manifest.ymf` without the imapDependencies_2 entries of ymaps the build leaves out; round-trip gate on the unedited file first |
 | `game_names.ps1`, `hash_names.py` | (2026-11-11) Every RPF file name in the game -> resolve `hash_XXXXXXXX` names the prop catalogue lacks (vegetation, rubbish, road props) |
 | `verify_occl.py`, `xml_same.py`, `xml_export_all.ps1`, `import_dir.ps1`, `footprints_17mov.py` | What changed from each reference to merged occluders; merged XML vs its re-export; ymap/ytyp/ybn to XML; XML folder -> ymaps with name/parent check; 17mov car-wash footprints |
+| `jc_live/` | (2026-11-12) Taking a rig-only map live: `scan_live.py` (map stream names vs the server), `scan_repo.py` (same names in the repo, tracked or not), `backup_rig.py` (rig copies as found + sources.txt), `build_merge.sh` (the JC merge as a worked example), `install.py` (merged copy into every pack shipping the name, backup first, md5 log), `photo_views.py` + `photo_set.sh` (1920 px photo set via screenshot-basic, no HUD), `ground_probe.sh` (ped drop at each spot) |
 
 
 ### Slimming streamed files for client memory (2026-11-10) - in `texture_budget/` and `lod_range/` (field note "Slimming streamed files...")
