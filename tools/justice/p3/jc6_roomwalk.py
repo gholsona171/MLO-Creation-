@@ -1,10 +1,12 @@
 """Room-tracking probe (rig, 2026-11-11: walking into the auditorium lost the whole building, and it stayed lost outside): the player
 ped WALKS (TaskGoStraightToCoord, real portal crossings) from a neighbour room into each tested room and back out. At every waypoint
-it reads three things and all three must be the room it stands in (the smallest zone rect of out/jc3_layout.json holding the spot):
-  ped   GetRoomKeyFromEntity(ped)             the ped's room
-  view  GetRoomKeyForGameViewport()           the room the game draws from (the camera's)
+it reads three things (a point's room = the smallest zone rect of out/jc3_layout.json holding it):
+  ped   GetRoomKeyFromEntity(ped)             must be the room the ped stands in
+  view  GetRoomKeyForGameViewport()           must be the room the CAMERA is in (GetGameplayCamCoord: just through a door the
+                                              third-person camera is still a step behind, in the room the ped came from)
   cam   GetInteriorFromGameplayCam()          the camera's interior = the courts' (not Jail I's, not 0 = outside)
-At the marked waypoints the gameplay camera turns a full circle (12 steps of 30 deg): the view room must hold at every step, and a
+At the marked waypoints the gameplay camera turns a full circle (12 steps of 30 deg): the view room must follow the camera at every
+step, and a
 frame is grabbed at 0 / 90 / 180 / 270 (shots/roomwalk/<route>_<n>_<deg>.png) to show the building still drawn.
 Control: the ped stood outside on the plaza must read cam interior 0 (the probe can see 'outside').
 Start position of each route: stood (teleport) in a room next to the tested one, so the walk starts from a known room.
@@ -41,22 +43,25 @@ def room_at(u, v, z):
                 a = (u1 - u0) * (v1 - v0)
                 if best is None or a < best[0]: best = (a, k)
     return best[1] if best else None
-READ = ('local p=PlayerPedId() local c=GetEntityCoords(p) return string.format("%d:%d:%d:%d:%.2f:%.2f:%.2f",GetInteriorFromEntity(p),'
-        'GetRoomKeyFromEntity(p),GetRoomKeyForGameViewport(),GetInteriorFromGameplayCam(),c.x,c.y,c.z)')
+READ = ('local p=PlayerPedId() local c=GetEntityCoords(p) local g=GetGameplayCamCoord() return string.format("%d:%d:%d:%d:%.2f:%.2f:%.2f:%.2f:%.2f:%.2f",'
+        'GetInteriorFromEntity(p),GetRoomKeyFromEntity(p),GetRoomKeyForGameViewport(),GetInteriorFromGameplayCam(),c.x,c.y,c.z,g.x,g.y,g.z)')
 def read():
-    a = PR.lua(READ).split(':'); return {'int': int(a[0]), 'ped': int(a[1]), 'view': int(a[2]), 'cam': int(a[3]), 'uv': [round(x, 2) for x in F.L(float(a[4]), float(a[5]))]}
+    a = PR.lua(READ).split(':'); f = [float(x) for x in a[4:]]
+    return {'int': int(a[0]), 'ped': int(a[1]), 'view': int(a[2]), 'cam': int(a[3]), 'uv': [round(x, 2) for x in F.L(f[0], f[1])],
+            'cam_uvz': [round(x, 2) for x in F.L(f[3], f[4])] + [round(f[5], 2)]}
 def hashes():
     names = list(NAME.values())
     r = PR.lua('local o={} for _,n in ipairs({%s}) do o[#o+1]=tostring(GetHashKey(n)) end return table.concat(o,":")' % ','.join('"%s"' % n for n in names)).split(':')
     return {n: int(h) for n, h in zip(names, r)}
 def grab(name):
     f = str(SHOTS / f'{name}.png'); subprocess.run([PR.GB, '-c', 'cd /c/C9Test && bash gshot.sh "$1"', '_', f], capture_output=True, timeout=60); return f
-def circle(tag, want):
+def circle(tag, want, H):
     steps = []
     for k in range(12):
         deg = 30 * k
-        r = PR.lua('SetGameplayCamRelativeHeading(%.1f) SetGameplayCamRelativePitch(-5.0,1.0) Wait(450) return string.format("%%d:%%d",GetRoomKeyForGameViewport(),GetInteriorFromGameplayCam())' % (deg if deg <= 180 else deg - 360)).split(':')
-        steps.append({'deg': deg, 'view': int(r[0]), 'cam': int(r[1])})
+        r = PR.lua('SetGameplayCamRelativeHeading(%.1f) SetGameplayCamRelativePitch(-5.0,1.0) Wait(450) local g=GetGameplayCamCoord() return string.format("%%d:%%d:%%.2f:%%.2f:%%.2f",GetRoomKeyForGameViewport(),GetInteriorFromGameplayCam(),g.x,g.y,g.z)' % (deg if deg <= 180 else deg - 360)).split(':')
+        cu, cv = F.L(float(r[2]), float(r[3])); k = room_at(cu, cv, float(r[4]))
+        steps.append({'deg': deg, 'view': int(r[0]), 'cam': int(r[1]), 'cam_room': k, 'want': H[NAME[k]] if k else None})
         if deg % 90 == 0: grab(f'{tag}_{deg:03d}')
     return steps
 def run(name, H, courts):
@@ -66,14 +71,15 @@ def run(name, H, courts):
         arrived = True
         if i: arrived, _ = PR.walk_to(u, v, 20.0); time.sleep(0.8)
         k = room_at(u, v, z); want = H[NAME[k]] if k else None; s = read()
-        good = arrived and k is not None and s['ped'] == want and s['view'] == want and s['cam'] == courts
-        rec = {'to': [u, v], 'room': k, 'arrived': arrived, **s, 'ok': good}
+        kc = room_at(*s['cam_uvz']); wc = H[NAME[kc]] if kc else None
+        good = arrived and k is not None and s['ped'] == want and s['view'] == wc and s['cam'] == courts
+        rec = {'to': [u, v], 'room': k, 'cam_room': kc, 'arrived': arrived, **s, 'ok': good}
         if turn:
-            st = circle(f'{name}_{i:02d}', want); rec['circle'] = st
-            rec['circle_ok'] = all(x['view'] == want and x['cam'] == courts for x in st); good &= rec['circle_ok']; rec['ok'] = good
+            st = circle(f'{name}_{i:02d}', want, H); rec['circle'] = st
+            rec['circle_ok'] = all(x['view'] == x['want'] and x['cam'] == courts for x in st); good &= rec['circle_ok']; rec['ok'] = good
             PR.lua('SetGameplayCamRelativeHeading(0.0) return "c"')
         ok_all &= good; out.append(rec)
-        print(name, i, k, 'OK' if good else 'BAD', s, flush=True)
+        print(name, i, k, kc, 'OK' if good else 'BAD', s, flush=True)
     return out, ok_all
 if __name__ == '__main__':
     want = sys.argv[1:] or list(ROUTES)
