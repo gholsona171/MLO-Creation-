@@ -26,6 +26,9 @@ files or server credentials. Keep it that way.
     facades, the LODs and the night pattern. Collision hulls, the vanilla LOD tree re-used, Rockstar's vertex colours (night glow),
     colonnades, driveways, gates.
 
+14. [Add-on tattoos](docs/14-addon-tattoos.md): ytd + overlay XML + shop meta format, finding Rockstar reference sleeves / chest /
+    back / neck values, the decal space measured on the rig, ink cut-outs, cylinder unwrap for sleeve drawings, rcore_tattoos lists.
+
 ## Tools at a glance
 See [tools/README.md](tools/README.md). The short list:
 
@@ -53,6 +56,7 @@ See [tools/README.md](tools/README.md). The short list:
 | New exterior shells + their LOD chain plugged into Rockstar's block tree, LOD-level debug colours, Rockstar texture survey by colour, rig walks round / up entrances (doc 13) | `justice/p2/` |
 | Rebrand a bought / escrowed MLO through its readable ytds: DXT + mips writer, swap textures keeping flags; locked props replaced by our own (archetype swap, meta round-trip gate, cloth flags re-issued) (field notes 2026-11-06) | `texture_rebrand/` (`encode.py`, `ytd_swap.ps1`, `edit_meta.py`, `cw_meta.ps1`, `cw_import.ps1`, `make_flags.py`) |
 | Ground holes / steps and drawn-vs-collision, offline on the built files (before deploying) | `wow2easy_move/tools/hole_grid_offline.py`, `seen_vs_solid.py` (see 07) |
+| Add-on tattoos: Rockstar overlay XMLs + shop metas + tattoo ytds out of the install, reference contact sheet, one-ytd-per-texture writer, full build example (doc 14) | `tattoos/scan_overlays.ps1`, `ref_sheet.py`, `make_ytds.ps1`, `build_example.py` |
 | **Texture budget** for ytd + embedded ydr / ydd textures (cap 2048, under 16 MiB physical, never under 512, lossless DXT1, BC7 for Sollumz textures) and far-LOD range edits for ymaps (field note 2026-11-10) | `texture_budget/tex_slim.ps1`, `tex_verify.ps1`, `rsc_size.py`; `lod_range/` |
 
 ## Project tools (copies; the projects stay where they run from)
