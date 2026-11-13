@@ -26,7 +26,8 @@ their textures. References used: sleeves `MP_Sum2_Tat_013` (right) / `MP_Sum2_Ta
 (collection `mpluxe2_overlays`), back `MP_Luxe_Tat_022`, front neck `mpHeist3_Tat_014`, back neck `MP_Buis_M_Neck_003`.
 
 ## The decal space (measured on the rig with a UV grid + point markers, `build.py cal`)
-- A decal's size on the body = its scale (a 0.1 marker covers 0.1 of the grid). +uvPos.y moves a decal UP the body.
+- Relative to that calibration grid a decal's size = its scale (a 0.1 marker covers 0.1 of the grid). +uvPos.y moves a decal UP
+  the body. Absolute numbers against the mesh UV channel are in the hands section below (they differ per axis).
 - ZONE_TORSO: chest centre x ~0.73, spine x ~0.245, collar-to-belt ~0.33 tall. Female torsos sit higher: raise female uv.y
   (~+0.06 for a chest piece) or the bottom ends up under the jeans.
 - ZONE_HEAD: throat x 0.5, back of neck x 0.0 (a decal there wraps the seam fine). The front of the neck is only ~0.12 tall
@@ -62,6 +63,31 @@ their textures. References used: sleeves `MP_Sum2_Tat_013` (right) / `MP_Sum2_Ta
 - The shoulder cap: add background-only rows above the drawing (12 % of its height) so the sleeve meets the chest / back.
 - Chest / back pieces reach the neck base: grow the texture up (~27 % of the art height) and out at the top (10 % each side) with
   the design's own top background, feathered into the art; recompute uvPos / scale so the original art keeps its place.
-- Hands (arm zones, HAND_LEFT / HAND_RIGHT references MP_Security_Tat_019 / 020): back of hand runs uv.y ~0.30 (wrist) to ~0.20
-  (knuckles); fingers only take a thin band near ~0.15-0.17 (finger UVs are tiny islands), so a hand piece can't run bones down
-  the fingers. The tattoo blend is also low resolution on the hand: fine bone detail reads as soft stripes.
+- Hands: see the next section (the round-2 note that fingers can't be covered was wrong; it came from a wrong u scale).
+
+## Hands and fingers: the real UV layout (Nov 13 2026, round 3)
+Skeleton hands that run every bone down every finger. Tools: `tools/tattoos/ped_ydd_xml.ps1`, `mesh_uv.py`, `hand_tattoo.py`,
+`hand_preview.py`.
+- The decoration UV is the body mesh's **TexCoord1** (not TexCoord0). Export the base freemode drawable with CodeWalker
+  (`ped_ydd_xml.ps1 -Names uppr_000_r -Ped mp_m_freemode_01`, same for `mp_f_freemode_01`; filter on `streamedpeds_mp.rpf\<ped>\`
+  or you get DLC variants), parse with `mesh_uv.py`. Zone coords: x = u - 1, y = 1 - (v - tile); tile -5 = right arm, -7 = left
+  arm (left = mirror, x -> 1 - x).
+- The hand is unwrapped flat at the bottom of the arm zone: back of hand male y ~0.18-0.32 (wrist 0.322), female wrist 0.266,
+  knuckles ~0.165-0.20; each finger is a strip hanging straight down to its tip at y ~0.015-0.02. Male right-arm finger centres x:
+  index .415, middle .50, ring .58, pinky .677, thumb .31 (short strip). The palm side of the fingers is a small copy at
+  x > 0.8 (right) / < 0.2 (left). Pick back-of-hand faces by blend bone (hand 42, thumb 43-45, index 48-50, middle 52-54,
+  ring 55-57, pinky 58-60; left +29) and normal.
+- **Overlay scale vs the mesh UV, measured with colour-coded line probes on the rig (arm zones):** v covers 2 x scale.y, not
+  flipped; u covers 6.667 x scale.x and runs MIRRORED (texture left = higher u), wrapping every 1.0. So a texture laid out over
+  zone box (x0..x1, y0..y1) needs uvPos = box centre, scale = ((x1-x0)/6.667, (y1-y0)/2) and the image flipped left-right.
+  Getting u wrong squeezes the whole hand into ~0.1 of the texture, which is why round 2 looked like blobs.
+- Resolution is fine once placed right (1024 texture over 0.64 x 0.36 zone): thin probe lines render crisp. Bold art still
+  reads best: solid dark packing, black outline round each bone, light bone fill, dark seams at the joints.
+- Finger art must be ~1.5x the width of the faces that point straight up, or bare skin shows down both sides of each finger.
+- Warp: thin-plate spline from mesh joint positions (knuckle, PIP, DIP, tip, thumb CMC/MCP/IP) to the same joints read off the
+  drawing; side points per joint; metacarpal mid-shaft sides so a too-wide mesh hand stretches the packing, not a bone; the
+  drawing's wrist line at the top of the carpals; thumb base level with the other metacarpal bases (pinning it lower folds the
+  art). Check folds with a warped grid over the source (`hand_preview.py`).
+- Rig habits: full FiveM quit before reconnecting after a texture change; clear blood damage before photos; judge every
+  iteration against the source art side by side at the same framing.
+
