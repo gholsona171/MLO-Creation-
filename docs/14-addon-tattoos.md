@@ -51,3 +51,17 @@ their textures. References used: sleeves `MP_Sum2_Tat_013` (right) / `MP_Sum2_Ta
 - illenium-appearance re-applies the skin right after spawn and wipes decorations added by script before it: wait a few seconds
   after spawning before `AddPedDecorationFromHashes` checks.
 - Photos: freeze the clock with a per-frame `NetworkOverrideClockTime` thread (weathersync resets a one-off call).
+
+## Full-wrap sleeves, hands, closing gaps (Nov 13 2026)
+- A sleeve decal can cover the WHOLE arm: make the texture one full turn wide (2 pi r at the arm's median radius) and centre
+  the drawn front on the outer arm. The back / inside half is synthesized from the design's own background (clouds, smoke,
+  ribbons: named source boxes per tattoo) by patch quilting with smooth windows, jittered positions and random flips, as a strip
+  that is periodic round the arm so the inner-arm seam meets itself. Give the background columns ONE constant radius (not the
+  per-row arm radius) or the narrow shoulder / wrist rows get bare wedges. Lay the background UNDER the drawing wherever the
+  drawing has no ink (its own outline mask), or the drawing's pale paper edge shows as a light outline.
+- The shoulder cap: add background-only rows above the drawing (12 % of its height) so the sleeve meets the chest / back.
+- Chest / back pieces reach the neck base: grow the texture up (~27 % of the art height) and out at the top (10 % each side) with
+  the design's own top background, feathered into the art; recompute uvPos / scale so the original art keeps its place.
+- Hands (arm zones, HAND_LEFT / HAND_RIGHT references MP_Security_Tat_019 / 020): back of hand runs uv.y ~0.30 (wrist) to ~0.20
+  (knuckles); fingers only take a thin band near ~0.15-0.17 (finger UVs are tiny islands), so a hand piece can't run bones down
+  the fingers. The tattoo blend is also low resolution on the hand: fine bone detail reads as soft stripes.
