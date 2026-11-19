@@ -1071,3 +1071,22 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
 - PowerShell `Resolve-Path` treats `[maps]` as a wildcard: pass `[` / `]` escaped with a backtick (`` `[ ``) when a script resolves a
   resource path; Git Bash eats `\` in inline Python / sed, so write scripts that touch Windows paths to a file.
 - Worked example: Cleveland RP rebuild `rebuild/install/jc_live_merge/merge.md` (12 files, 27 copies).
+
+## 2026-11-19 Checking bought / handed-over MLO packs against a live server (Cleveland RP, 45 packs)
+- Three checks, in this order: (1) same stream file NAMES as anything on the server (`cleveland_stream_index.json`-style
+  name -> resources index; `tools/mlo_check/clash.py`); (2) MLO placements and custom-ymap extents that overlap the server's
+  (`tools/map_merge/mlo_scan.ps1` on both trees, then `tools/mlo_check/overlap.py`); (3) the packs against EACH OTHER, with md5:
+  identical duplicates are harmless, different copies of one vanilla occl / lodlights / road ymap are a merge job (`map_merge/`).
+- Bounding-box overlap of vanilla road / LOD ymaps (`lr_sc1_rd`, `hei_dt1_rd1`) is noise: two packs editing different tiles always
+  "overlap". Only count a box hit when one side is a custom or `_milo_` ymap; a same-name file is the real signal.
+- Leaked bundles repeat the same map under several names (hub / hub_1.0 / impound_bennys, LMC / lost, vu / vanilla_unicorn,
+  records / studio, pillbox v1 / v2, a "pizzeria" that is mostly the cat cafe). Pick one copy per map before checking.
+- An MLO with no ymap (only `v_int_*.ytyp` + ydrs) replaces a vanilla interior: it can't clash by position, only by file name.
+- Photo lineup on the rig (`tools/mlo_check/photos/`): `lineup.sh` = 4 ring shots + the 2 biggest rooms' 4 corners each.
+  * Pass float coordinates to natives from generated Lua (`32` is an INTEGER in Lua 5.4; `GetInteriorAtCoords(x,y,32)` returns 0).
+  * Never call `GetInteriorRoomExtents` / room natives on interior 0: it throws in extra-natives-five and a run of them crashed the
+    client (GTA5_b3258.exe+93419F). Guard `i ~= 0`, `PinInteriorInMemory`, wait `IsInteriorReady`.
+  * A scripted camera keeps streaming focus (`SetFocusPosAndVel`): `ClearFocus` and stand the ped (unfrozen) inside before looking
+    an interior up, or it never streams in.
+  * On Cleveland the weather/time sync and `c9_hud` win every frame: set `LocalPlayer.state.syncWeather=false`, fire
+    `qb-weathersync:client:DisableSync` and `dd_hud:client:setVisible(false)` before the camera.
