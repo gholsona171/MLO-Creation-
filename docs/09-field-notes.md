@@ -1164,5 +1164,5 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   straight down from 30 m and 60 m, all at forced midday. Click PLAY first: the character screen otherwise sits in every shot.
 - **Vanilla roof kit** (`v_rooftop.ytyp`): `prop_aircon_m_09` (stands on the roof; `prop_aircon_s_*` hang on walls),
   `prop_solarpanel_03` (tilted, faces -y at heading 0: south), `prop_skylight_04` (flat), `prop_roofvent_05a / 10a`.
-- PowerShell variables are case-insensitive: a `$y` loop variable overwrote the `-Y` parameter. Regex paths need `\`
-  (`'levels\gta5'`), or `\g` throws on every entry. Give each scan its own output name.
+- PowerShell variables are case-insensitive: a `$y` loop variable overwrote the `-Y` parameter. A backslash in a regex path must
+  be doubled (`-notmatch 'levels\\gta5'`), or `\g` throws on every entry. Give each scan its own output name.
