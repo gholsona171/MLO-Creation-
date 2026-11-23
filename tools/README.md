@@ -148,3 +148,15 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `rain/rain_measure.sh` | Rig: teleport to each spot, aim the camera, read interior / rain level, streak count + a shot per spot |
 | `rain/rain_cover_check.py` | Gate (Tower City copy): every room floor point needs an up-facing opaque EXTERIOR face above it; glass only = FAIL |
 | `rain/probe/rain_probe_gen.py`, `rain_probe_gen_onesided.py` | The probe map: opaque slabs over a court, one per model RenderMask / entity flag / face side (CodeWalker XML from a template ydr; `ydr_xml.ps1 -Mode import`, TequiBuild compile) |
+
+### Rebuilding an outdoor site (Graveyard tow yard, 2026-11-23) - in `site_rebuild/` (field note "Rebuilding an outdoor site")
+These read the project's own `site_plan.py` / `yard_plan.py` / `pave_ground.py` (the site outline, the barn, the paving height)
+and `site/poles.tsv`. Copy them into the project's `tools/` and point them at its plan.
+| Tool | What it does |
+|---|---|
+| `site_rebuild/lod_list.py` | Every LOD / SLOD placement near the site that the HD clear left in place -> `site/lod_targets.tsv` |
+| `site_rebuild/lod_extract.ps1` | The `.ydd` dictionaries holding those models (via the area ytyps' `drawableDictionary`, hash names too) |
+| `site_rebuild/lod_cut.py` + `lod_all.sh` | Cuts the site out of each distance model (keeps ground, the kept barn, the poles); writes only changed dictionaries |
+| `site_rebuild/wires.py` + `wires_all.sh` | Power-line spans with a free end: re-hung onto a building wall (insulator anchors) or removed |
+| `site_rebuild/rig_swap.sh` | Close the game, swap the map resource on the rig, so stopping a map never crashes a connected client |
+

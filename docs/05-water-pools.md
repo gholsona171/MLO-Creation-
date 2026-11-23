@@ -86,3 +86,18 @@ Rules found by testing:
   never loads or resets on Cayo Perico (the island has its own water map), and resets on resource stop only if ours is loaded.
   Everywhere else the game's own map is in force, so the reservoir is wet. Set `POOL` to the pool cells' centre. Check in game:
   the pool swims, the reservoir is wet from far away, and walking in/out of the radius does not flicker the water.
+
+## Water physics is location-bound: test the spot before you promise a pool (Graveyard tow yard, Senora, 2026-11-23)
+- At the Senora tow yard (x 2350 y 3150, open desert, ground 47.2) the water map loaded fine (`LoadWaterFromPath` true,
+  `GetWaterHeight` / `TestVerticalProbeAgainstAllWater` return the pool's height) but **nothing physical saw it**: the ped
+  stood on the pool floor with `IsEntityInWater` false and submerged level 0, and a dropped barrel sank to the floor.
+- Ruled out on the rig, one change at a time: `HasLimitedDepth` false; water at 47.4 / 47.8 / 48.5 / 50.0 (above the old
+  ground); cells on open paving in the yard; cells at 60 and 100 m in the air; the house MLO unloaded (`RemoveIpl`); arriving
+  from 400 m away so the map loads before the player gets there. All dry.
+- The same file's cells at Legion Square (x 194..198 y -936..-932, z 32.6) swim at once (submerged 0.89), and vanilla water
+  (Alamo Sea) swims, so the client is fine. Tower City's pool (downtown, z 255.55) swims too. Some areas of the map accept
+  added water and some don't, and FiveM can't replace whatever decides that (likely the world height / water data in
+  `common.rpf`).
+- **Rule:** before designing a swimmable pool, put 4 test cells at the spot (2 m grid, 1.8 m over the ground) in a copy of the
+  water map, load it on the rig and drop the ped in: `IsEntityInWater` must be true. If it isn't, tell the client the pool is
+  for looks only (or use a shallow one you can wade in) before building it.

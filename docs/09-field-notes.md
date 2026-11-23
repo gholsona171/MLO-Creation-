@@ -1090,3 +1090,33 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
     an interior up, or it never streams in.
   * On Cleveland the weather/time sync and `c9_hud` win every frame: set `LocalPlayer.state.syncWeather=false`, fire
     `qb-weathersync:client:DisableSync` and `dd_hud:client:setVisible(false)` before the camera.
+
+## 2026-11-23 Rebuilding an outdoor site (Graveyard tow yard, Senora): what bit
+- **Stopping a map resource under a connected player crashes the client.** Close the game first, then stop / start the
+  resource, then rejoin (`tools/site_rebuild/rig_swap.sh`).
+- **Distance models keep what you cleared.** Swapping HD entities to an empty model leaves their LOD / SLOD parents drawing the
+  old junk, bushes and buildings from ~100 m out (road, hills, air). A LOD can be swapped only when ALL its children are
+  cleared, and SLODs are never covered by that. Cut the site out of them instead (`tools/site_rebuild/lod_list.py` ->
+  `lod_extract.ps1` -> `lod_cut.py`, run by `lod_all.sh`): the area's LODs are not single ydr files. They live in
+  `<slod>_children.ydd` dictionaries, found through each archetype's `drawableDictionary` in `country_04_metadata_*.ytyp`
+  (archetypes the ymap only names `hash_xxxxxxxx` matched by hash). Keep up-facing ground faces (a land SLOD with a hole shows
+  from far away), the barn you kept, and faces within 0.6 m of a standing pole (1.5 m kept the bushes at the poles' feet).
+  Check from 75 m and 120 m up, not only at ground level.
+- **Cutting a mesh along a line: pick faces by extent, not by corners.** `terrain.py` picked faces with a corner near each
+  edge. Long thin ground triangles that span the pool had no corner near any pool edge, were never cut, and showed as a
+  "rock" sloping into the basin. Test the face's bounding box against the edge's.
+- **Lower the ground under a pool's walls, not its water line.** Lower the ground to below the pool floor inside the pool rect
+  + wall thickness, and bring it back up under the coping. Cut at the water's edge and the slope climbs into the open basin.
+- **Collision holes after the grid cut.** Delete the hole's faces by centre only AFTER cutting the ground on the 2 m grid the
+  hole sits on. Before the cut, a big face reaching into the pool keeps its centre outside and stays: ground at the corners.
+- **tc_kit `SOLIDS` is global.** Door leaves are built at the origin, so they overlap one another and `cull_buried` deletes one
+  leaf's faces inside another (invisible doors). Take the leaves' boxes back out right after building them
+  (`n = len(TK.SOLIDS)` ... `del TK.SOLIDS[n:]`).
+- **`apa_mp_h_kit_kitchen_01_a` is 4.2 m tall.** In a 3.1 m house it pokes through the ceiling into the room above. Build the
+  kitchen (base run, worktop, splashback, wall units, hood, hob, sink, fridge column, island) with kit boxes instead.
+- **Power lines:** a span ends on the crossarm, up to ~1.3 m from the pole's centre, so "held by a pole" needs about 2.5 m in
+  plan. Spans with a free end can be re-hung onto a building wall (`wires.py`: the line from the pole through the free end,
+  to an insulator `prop_telegwall_01b` 3 cm off the wall), sag scaled with the new length.
+- **Decode a bought resource with its names** (CodeWalker `JenkIndex.Ensure` for every file / archetype name in the stream
+  before `GetXml`), or every archetype comes out as a hash.
+- Custom water physics depends on the spot: see doc 05, "Water physics is location-bound".
