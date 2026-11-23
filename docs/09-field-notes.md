@@ -1218,3 +1218,13 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   repeat every 3 m, cut into 1 m pieces so they follow the ground, 2.7 cm over the surface (above the grime decals).
 - Paint uses its own "on asphalt" test: the buildings' planning rects (NO_DECALS) are bigger than the buildings and refused
   stalls next to them.
+
+## Graveyard round 7 (2026-11-23): brand-new blacktop
+- **"Looks like it was just built, no oil"**: Rockstar's freshly laid road tarmac `cs_rsl_ps_newtarmac_001` (ch1+hi.ytd; the
+  desert highways) as layer 0 of the 4-layer terrain shader, soft half-strength patches of `tun_tarmac` (tuner car meet) and
+  `ap1_dc_parking_tarmac_01_dark` so the lot doesn't tile; normals `dc_parking_tarmac_01_n` / `tun_tarmac_n` (newtarmac has
+  none of its own). Height maps flat (heightScale 0), no wear decals at all. Reads as fresh black asphalt in the noon light.
+- **Crisp paint**: Rockstar's downtown car-park atlas `im_carparkmarkings01` - white RGBA in dt1_09_carpark_ov4+hidr.ytd
+  (`..._a_bigim_carparkmarkings01_a_big`; the sc1_06 `_a_big` alone is only the mask), yellow in sc1_06_carpark+hidr.ytd. Same
+  layout: line strip u 852-954 of 1024 (full v), straight arrow u 52-215 v-tail y532 -> tip y1011 (points -v), wheelchair
+  x 24-439 y 16-475. Worn alternative for old lots: cs3_07 newroadmarkings (round 6).

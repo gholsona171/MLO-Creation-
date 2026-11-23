@@ -2,37 +2,33 @@
 looking at the game, not by name (survey: shots ref_*).
   ROOF   sc1_rsn_ns_ground_0010 (+ _n): the flat roof of the Chumash modern house (ch1_10_house102), smooth grey concrete.
   LAWN   ch1_10_ih_manicuredgrass01 (+ n): that house's own kept lawn.
-  LOT    the Harmony used-car lot (cs6_03_usedlotmc, ~1208 2719), the most real-looking paved lot near the yard. Rockstar
-         paints it with terrain_cb_w_4lyr_pxm_spm, four layers blended by vertex colour 2 (+ parallax height maps), and dresses it
-         with decals faded by vertex alpha (cs6_03_usedlotmc_d001). LOT_LAYERS / LOT_DECALS are those exact textures.
-         (Tried and dropped: one flat blacktop texture + procedural cracks - dc_parking_tarmac_01 read pale with a 3 m blotch
-         grid, the freeway tarmac carries lane wheel-stripes, the dark car-park blacktop read fake: "doesn't look realistic".)
+  LOT    brand-new blacktop (Nov 23, the client: "blacktop ... no impurities or imperfections, looks like it was just built, no
+         oil"): Rockstar's freshly laid road tarmac cs_rsl_ps_newtarmac_001 (Route 68 and the desert highways) as the base, with
+         soft broad patches of two other fresh blacktops (the tuner car meet's tun_tarmac, the airport's dark car-park tarmac) so
+         a 1.2 ha lot does not read as one tiled texture. Same 4-layer terrain shader as Rockstar's lots, no parallax relief.
+  PAINT  crisp fresh parking paint: Rockstar's downtown car-park markings atlas (im_carparkmarkings01), white and yellow
+         versions with one layout (line strip, arrows, the wheelchair symbol), alpha-masked decals.
+         (Tried and dropped: Harmony's worn used-car-lot recipe with cracks / oil / sand decals and Sandy Shores' worn paint -
+         the client wants it new; before that one flat blacktop with drawn-on cracks, the freeway tarmac's lane stripes.)
 house.py and pave.py read ROOF / LAWN as float RGBA arrays (load); the lot textures are copied byte for byte (their own
 compression) into jy_pave.ytd under our names (pave.py). The game's files are never changed.
 Run: python vanilla_tex.py   prints the tex_extract.ps1 -Names list (build.sh uses it)."""
 from pathlib import Path
 D = Path(__file__).resolve().parents[1] / 'tex' / 'vanilla'
 HOUSE102 = 'ch1_10_house102+hidr.ytd'
-LOT_LAYERS = [  # (diffuse, normal, height) for layers 0..3, each name@dictionary (survey/lotscan.tsv)
-    ('im_concrete09a@cs6_03_extra+hi.ytd', 'im_concrete09_n@desertsaltonoutskirts+hi.ytd', 'nxg_delete_h@cshillssoutheast.ytd'),
-    ('im_concrete11a@cs6_03_extra+hi.ytd', 'im_concrete11_n@desertsaltonoutskirts.ytd', 'nxg_im_concrete11_h@desertsaltonoutskirts.ytd'),
-    ('cs_rsn_sl_road_0007@desertsaltonsouth+hi.ytd', 'cs_rsn_sl_road_0007_n@ch1.ytd', 'nxg_cs_rsn_sl_road_0007_h@hw1_06_g.ytd'),
-    ('cs_rsn_sl_desgravelstonesdirt_01@ch3landmidwest+hi.ytd', 'cs_rsn_sl_desgravelstonesdirt_01_n@ch3landmidwest+hi.ytd',
-     'nxg_cs_rsn_sl_desgravelstonesdirt_01_h@cshillssoutheast.ytd')]
-LOT_DECALS = {
-    'busted': ('et_tarmacbusted02@id221ground+hi.ytd', 'et_tarmacbusted02_n@po1_05_ground03+hidr.ytd'),   # broken, patched tarmac
-    'drift': ('cs_rsl_aa_dirttrack5@cs2roads+hi.ytd', 'cs_rsl_aa_dirttrack5_n@cs2roads+hi.ytd'),          # sand washed onto the lot
-    'splats': ('dc_parking_splats_01dc_parking_splats_01_a@des_aptblock_root002+hidr.ytd',),               # oil splats atlas (alpha)
-    'stain': ('im_ground_overlay0006im_ground_overlay0006_a@dt1_21_bld_d+hi.ytd',)}                        # brown ground stain (alpha)
-PAINT = {   # parking paint (parking_plan.py): Rockstar's worn desert road paint from Sandy Shores (cs3_07) + the accessible symbol
-    'lines': 'cls_cs3_07_newroadmarkings01cls_cs3_07_newroadmarkings01_a@cs3_07_tg.ytd',     # white / yellow strips (alpha)
-    'arrows': 'cls_cs3_07_newroadmarkings02cls_cs3_07_newroadmarkings02_a@cs3_07_tg.ytd',    # arrows (alpha)
-    'signs': 'bh1_13_roadmarkingsbh1_13_roadmarkings_a@bh1_14_detail.ytd'}                    # wheelchair symbol (alpha)
-PAINT_UV = {'white': (54 / 512, 0, 86 / 512, 1), 'yellow': (7 / 512, 0, 39 / 512, 1),          # Blender UV (v up); strips run along v
-            'arrow': (266 / 512, 1 - 139 / 512, 510 / 512, 1 - 18 / 512), 'sign': (8 / 512, 1 - 242 / 512, 224 / 512, 1 - 7 / 512)}   # arrow points +u
+LOT_LAYERS = [  # (diffuse, normal) for layers 0..3, each name@dictionary (survey/freshscan.tsv); height maps are flat (pave.py)
+    ('cs_rsl_ps_newtarmac_001@ch1+hi.ytd', 'dc_parking_tarmac_01_n@ch3struct01+hi.ytd'),                         # base
+    ('tun_tarmac@tr_int2_tuner_car_meet_txd.ytd', 'tun_tarmac_n@tr_int2_tuner_car_meet_txd.ytd'),                # soft patches
+    ('ap1_dc_parking_tarmac_01_dark@ap1_01_b_sidebit1spl2+hidr.ytd', 'dc_parking_tarmac_01_n@ch3struct01+hi.ytd'),  # soft patches
+    ('cs_rsl_ps_newtarmac_001@ch1+hi.ytd', 'tun_tarmac_n@tr_int2_tuner_car_meet_txd.ytd')]                       # (unused corner)
+PAINT = {'white': 'im_carparkmarkings01_a_bigim_carparkmarkings01_a_big@dt1_09_carpark_ov4+hidr.ytd',
+         'yellow': 'im_carparkmarkings01_bigim_carparkmarkings01_a@sc1_06_carpark+hidr.ytd'}
+PAINT_UV = {'line': (852 / 1024, 954 / 1024),                                   # u range of the line strip; it runs the whole v
+            'arrow': (52 / 1024, 215 / 1024, 1 - 532 / 1024, 1 - 1011 / 1024),  # u0, u1, v at the tail, v at the tip (points -v)
+            'sign': (24 / 1024, 1 - 475 / 1024, 439 / 1024, 1 - 16 / 1024)}     # wheelchair: u0, v0, u1, v1 (upright = +v)
 NAMES = [f'sc1_rsn_ns_ground_0010@{HOUSE102}', f'sc1_rsn_ns_ground_0010_n@{HOUSE102}',
          f'ch1_10_ih_manicuredgrass01@{HOUSE102}', f'ch1_10_ih_manicuredgrass01n@{HOUSE102}'] + \
-        [s for layer in LOT_LAYERS for s in layer] + [s for v in LOT_DECALS.values() for s in v] + list(PAINT.values())
+        [s for layer in LOT_LAYERS for s in layer] + list(PAINT.values())
 
 
 def path(spec):

@@ -1,16 +1,12 @@
 """The ground surface of the whole site (site_plan.PAVED), draped 3 cm over the paving height (pave_ground.pave_z) on the 2 m grid
 site_col.py cuts the collision on, each grid cell clipped exactly to the site's outlines.
-The lot is laid the way Rockstar lays the Harmony used-car lot (cs6_03_usedlotmc + its decal mesh _d001; vanilla_tex.LOT_*),
-Antonio 2026-11-23: one flat blacktop with drawn-on cracks "doesn't look realistic":
-  * asphalt: terrain_cb_w_4lyr_pxm_spm, the game's 4-layer ground shader with parallax height maps, Harmony's four textures and
-    parameters: worn dark tarmac (layer 0, most of the lot), alligator-cracked tarmac and older grey cracked road (layers 1, 2,
-    soft patches), gravel and dirt (layer 3, along the site's open rim; a rare patch inside - more read as a dirt yard). Which layer shows is vertex colour 2
-    (green picks pair 0/1 or 2/3, blue the layer within it), painted from smooth noise in world space so nothing repeats;
-  * decals over it, Harmony's own, faded at their rims by vertex colour 1 alpha the way Rockstar fades them: busted patched
-    tarmac, sand drifts along the open edges, oil splats (more where vehicles stand: the shop's bays, the house garage), brown
-    ground stains. Never under the buildings (site_plan.NO_DECALS), never off the asphalt;
-  * parking paint (parking_plan.py: stalls, keep-clear hatching, arrows, the accessible symbol) in Rockstar's worn Sandy
-    Shores road paint (vanilla_tex.PAINT), on top of everything;
+  * asphalt: brand-new blacktop (the client, Nov 23: "looks like it was just built ... no oil"): terrain_cb_w_4lyr_pxm_spm, the
+    game's 4-layer ground shader, Rockstar's freshly laid road tarmac as the base with soft broad patches of two other fresh
+    blacktops (vanilla_tex.LOT_LAYERS), which layer shows painted into vertex colour 2 (green picks pair 0/1 or 2/3, blue the
+    layer within it) from smooth noise in world space so nothing repeats. Height maps flat: no relief, no cracks. No wear
+    decals of any kind (no oil, stains, patches or sand);
+  * parking paint (parking_plan.py: stalls, keep-clear hatching, arrows, the accessible symbol) in Rockstar's crisp car-park
+    markings (vanilla_tex.PAINT), 1.5 cm over the blacktop;
   * lawn: the house lot north of site_plan.LAWN_Y bar the driveway and front path (site_plan.in_lawn), the game's own lawn
     texture (vanilla_tex.lawn), with a 15 cm concrete edging where lawn meets asphalt. (Its grass blades: lawn_grass.py.)
 No collision of its own (the vanilla ground under it is graded by site_col.py). Drawables: one per 40 m tile (jy_pave_<i>_<j>).
@@ -19,7 +15,7 @@ textureDictionary (site_place.py). Rockstar's textures are copied byte for byte 
 Run: blender -b --python pave.py     Output ../site/pave/*.ydr + pave_info.json + tex/compressed/*.dds (for ytd_build.ps1)"""
 import bpy, bmesh, sys, json, math, shutil, numpy as np
 from pathlib import Path
-from mathutils import Vector, Matrix, kdtree
+from mathutils import Vector, Matrix
 T = Path(__file__).resolve().parent; sys.path.insert(0, str(T))
 import site_plan as SP, pave_ground as PG, proc_tex as PT, vanilla_tex as VT, parking_plan as PK
 M_ = T.parent; OUT = M_ / 'site' / 'pave'
@@ -32,8 +28,8 @@ from bl_ext.user_default.sollumz.ydr.shader_materials import create_shader
 if OUT.exists(): shutil.rmtree(OUT)
 OUT.mkdir(parents=True); TEX = OUT / 'tex'; (TEX / 'compressed').mkdir(parents=True)
 CELL, TILE, LIFT = 2.0, 40.0, 0.03
-LOT_UV, LAWN_UV = 5.5, 4.0                                        # metres per texture repeat (Harmony's ~3.1 m read as a grid from the air)
-rng = np.random.default_rng(20261123)
+LOT_UV, LAWN_UV = 6.0, 4.0                                        # metres per texture repeat (shorter repeats read as a grid from the air)
+PAINT_Z, PAINT_REP = .015, 4.0                                     # paint over the blacktop; its strip repeats every 4 m
 
 
 def mat(name, stem, d, n=None, r=None, shader='normal_spec.sps', dfmt='BC3_UNORM', bump=1.0, spec_mult=.2, falloff=20):
@@ -66,27 +62,19 @@ def native(name, shader, tex, params):
 
 
 lot_tex = {}
-for k, (dif, nrm, hgt) in enumerate(VT.LOT_LAYERS):
+for k, (dif, nrm) in enumerate(VT.LOT_LAYERS):
     lot_tex[f'TextureSampler_layer{k}'] = (dif, f'jy_lot_l{k}'); lot_tex[f'BumpSampler_layer{k}'] = (nrm, f'jy_lot_l{k}_n')
-    lot_tex[f'heightMapSamplerLayer{k}'] = (hgt, f'jy_lot_l{k}_h')
-LOT = native('JY lot', 'terrain_cb_w_4lyr_pxm_spm.sps', lot_tex,                  # Harmony's parameters
-             {**{f'heightScale{k}': .03 for k in range(4)}, **{f'heightBias{k}': .015 for k in range(4)}, 'bumpiness': 1.1,
-              'parallaxSelfShadowAmount': .95, 'bumpSelfShadowAmount': .3, 'specularIntensityMult': .01, 'specularFalloffMultSpecMap': 48})
+LOT = native('JY lot', 'terrain_cb_w_4lyr_pxm_spm.sps', lot_tex,
+             {**{f'heightScale{k}': 0.0 for k in range(4)}, **{f'heightBias{k}': 0.0 for k in range(4)}, 'bumpiness': .7,
+              'parallaxSelfShadowAmount': 0.0, 'bumpSelfShadowAmount': .2, 'specularIntensityMult': .02, 'specularFalloffMultSpecMap': 40})
+flat_h = np.full((8, 8, 4), .5, np.float32); flat_h[..., 3] = 1
+for k in range(4):                                                              # flat height maps: no parallax relief on new blacktop
+    nd = LOT.node_tree.nodes[f'heightMapSamplerLayer{k}']; nd.image = dds('jy_lot_flat_h', flat_h, TEX, True, 'BC3_UNORM'); nd.texture_properties.embedded = False
 d, n, r = VT.lawn(); LAWN = mat('JY lawn', 'jy_pave_lawn', d, n, r, bump=1.5, spec_mult=.08)
 e = np.ones((64, 64, 4), np.float32); e[..., :3] = np.clip(.62 + PT.band(64, 1, 4, 3)[..., None] * .03, 0, 1)
 EDGE = mat('JY lawn edging', 'jy_pave_edging', e, spec_mult=.1)
-DC = VT.LOT_DECALS
-BUSTED = native('JY lot busted', 'normal_spec_decal.sps', {'DiffuseSampler': (DC['busted'][0], 'jy_lot_busted'),
-                'BumpSampler': (DC['busted'][1], 'jy_lot_busted_n'), 'SpecSampler': (DC['busted'][0], 'jy_lot_busted')},
-                {'bumpiness': 1.2, 'specularIntensityMult': .15})
-DRIFT = native('JY lot drift', 'normal_decal.sps', {'DiffuseSampler': (DC['drift'][0], 'jy_lot_drift'),
-               'BumpSampler': (DC['drift'][1], 'jy_lot_drift_n')}, {'bumpiness': 1.0, 'specularIntensityMult': .01})
-SPLATS = native('JY lot splats', 'decal.sps', {'DiffuseSampler': (DC['splats'][0], 'jy_lot_splats')}, {'specularIntensityMult': .05})
-STAIN = native('JY lot stain', 'decal.sps', {'DiffuseSampler': (DC['stain'][0], 'jy_lot_stain')}, {'specularIntensityMult': .05})
-LINES = native('JY paint lines', 'decal.sps', {'DiffuseSampler': (VT.PAINT['lines'], 'jy_paint_lines')}, {'specularIntensityMult': .05})
-ARROWS = native('JY paint arrows', 'decal.sps', {'DiffuseSampler': (VT.PAINT['arrows'], 'jy_paint_arrows')}, {'specularIntensityMult': .05})
-SIGNS = native('JY paint signs', 'decal.sps', {'DiffuseSampler': (VT.PAINT['signs'], 'jy_paint_signs')}, {'specularIntensityMult': .05})
-MATS = [LOT, LAWN, EDGE, BUSTED, DRIFT, SPLATS, STAIN, LINES, ARROWS, SIGNS]
+PAINT = {c: native(f'JY paint {c}', 'decal.sps', {'DiffuseSampler': (VT.PAINT[c], f'jy_paint_{c}')}, {'specularIntensityMult': .1}) for c in VT.PAINT}
+MATS = [LOT, LAWN, EDGE, PAINT['white'], PAINT['yellow']]
 MI = {m: i for i, m in enumerate(MATS)}
 
 
@@ -163,7 +151,7 @@ for (i, j), k in kind.items():
         nedge += 1
 
 
-# ---- the layer blend (vertex colour 2), from smooth value noise in world space ----
+# ---- the layer blend (vertex colour 2), from smooth value noise in world space: broad, low-contrast batches of fresh blacktop
 def vnoise(x, y, s, seed):
     gx, gy = x / s, y / s; i, j = math.floor(gx), math.floor(gy); u, v = gx - i, gy - j
     h = lambda a, b: ((a * 73856093) ^ (b * 19349663) ^ (seed * 83492791)) % 1000003 / 1000003
@@ -171,117 +159,42 @@ def vnoise(x, y, s, seed):
     return (h(i, j) * (1 - u) + h(i + 1, j) * u) * (1 - v) + (h(i, j + 1) * (1 - u) + h(i + 1, j + 1) * u) * v
 def fbm(x, y, s, seed): return .62 * vnoise(x, y, s, seed) + .38 * vnoise(x, y, s / 2.3, seed + 7)
 def ss(a, b, t): t = min(1.0, max(0.0, (t - a) / (b - a))); return t * t * (3 - 2 * t)
-def open_edge(x, y):
-    """1 at the lot's outer rim (a cell with no surface next to it), .5 one cell further in, else 0."""
-    i, j = int(math.floor(x / CELL)), int(math.floor(y / CELL))
-    for r, w in ((1, 1.0), (2, .5)):
-        if any((i + a, j + b) not in kind for a in range(-r, r + 1) for b in range(-r, r + 1)): return w
-    return 0.0
 def blend(x, y):
-    """(green, blue) of vertex colour 2: layer 0 = (0, 0), 1 = (0, 1), 2 = (1, 0), 3 = (1, 1), blended in between."""
-    w1 = ss(.54, .70, fbm(x, y, 17, 1))                                          # alligator-cracked tarmac
-    w2 = ss(.56, .72, fbm(x, y, 23, 2))                                          # old grey cracked road
-    w3 = max(ss(.72, .82, fbm(x, y, 8, 3)) * .6, open_edge(x, y) * (.35 + .65 * vnoise(x, y, 3, 4)))   # gravel + dirt: the open rim, rare inside
-    g = min(1.0, w2 + w3); b = (1 - g) * w1 + g * (w3 / (w2 + w3 + 1e-6))
-    return g, b
+    """(green, blue) of vertex colour 2: layer 0 = (0, 0), 1 = (0, 1), 2 = (1, 0), 3 = (1, 1). Mostly layer 0, soft patches of
+    layers 1 and 2 at most half strength (layer 3 never)."""
+    w1 = .5 * ss(.50, .78, fbm(x, y, 29, 1)); w2 = .45 * ss(.52, .80, fbm(x, y, 41, 2))
+    return w2, (1 - w2) * w1
 
 
-# ---- decals over the asphalt (Harmony's own) ----
-def asphalt_at(x, y):
-    k = kind.get((int(math.floor(x / CELL)), int(math.floor(y / CELL))))
-    return k == 'asph' and SP.on_site(x, y) and not any(a - .5 <= x <= b + .5 and c - .5 <= y <= d_ + .5 for a, b, c, d_ in SP.NO_DECALS)
-XS = [p[0] for poly in SP.PAVED for p in poly]; YS = [p[1] for poly in SP.PAVED for p in poly]
-BOX = (min(XS), max(XS), min(YS), max(YS))
-OIL_SPOTS = [((2404.0, 2430.0), (3053.0, 3062.0)), ((2336.0, 2344.0), (3120.0, 3127.5))]   # in front of the shop's bays, the house garage
-ALPHA = []                                                                      # (world x, y, z, alpha) of every faded decal vertex
-def off_of(layer): return .012 + .003 * layer
-
-
-def patch(m, cx, cy, R, uvs, layer, rough=.45):
-    """a soft blob of decal: 1 m cells around (cx, cy) inside a noisy rim of radius R, UVs = world / uvs metres, vertex alpha
-    1 inside falling to 0 at the rim; only cells whose corners are all on the asphalt."""
-    seed = int(rng.integers(1, 10 ** 6)); ox, oy = rng.uniform(0, 1, 2)
-    def a_at(x, y):
-        r = math.hypot(x - cx, y - cy) / R * (1 + rough * (vnoise(x, y, max(1.0, R * .5), seed) - .5) * 2)
-        return ss(0.0, 1.0, (1 - r) / .45)
-    n = 0
-    for i in range(int(-R) - 1, int(R) + 1):
-        for j in range(int(-R) - 1, int(R) + 1):
-            q = [(cx + ox + i + a, cy + oy + j + b) for a, b in ((0, 0), (1, 0), (1, 1), (0, 1))]
-            al = [a_at(x, y) for x, y in q]
-            if max(al) <= 0 or not all(asphalt_at(x, y) for x, y in q): continue
-            pts = [(x, y, z_at(x, y, off_of(layer))) for x, y in q]
-            face(tkey(*q[0]), pts, MI[m], [(x / uvs, y / uvs) for x, y in q]); n += 1
-            ALPHA.extend((x, y, z, a) for (x, y, z), a in zip(pts, al))
-    return n > 0
-
-
-SPLAT_UV = {'smear': (0, 0, .5, 1), 'splat': (.5, .5, 1, 1), 'patch': (.5, 0, 1, .5)}   # the splats atlas: Blender UV (v up)
-def sprite(m, uv, cx, cy, L, Wd, ang, layer, seg=1.0):
-    """one textured quad (its own alpha does the shape), cut into seg-sized pieces so it follows the ground."""
-    u0, v0, u1, v1 = uv; ca, sa = math.cos(ang), math.sin(ang)
-    corners = [(cx + ca * sx * L / 2 - sa * sy * Wd / 2, cy + sa * sx * L / 2 + ca * sy * Wd / 2) for sx in (-1, 1) for sy in (-1, 1)]
-    if not all(asphalt_at(x, y) for x, y in corners + [(cx, cy)]): return False
-    nu, nv = max(1, int(math.ceil(L / seg))), max(1, int(math.ceil(Wd / seg)))
-    def P(s, t): return (cx + ca * (s - .5) * L - sa * (t - .5) * Wd, cy + sa * (s - .5) * L + ca * (t - .5) * Wd)
-    for a in range(nu):
-        for b in range(nv):
-            q = [(a / nu, b / nv), ((a + 1) / nu, b / nv), ((a + 1) / nu, (b + 1) / nv), (a / nu, (b + 1) / nv)]
-            pts = [P(s, t) for s, t in q]
-            face(tkey(cx, cy), [(x, y, z_at(x, y, off_of(layer))) for x, y in pts], MI[m], [(u0 + s * (u1 - u0), v0 + t * (v1 - v0)) for s, t in q])
-    return True
-
-
-def spot(oil_bias):
-    if oil_bias and rng.random() < .5:
-        (xa, xb), (ya, yb) = OIL_SPOTS[rng.integers(len(OIL_SPOTS))]; return rng.uniform(xa, xb), rng.uniform(ya, yb)
-    return rng.uniform(BOX[0], BOX[1]), rng.uniform(BOX[2], BOX[3])
-
-
+# ---- parking paint (parking_plan.py), on any asphalt cell (the buildings' planning rects do not apply)
 placed = {}
-def scatter(label, count, make):
-    ok = tries = 0
-    while ok < count and tries < count * 80:
-        tries += 1; ok += bool(make())
-    placed[label] = ok
-
-
-def drift():                                                                    # centred on the open rim
-    x, y = spot(False)
-    return open_edge(x, y) >= 1 and patch(DRIFT, x, y, rng.uniform(2.5, 4.5), 4.0, 1)
-scatter('busted', 18, lambda: patch(BUSTED, *spot(False), rng.uniform(2, 4.5), 2.5, 0))
-scatter('drift', 10, drift)
-scatter('stain', 14, lambda: (lambda L: sprite(STAIN, (0, 0, 1, 1), *spot(False), L, L * rng.uniform(.8, 1), rng.uniform(0, math.pi), 2))(rng.uniform(2.5, 5)))
-scatter('oil', 60, lambda: (lambda L: sprite(SPLATS, SPLAT_UV['splat'], *spot(True), L, L * rng.uniform(.8, 1), rng.uniform(0, math.pi), 3))(rng.uniform(1, 2.2)))
-scatter('smear', 16, lambda: sprite(SPLATS, SPLAT_UV['smear'], *spot(True), rng.uniform(1.4, 2), rng.uniform(2.8, 4), rng.uniform(0, math.pi), 3))
-scatter('sealed', 14, lambda: (lambda L: sprite(SPLATS, SPLAT_UV['patch'], *spot(False), L, L * rng.uniform(.7, 1), rng.uniform(0, math.pi), 3))(rng.uniform(1.5, 2.5)))
-# ---- parking paint (parking_plan.py), over everything (layer 5); on any asphalt cell (buildings' planning rects do not apply)
 def paved(x, y): return kind.get((int(math.floor(x / CELL)), int(math.floor(y / CELL)))) == 'asph'
-def quad_strip(m, uv, cx, cy, L, Wd, ang, along_v, vrep=3.0, seg=1.0):
-    """a painted quad cut into seg pieces; along_v: the texture strip runs along the length (repeat every vrep m), else u does."""
-    u0, v0, u1, v1 = uv; ca, sa = math.cos(ang), math.sin(ang)
+def paint_quad(m, cx, cy, L, Wd, ang, uv_of, seg=1.0):
+    """a painted quad L long (along ang) and Wd wide, cut into seg pieces so it follows the ground; uv_of(s, t) -> (u, v)
+    for s along the length (0..1, tail to tip) and t across (0..1)."""
+    ca, sa = math.cos(ang), math.sin(ang)
     def P(s, t): return (cx + ca * (s - .5) * L - sa * (t - .5) * Wd, cy + sa * (s - .5) * L + ca * (t - .5) * Wd)
     if not all(paved(*P(s, t)) for s in (0, .5, 1) for t in (0, 1)): return 0
     nu = max(1, int(math.ceil(L / seg)))
     for a in range(nu):
         q = [(a / nu, 0), ((a + 1) / nu, 0), ((a + 1) / nu, 1), (a / nu, 1)]
-        uvq = [(u0 + t * (u1 - u0), s * L / vrep) for s, t in q] if along_v else [(u0 + s * (u1 - u0), v0 + t * (v1 - v0)) for s, t in q]
-        face(tkey(cx, cy), [(x, y, z_at(x, y, off_of(5))) for x, y in (P(s, t) for s, t in q)], MI[m], uvq)
+        face(tkey(cx, cy), [(x, y, z_at(x, y, PAINT_Z)) for x, y in (P(s, t) for s, t in q)], MI[m], [uv_of(s, t) for s, t in q])
     return 1
+LU0, LU1 = VT.PAINT_UV['line']; AU0, AU1, AV_TAIL, AV_TIP = VT.PAINT_UV['arrow']; SU0, SV0, SU1, SV1 = VT.PAINT_UV['sign']
 for it in PK.paint():
     if it[0] == 'line':
-        _, x0, y0, x1, y1, colour, w = it
-        L = math.hypot(x1 - x0, y1 - y0); placed['paint lines'] = placed.get('paint lines', 0) + quad_strip(
-            LINES, VT.PAINT_UV[colour], (x0 + x1) / 2, (y0 + y1) / 2, L, w, math.atan2(y1 - y0, x1 - x0), True)
+        _, x0, y0, x1, y1, colour, w = it; L = math.hypot(x1 - x0, y1 - y0)
+        ok = paint_quad(PAINT[colour], (x0 + x1) / 2, (y0 + y1) / 2, L, w, math.atan2(y1 - y0, x1 - x0),
+                        lambda s, t, L=L: (LU0 + t * (LU1 - LU0), s * L / PAINT_REP))
     elif it[0] == 'arrow':
-        _, x, y, h, L = it; placed['arrows'] = placed.get('arrows', 0) + quad_strip(ARROWS, VT.PAINT_UV['arrow'], x, y, L, L * .49, math.radians(h), False)
-    else:
-        _, x, y, h, sz = it; placed['signs'] = placed.get('signs', 0) + quad_strip(SIGNS, VT.PAINT_UV['sign'], x, y, sz, sz * 1.09, math.radians(h), False)
-n_paint = sum(1 for it in PK.paint() if it[0] == 'line')
-assert placed.get('paint lines', 0) >= n_paint * .95, f"paint lines placed {placed.get('paint lines')} of {n_paint}"
-kd = kdtree.KDTree(len(ALPHA))
-for k, (x, y, z, a) in enumerate(ALPHA): kd.insert((x, y, z), k)
-kd.balance()
+        _, x, y, h, L = it
+        ok = paint_quad(PAINT['white'], x, y, L, L * .34, math.radians(h), lambda s, t: (AU0 + t * (AU1 - AU0), AV_TAIL + s * (AV_TIP - AV_TAIL)))
+    else:                                                                       # the wheelchair: upright (+v) along the heading
+        _, x, y, h, sz = it
+        ok = paint_quad(PAINT['white'], x, y, sz, sz * .9, math.radians(h) + math.pi / 2, lambda s, t: (SU0 + (1 - t) * (SU1 - SU0), SV0 + s * (SV1 - SV0)))
+    placed[it[0]] = placed.get(it[0], 0) + ok
+want = {k: sum(1 for it in PK.paint() if it[0] == k) for k in ('line', 'arrow', 'sign')}
+assert placed.get('line', 0) >= want['line'] - 1 and placed.get('arrow', 0) == want['arrow'] and placed.get('sign', 0) == want['sign'], (placed, want)
 
 # ---- one drawable per tile ----
 info = {}; share = np.zeros(4)
@@ -305,8 +218,6 @@ for (ti, tj), (bm, uvl) in sorted(tiles.items()):
         c1 = np.ones((len(md.vertices), 4), np.float32); c2 = np.zeros((len(md.vertices), 4), np.float32); c2[:, 3] = 1
         for k, w in enumerate(world):
             g, b = blend(w.x, w.y); c2[k, 1], c2[k, 2] = g, b
-            hit = kd.find(w) if len(ALPHA) else None
-            if hit and hit[2] < 2e-3: c1[k, 3] = ALPHA[hit[1]][3]
         lot_v = {md.loops[li].vertex_index for p in md.polygons if p.material_index == MI[LOT] for li in p.loop_indices}
         for k in lot_v:
             g, b = c2[k, 1] > .5, c2[k, 2] > .5; share[int(g) * 2 + int(b)] += 1
@@ -319,7 +230,5 @@ for (ti, tj), (bm, uvl) in sorted(tiles.items()):
     assert 'FINISHED' in bpy.ops.sollumz.export_assets(directory=str(OUT), use_custom_settings=True, target_formats={'NATIVE'}, target_versions={'GEN8'}, limit_to_selected=True)
     info[name] = {'origin': list(origin), 'bb_lo': list(lo), 'bb_hi': list(hi), 'faces': len(me.polygons), 'materials': used}
 json.dump(info, open(OUT / 'pave_info.json', 'w'), indent=1)
-assert placed['busted'] and placed['drift'] and placed['oil'], placed
 print('PAVE_PASS', len(info), 'tiles', sum(v['faces'] for v in info.values()), 'faces;', sum(1 for k in kind.values() if k == 'lawn'), 'lawn cells;',
-      nedge, 'edging runs; lot layers 0..3 share', [round(float(s), 2) for s in share / max(1, share.sum())], '; decals', placed,
-      len(ALPHA), 'faded verts', flush=True)
+      nedge, 'edging runs; lot layers 0..3 share', [round(float(s), 2) for s in share / max(1, share.sum())], '; paint', placed, 'of', want, flush=True)
