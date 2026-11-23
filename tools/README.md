@@ -159,7 +159,15 @@ and `site/poles.tsv`. Copy them into the project's `tools/` and point them at it
 | `site_rebuild/lod_cut.py` + `lod_all.sh` | Cuts the site out of each distance model (keeps ground, the kept barn, the poles); writes only changed dictionaries |
 | `site_rebuild/wires.py` + `wires_all.sh` | Power-line spans with a free end: re-hung onto a building wall (insulator anchors) or removed |
 | `site_rebuild/prop_facing.py` | A vanilla prop's front, back and origin, measured from its mesh (heading for a given facing) |
-| `site_rebuild/proc_tex.py` | Seamless procedural textures: asphalt grain, lawn, roof gravel, and a crack / oil / wear decal atlas |
+| `site_rebuild/proc_tex.py` | The lot's wear decal atlas (cracks, sealed cracks, alligator, oil, darker wear); the ground itself is vanilla |
+| `site_rebuild/tex_scan.ps1` | Every map texture whose name matches a pattern, with size and dictionary -> `survey/<name>.tsv` |
+| `site_rebuild/tex_extract.ps1` | Named vanilla textures as DDS (`name` via the scan, or `name@dict.ytd`), largest copy |
+| `site_rebuild/tex_sheet.py` | A contact sheet of a folder of DDS files (Blender), to pick textures by eye |
+| `site_rebuild/vanilla_tex.py` | Loads the picked vanilla textures as arrays for our materials; its name list feeds `tex_extract` |
+| `site_rebuild/grass_at.ps1` | The grass-instance batches near a point: archetype, count, scale, lod, blade colours |
+| `site_rebuild/lawn_grass.py` | Grows a lawn with vanilla grass batches in its own ymap (GrassInstanceList, contentFlags 1024) |
+| `site_rebuild/ybn_procs.ps1` | Material / procedural id / colour combinations of the collision at a point |
+| `site_rebuild/vcol_stats.py` | Vertex colour layer stats of drawables (what Rockstar bakes into its ground) |
 | `site_rebuild/ytd_build.ps1` | One texture dictionary from a folder of DDS files (for drawables that reference textures by name) |
 | `site_rebuild/rig_swap.sh` | Close the game, swap the map resource on the rig, so stopping a map never crashes a connected client |
 

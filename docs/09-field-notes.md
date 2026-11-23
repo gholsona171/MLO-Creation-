@@ -1143,3 +1143,26 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   ground uses no procedural ids (its scrub comes from grass-instance ymaps). Don't promise game grass from a procedural id
   without a rig check. A muted olive lawn texture plus real shrub / tree props read as a yard.
 - `prop_bush_ornament_01` is a topiary sculpture, not a shrub; `prop_bush_med_03` is a natural one.
+
+## 2026-11-23 (later) Graveyard round 3: native grass, native textures, judging the ground by photo
+- **Rockstar grows grass two ways.** Parks and wild ground (Mirror Park, the desert scrub) use **grass-instance batches** in
+  `*_grass_*.ymap` (`GrassInstanceList`: `proc_grasses01/01b`, `proc_grassplantmix_01/02`, `proc_grassdandelion01`, ...; each blade
+  has its own colour, park greens about (105,107,83)). Kept city lawns (Rockford Hills, the golf club, the Chumash houses) have
+  **no blades**: a lawn texture (plus a fur shell shader). The collision under both carries procedural id 0. So "native grass"
+  = our own grass ymap (`lawn_grass.py`, `grass_at.ps1` to copy a vanilla mix), contentFlags 1024, no entities. Mirror Park
+  scales (0.3..0.8) read as an unmown meadow on a house lawn; about a third of that reads as grass.
+- **Use the game's own textures for big surfaces, and pick them by looking.** `tex_scan.ps1` lists names, `tex_extract.ps1`
+  pulls them (any texture: `name@dict.ytd`), `tex_sheet.py` makes a contact sheet. Then shoot a vanilla place that uses the
+  texture, in the same forced light, next to ours. Graveyard's picks: roof `sc1_rsn_ns_ground_0010` (Chumash modern house,
+  -3011 750: same style), lawn `ch1_10_ih_manicuredgrass01`, lot `ap1_dc_parking_tarmac_01_dark`.
+- **What failed for a big lot:** `dc_parking_tarmac_01` read pale and its soft blotches showed a 3 m grid from the air;
+  `cs_rsn_sl_freewaytarmac_001_drk` carries lane wheel-stripes that corrugate a lot; gravel roof ballast
+  (`rsn_dc_roofgravel_001`) reads as black-and-white noise up close. Light "sun-bleach" decals made pale clouds from the air,
+  and decals with specular turned cracks white in top-down sun: decals get `specularIntensityMult` 0, nothing lighter than the
+  blacktop, and fewer cracks than you think (150 cracks + 60 tar seals on 1.2 ha read as a crazed lot; 80 + 20 read right).
+- **Photos the client can judge ground from:** eye level in three directions, a low grazing shot, two close-ups, 10 m up, and
+  straight down from 30 m and 60 m, all at forced midday. Click PLAY first: the character screen otherwise sits in every shot.
+- **Vanilla roof kit** (`v_rooftop.ytyp`): `prop_aircon_m_09` (stands on the roof; `prop_aircon_s_*` hang on walls),
+  `prop_solarpanel_03` (tilted, faces -y at heading 0: south), `prop_skylight_04` (flat), `prop_roofvent_05a / 10a`.
+- PowerShell variables are case-insensitive: a `$y` loop variable overwrote the `-Y` parameter. Regex paths need `\`
+  (`'levels\gta5'`), or `\g` throws on every entry. Give each scan its own output name.
