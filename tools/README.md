@@ -160,6 +160,8 @@ and `site/poles.tsv`. Copy them into the project's `tools/` and point them at it
 | `site_rebuild/wires.py` + `wires_all.sh` | Power-line spans with a free end: re-hung onto a building wall (insulator anchors) or removed |
 | `site_rebuild/prop_facing.py` | A vanilla prop's front, back and origin, measured from its mesh (heading for a given facing) |
 | `site_rebuild/pave.py` | A paved lot laid Rockstar's way: 4-layer terrain shader blended by vertex colour 2 + Rockstar's own decals faded by vertex alpha |
+| `site_rebuild/vanilla_copy.py` | Duplicate a building that is part of a Rockstar map model: cut its faces out of the model (every LOD), re-centre, lift its collision (poly boxes + non-ground triangles) out of the area .ybn and embed it; keeps Rockstar's texture dictionary by name |
+| `site_rebuild/arch_txd.ps1` | CodeWalker: an archetype's texture dictionary, lodDist and bounds from the game's ytyps (PowerShell 5.1: load ytyps with `New-Object YtypFile` + `.Load()`, no generic `GetFile[T]`) |
 | `site_rebuild/ents_at.ps1` | The map entities (archetype, ymap, position) near a point: find the model behind a surface you like |
 | `site_rebuild/shader_probe.py` | A vanilla ydr's materials: shader, textures, parameters, vertex colour and UV stats (Blender) |
 | `site_rebuild/proc_tex.py` | Band-pass noise for small surfaces of our own (the lawn edging) |

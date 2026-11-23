@@ -1189,3 +1189,19 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   (noise 17 / 23 m) hides it and still reads right at eye level.
 - **Blender loads no image by a relative path** (`..\site\...` fails with "Cannot read"): resolve output folders first. A build
   that greps Blender's output passes silently on a script error and keeps the old model; make the step fail on `Traceback`.
+
+## Graveyard round 5 (2026-11-23): a second copy of a map building, new client logo, black fence
+- **Copying part of a Rockstar model** (the pole barn lives inside cs4_02_sy_wallc): keep only faces inside the building's rect
+  (every LOD), move the mesh so the origin is the rect centre at ground height, archetype `textureDictionary` = the vanilla model's
+  txd (find it with `tools/site_rebuild/arch_txd.ps1`), lodDist ~300 (no LOD model of its own). Its collision is NOT in the ydr:
+  it is poly boxes in the area's static .ybn (pick the newest DLC set, e.g. `lr_` over `hei_` over base); convex-hull each box,
+  keep non-ground triangles, embed as a BVH composite. Verified with down-rays on the rig (roof hit). Tool: `vanilla_copy.py`.
+- **Turn the copy 180 degrees about its rect** to mirror it onto the opposite fence: the real geometry is not centred in the
+  survey rect, so the copy lands at the mirrored end; check with a north-up top-down shot (camera look point a hair NORTH of
+  the camera position; a hair south flips the picture).
+- **"Black" steel that reads brown-grey in sun**: the cause is the specular (map 0.45 x mult 0.55), not the diffuse. Matte black
+  = diffuse ~0.012, spec map 0.15, specularIntensityMult 0.2, falloff 30.
+- **Swapping a client logo**: keep the client's file as the single source in tex/new; every derived texture (shop panels, road
+  board, posters) is generated from it by one script, and the shop step embeds it into every material that used the old logo.
+- **Rect tuples**: a list mixing (x0, y0, x1, y1) and (x0, x1, y0, y1) rects silently disabled decals over a whole quarter of
+  the lot; convert explicitly where the list is built.
