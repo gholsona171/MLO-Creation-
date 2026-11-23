@@ -158,5 +158,8 @@ and `site/poles.tsv`. Copy them into the project's `tools/` and point them at it
 | `site_rebuild/lod_extract.ps1` | The `.ydd` dictionaries holding those models (via the area ytyps' `drawableDictionary`, hash names too) |
 | `site_rebuild/lod_cut.py` + `lod_all.sh` | Cuts the site out of each distance model (keeps ground, the kept barn, the poles); writes only changed dictionaries |
 | `site_rebuild/wires.py` + `wires_all.sh` | Power-line spans with a free end: re-hung onto a building wall (insulator anchors) or removed |
+| `site_rebuild/prop_facing.py` | A vanilla prop's front, back and origin, measured from its mesh (heading for a given facing) |
+| `site_rebuild/proc_tex.py` | Seamless procedural textures: asphalt grain, lawn, roof gravel, and a crack / oil / wear decal atlas |
+| `site_rebuild/ytd_build.ps1` | One texture dictionary from a folder of DDS files (for drawables that reference textures by name) |
 | `site_rebuild/rig_swap.sh` | Close the game, swap the map resource on the rig, so stopping a map never crashes a connected client |
 

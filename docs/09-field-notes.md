@@ -1120,3 +1120,26 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
 - **Decode a bought resource with its names** (CodeWalker `JenkIndex.Ensure` for every file / archetype name in the stream
   before `GetXml`), or every archetype comes out as a hash.
 - Custom water physics depends on the spot: see doc 05, "Water physics is location-bound".
+
+## 2026-11-23 (later) Graveyard round 2: facing, doors, roof, ground, lawn
+- **Measure a prop's facing, don't guess it.** `tools/site_rebuild/prop_facing.py` reads the model: the tall part (backrest,
+  headboard, cistern) is the back. Seats, beds, toilets, sinks and loungers in the apartment / vanilla sets face -y at heading 0,
+  so a GTA heading turns that front: 0 south, 90 east, 180 north, 270 west. Beds and bedside chests have their origin AT the
+  back edge (the headboard / wall side). Two seats with a low shell (`apa_mp_h_yacht_barstool_01`) measure wrong: confirm with a
+  rig photo. Antonio caught dining chairs and bar stools facing away from their table.
+- **Interior doors need a frame.** A bare slab in a plaster opening reads wrong (and walnut slabs read orange). Give every
+  doorway side + head jambs (the head jamb closes the gap over the leaf), architraves on both faces, black levers on both
+  sides, and keep the paint colour in one constant for the client's scheme.
+- **A parapet "cap" must be a ring.** One plate over the whole footprint at parapet height hid the roof: from the air the roof
+  had "no texture". Cap only the wall tops.
+- **Ground that reads as one slab:** photo tiles carry their own cracks, which repeat as a grid over a big lot, and flat-shaded
+  2 m cells make a checker from the air. Use a feature-free procedural grain (`proc_tex.py`), smooth shading, and scatter the
+  character as decals (`decal.sps`): cracks, sealed cracks, alligator cracking, oil, broad wear. No square repair patches:
+  they read as grey tiles. Game sunlight lifts dark greys a lot: blacktop ~0.12 linear in the texture reads right; 0.235
+  read as concrete.
+- **Share textures across many tiles:** reference them by name (`embedded = False`), pack the DDS files into one ytd
+  (`ytd_build.ps1`, CodeWalker DDSIO) and set every archetype's `textureDictionary`. 19 tiles: zip 94 -> 83 MB.
+- **Procedural grass from collision did not grow** on this desert site (GRASS_SHORT + procedural id 148): the area's own
+  ground uses no procedural ids (its scrub comes from grass-instance ymaps). Don't promise game grass from a procedural id
+  without a rig check. A muted olive lawn texture plus real shrub / tree props read as a yard.
+- `prop_bush_ornament_01` is a topiary sculpture, not a shrub; `prop_bush_med_03` is a natural one.
