@@ -24,9 +24,15 @@ LOT_DECALS = {
     'drift': ('cs_rsl_aa_dirttrack5@cs2roads+hi.ytd', 'cs_rsl_aa_dirttrack5_n@cs2roads+hi.ytd'),          # sand washed onto the lot
     'splats': ('dc_parking_splats_01dc_parking_splats_01_a@des_aptblock_root002+hidr.ytd',),               # oil splats atlas (alpha)
     'stain': ('im_ground_overlay0006im_ground_overlay0006_a@dt1_21_bld_d+hi.ytd',)}                        # brown ground stain (alpha)
+PAINT = {   # parking paint (parking_plan.py): Rockstar's worn desert road paint from Sandy Shores (cs3_07) + the accessible symbol
+    'lines': 'cls_cs3_07_newroadmarkings01cls_cs3_07_newroadmarkings01_a@cs3_07_tg.ytd',     # white / yellow strips (alpha)
+    'arrows': 'cls_cs3_07_newroadmarkings02cls_cs3_07_newroadmarkings02_a@cs3_07_tg.ytd',    # arrows (alpha)
+    'signs': 'bh1_13_roadmarkingsbh1_13_roadmarkings_a@bh1_14_detail.ytd'}                    # wheelchair symbol (alpha)
+PAINT_UV = {'white': (54 / 512, 0, 86 / 512, 1), 'yellow': (7 / 512, 0, 39 / 512, 1),          # Blender UV (v up); strips run along v
+            'arrow': (266 / 512, 1 - 139 / 512, 510 / 512, 1 - 18 / 512), 'sign': (8 / 512, 1 - 242 / 512, 224 / 512, 1 - 7 / 512)}   # arrow points +u
 NAMES = [f'sc1_rsn_ns_ground_0010@{HOUSE102}', f'sc1_rsn_ns_ground_0010_n@{HOUSE102}',
          f'ch1_10_ih_manicuredgrass01@{HOUSE102}', f'ch1_10_ih_manicuredgrass01n@{HOUSE102}'] + \
-        [s for layer in LOT_LAYERS for s in layer] + [s for v in LOT_DECALS.values() for s in v]
+        [s for layer in LOT_LAYERS for s in layer] + [s for v in LOT_DECALS.values() for s in v] + list(PAINT.values())
 
 
 def path(spec):

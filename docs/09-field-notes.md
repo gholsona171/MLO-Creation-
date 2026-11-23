@@ -1205,3 +1205,16 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   board, posters) is generated from it by one script, and the shop step embeds it into every material that used the old logo.
 - **Rect tuples**: a list mixing (x0, y0, x1, y1) and (x0, x1, y0, y1) rects silently disabled decals over a whole quarter of
   the lot; convert explicitly where the list is built.
+
+## Graveyard round 6 (2026-11-23): parking that makes sense
+- **Lay stalls round what stands there**: dump every HD entity inside the site from the BUILT stream ymaps (CodeWalker), resolve
+  hashes with joaat over the survey names; mark power poles, lamp posts, gate openings and every roll-up door (MLO door entities,
+  local -> world with the shop heading). Customers park OUTSIDE the yard gate (walk in by the side door), staff/finished cars
+  nose to a fence, long back-in stalls for truck + gooseneck, hatched keep-clear aprons in front of roll-up doors, poles in a
+  stall area get a small hatched island. Draw the plan PNG from the same data before building and send it.
+- **Rockstar's parking paint**: `cls_cs3_07_newroadmarkings01..._a` (worn white / yellow strips, run along v; white u 54-86 px,
+  yellow 7-39 px of 512) and `..._02_a` (arrows, point +u) in cs3_07_tg.ytd, wheelchair in `bh1_13_roadmarkings..._a`
+  (bh1_14_detail.ytd); all `decal.sps`, diffuse alpha only, copied byte for byte into the lot's ytd. Lines 12-15 cm, strips
+  repeat every 3 m, cut into 1 m pieces so they follow the ground, 2.7 cm over the surface (above the grime decals).
+- Paint uses its own "on asphalt" test: the buildings' planning rects (NO_DECALS) are bigger than the buildings and refused
+  stalls next to them.

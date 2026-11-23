@@ -9,6 +9,8 @@ Antonio 2026-11-23: one flat blacktop with drawn-on cracks "doesn't look realist
   * decals over it, Harmony's own, faded at their rims by vertex colour 1 alpha the way Rockstar fades them: busted patched
     tarmac, sand drifts along the open edges, oil splats (more where vehicles stand: the shop's bays, the house garage), brown
     ground stains. Never under the buildings (site_plan.NO_DECALS), never off the asphalt;
+  * parking paint (parking_plan.py: stalls, keep-clear hatching, arrows, the accessible symbol) in Rockstar's worn Sandy
+    Shores road paint (vanilla_tex.PAINT), on top of everything;
   * lawn: the house lot north of site_plan.LAWN_Y bar the driveway and front path (site_plan.in_lawn), the game's own lawn
     texture (vanilla_tex.lawn), with a 15 cm concrete edging where lawn meets asphalt. (Its grass blades: lawn_grass.py.)
 No collision of its own (the vanilla ground under it is graded by site_col.py). Drawables: one per 40 m tile (jy_pave_<i>_<j>).
@@ -19,7 +21,7 @@ import bpy, bmesh, sys, json, math, shutil, numpy as np
 from pathlib import Path
 from mathutils import Vector, Matrix, kdtree
 T = Path(__file__).resolve().parent; sys.path.insert(0, str(T))
-import site_plan as SP, pave_ground as PG, proc_tex as PT, vanilla_tex as VT
+import site_plan as SP, pave_ground as PG, proc_tex as PT, vanilla_tex as VT, parking_plan as PK
 M_ = T.parent; OUT = M_ / 'site' / 'pave'
 W = Path(r'C:\Users\anton\Documents\Codex\2026-10-10\our-goal-is-to-build-machine\work'); sys.path.insert(0, str(W))
 bpy.ops.wm.read_homefile(use_empty=True)
@@ -81,7 +83,10 @@ DRIFT = native('JY lot drift', 'normal_decal.sps', {'DiffuseSampler': (DC['drift
                'BumpSampler': (DC['drift'][1], 'jy_lot_drift_n')}, {'bumpiness': 1.0, 'specularIntensityMult': .01})
 SPLATS = native('JY lot splats', 'decal.sps', {'DiffuseSampler': (DC['splats'][0], 'jy_lot_splats')}, {'specularIntensityMult': .05})
 STAIN = native('JY lot stain', 'decal.sps', {'DiffuseSampler': (DC['stain'][0], 'jy_lot_stain')}, {'specularIntensityMult': .05})
-MATS = [LOT, LAWN, EDGE, BUSTED, DRIFT, SPLATS, STAIN]
+LINES = native('JY paint lines', 'decal.sps', {'DiffuseSampler': (VT.PAINT['lines'], 'jy_paint_lines')}, {'specularIntensityMult': .05})
+ARROWS = native('JY paint arrows', 'decal.sps', {'DiffuseSampler': (VT.PAINT['arrows'], 'jy_paint_arrows')}, {'specularIntensityMult': .05})
+SIGNS = native('JY paint signs', 'decal.sps', {'DiffuseSampler': (VT.PAINT['signs'], 'jy_paint_signs')}, {'specularIntensityMult': .05})
+MATS = [LOT, LAWN, EDGE, BUSTED, DRIFT, SPLATS, STAIN, LINES, ARROWS, SIGNS]
 MI = {m: i for i, m in enumerate(MATS)}
 
 
@@ -250,6 +255,30 @@ scatter('stain', 14, lambda: (lambda L: sprite(STAIN, (0, 0, 1, 1), *spot(False)
 scatter('oil', 60, lambda: (lambda L: sprite(SPLATS, SPLAT_UV['splat'], *spot(True), L, L * rng.uniform(.8, 1), rng.uniform(0, math.pi), 3))(rng.uniform(1, 2.2)))
 scatter('smear', 16, lambda: sprite(SPLATS, SPLAT_UV['smear'], *spot(True), rng.uniform(1.4, 2), rng.uniform(2.8, 4), rng.uniform(0, math.pi), 3))
 scatter('sealed', 14, lambda: (lambda L: sprite(SPLATS, SPLAT_UV['patch'], *spot(False), L, L * rng.uniform(.7, 1), rng.uniform(0, math.pi), 3))(rng.uniform(1.5, 2.5)))
+# ---- parking paint (parking_plan.py), over everything (layer 5); on any asphalt cell (buildings' planning rects do not apply)
+def paved(x, y): return kind.get((int(math.floor(x / CELL)), int(math.floor(y / CELL)))) == 'asph'
+def quad_strip(m, uv, cx, cy, L, Wd, ang, along_v, vrep=3.0, seg=1.0):
+    """a painted quad cut into seg pieces; along_v: the texture strip runs along the length (repeat every vrep m), else u does."""
+    u0, v0, u1, v1 = uv; ca, sa = math.cos(ang), math.sin(ang)
+    def P(s, t): return (cx + ca * (s - .5) * L - sa * (t - .5) * Wd, cy + sa * (s - .5) * L + ca * (t - .5) * Wd)
+    if not all(paved(*P(s, t)) for s in (0, .5, 1) for t in (0, 1)): return 0
+    nu = max(1, int(math.ceil(L / seg)))
+    for a in range(nu):
+        q = [(a / nu, 0), ((a + 1) / nu, 0), ((a + 1) / nu, 1), (a / nu, 1)]
+        uvq = [(u0 + t * (u1 - u0), s * L / vrep) for s, t in q] if along_v else [(u0 + s * (u1 - u0), v0 + t * (v1 - v0)) for s, t in q]
+        face(tkey(cx, cy), [(x, y, z_at(x, y, off_of(5))) for x, y in (P(s, t) for s, t in q)], MI[m], uvq)
+    return 1
+for it in PK.paint():
+    if it[0] == 'line':
+        _, x0, y0, x1, y1, colour, w = it
+        L = math.hypot(x1 - x0, y1 - y0); placed['paint lines'] = placed.get('paint lines', 0) + quad_strip(
+            LINES, VT.PAINT_UV[colour], (x0 + x1) / 2, (y0 + y1) / 2, L, w, math.atan2(y1 - y0, x1 - x0), True)
+    elif it[0] == 'arrow':
+        _, x, y, h, L = it; placed['arrows'] = placed.get('arrows', 0) + quad_strip(ARROWS, VT.PAINT_UV['arrow'], x, y, L, L * .49, math.radians(h), False)
+    else:
+        _, x, y, h, sz = it; placed['signs'] = placed.get('signs', 0) + quad_strip(SIGNS, VT.PAINT_UV['sign'], x, y, sz, sz * 1.09, math.radians(h), False)
+n_paint = sum(1 for it in PK.paint() if it[0] == 'line')
+assert placed.get('paint lines', 0) >= n_paint * .95, f"paint lines placed {placed.get('paint lines')} of {n_paint}"
 kd = kdtree.KDTree(len(ALPHA))
 for k, (x, y, z, a) in enumerate(ALPHA): kd.insert((x, y, z), k)
 kd.balance()
