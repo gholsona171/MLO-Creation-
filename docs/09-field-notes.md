@@ -1150,7 +1150,10 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   has its own colour, park greens about (105,107,83)). Kept city lawns (Rockford Hills, the golf club, the Chumash houses) have
   **no blades**: a lawn texture (plus a fur shell shader). The collision under both carries procedural id 0. So "native grass"
   = our own grass ymap (`lawn_grass.py`, `grass_at.ps1` to copy a vanilla mix), contentFlags 1024, no entities. Mirror Park
-  scales (0.3..0.8) read as an unmown meadow on a house lawn; about a third of that reads as grass.
+  scales (0.3..0.8) read as an unmown meadow on a house lawn, and even at a third of that the park MIX (random spots, mixed
+  archetypes and heights, dandelions) reads as a raggedy yard: clumps with bare ground between. A "nice yard with blades"
+  (Antonio) = one fine archetype (`proc_grasses01b`) on an even 0.4 m grid with a little jitter, one short scale
+  (0.20..0.26), one green (88,112,62): ~6 blades per m2, ~21k for a 3,300 m2 lawn, under 1,000 per 12 m batch.
 - **Use the game's own textures for big surfaces, and pick them by looking.** `tex_scan.ps1` lists names, `tex_extract.ps1`
   pulls them (any texture: `name@dict.ytd`), `tex_sheet.py` makes a contact sheet. Then shoot a vanilla place that uses the
   texture, in the same forced light, next to ours. Graveyard's picks: roof `sc1_rsn_ns_ground_0010` (Chumash modern house,
@@ -1166,3 +1169,23 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   `prop_solarpanel_03` (tilted, faces -y at heading 0: south), `prop_skylight_04` (flat), `prop_roofvent_05a / 10a`.
 - PowerShell variables are case-insensitive: a `$y` loop variable overwrote the `-Y` parameter. A backslash in a regex path must
   be doubled (`-notmatch 'levels\\gta5'`), or `\g` throws on every entry. Give each scan its own output name.
+
+## 2026-11-23 (later) Graveyard round 4: a paved lot that looks real = copy how Rockstar paves one
+- **One flat tarmac texture + drawn cracks never reads real** (Antonio, after three tries). Rockstar's lots are a *blend*: find a lot
+  you like in game, `ents_at.ps1 -X -Y -R` for its model, extract it, `shader_probe.py` for its recipe. The Harmony used-car lot
+  (`cs6_03_usedlotmc`, ~1208 2719) is `terrain_cb_w_4lyr_pxm_spm`: four layers with parallax height maps (`im_concrete09a` worn
+  tarmac, `im_concrete11a` alligator-cracked, `cs_rsn_sl_road_0007` old grey road, `cs_rsn_sl_desgravelstonesdirt_01` gravel),
+  heightScale .03 / heightBias .015, bumpiness 1.1, specularIntensityMult .01, ~3 m repeat. Its dressing is a second mesh
+  (`_d001`) of decals faded by **vertex colour 1 alpha** (0 at the rim): busted tarmac, dirt tracks, gravel, oil splats, stains, drains.
+- **Which colour set picks the layer: vertex colour 2** (Sollumz "Color 2"), proven on the rig (one half of the lot forced to
+  layer 0 in colour 2, the other with colour 1 red and colour 2 = layer 3: colour 2 won both, colour 1 RGB tinted nothing).
+  Green picks pair (0/1) or (2/3), blue the layer inside it: layer0 (0,0), layer1 (0,1), layer2 (1,0), layer3 (1,1), blended in
+  between. Paint it from smooth world-space noise; gravel only along the open rim (gravel inside reads as a dirt yard).
+- **Copy Rockstar's DDS byte for byte** into your own ytd under your own names (keeps their compression; `tex_extract` with
+  `name@dict.ytd`, then `shutil.copyfile` + `bpy.data.images.load`). Alpha textures are stored as `<name><name>_a` in the ytd.
+- **Forced midday light bleaches every ground**: the Harmony lot itself shoots pale grey under `MS.cam`'s 13:00 EXTRASUNNY.
+  Judge against a vanilla lot shot in the same light, never against the texture swatch.
+- **Repeat vs grid:** Harmony's 3.1 m repeat shows a checker from 60 m up on a 1.2 ha yard; 5.5 m plus wider layer patches
+  (noise 17 / 23 m) hides it and still reads right at eye level.
+- **Blender loads no image by a relative path** (`..\site\...` fails with "Cannot read"): resolve output folders first. A build
+  that greps Blender's output passes silently on a script error and keeps the old model; make the step fail on `Traceback`.
