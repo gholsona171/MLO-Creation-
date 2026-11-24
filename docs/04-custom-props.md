@@ -28,6 +28,11 @@ Rockstar's recipe (from `prop_tv_flat_01`): the screen shader (`normal_spec_emis
 - MLO entities are not script objects: `GetClosestObjectOfType` does NOT find them. Ship their positions in the MLO data file and
   test distance to those.
 - Add a glass layer 1 mm in front of the screen for reflections (Rockstar does).
+- **Shipping our TV with any other map: `tools/tv_pack/build_tv_pack.py <resources dir> <screens.json>`** writes the standalone
+  resource `tc_tv`: the Tower City `tc_prop_tv.ydr` as built, a TV-only `tc_tv.ytyp`, an idle screen (title / subtitle / clock per
+  TV, from `config.lua`), exports `SetBusy` / `AddScreens` / `GetRenderTarget`, and a buyer README on hooking a TV / DUI script
+  into `tc_tvscreen`. The map lists `dependency 'tc_tv'` and its MLO places `tc_prop_tv` at any scale (0.3 = 55", 0.42 = 76").
+  Hang a TV only where seating faces a solid wall. First used: Graveyard's villa (graveyard_towyard `house_furnish.tv()`, `tv_screens.py`).
 
 ## What we built
 | Model | Notes |
