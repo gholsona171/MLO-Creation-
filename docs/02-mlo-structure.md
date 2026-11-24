@@ -477,3 +477,23 @@ patch was tried; ~500 without it).
   0.25 m2+ with texture density off by 3x). Proven on a planted rotated cube + 2 cm slit + flat paint before each run.
 - Audit at ped height before and after: 4 diagonal views per named space (`jc5_audit_cams.py`). Force the city lights on for the
   shots (`SetArtificialLightsState(false)`): the server's electrician job runs citywide blackouts that make rooms read black.
+
+## Garage floors, power poles and yard lamps (Graveyard tow yard, round 13, 2026-11-24)
+Antonio: "garage has a lip it shouldn't", "pole in front of house should be moved", "a wire that's not connected to nothing", "one light".
+- **A garage floor is its own level, flush with the drive** (paving + 0 to 1 cm). One house floor for every room left a 19 cm render
+  lip under the roll-up doors. Give rooms a floor level (`house_plan.floor_z(room)`), and everything that stands on a floor reads
+  it: the slab under that room, the room's finish, the wall linings and partitions on its edges (down to the lower side's floor),
+  door casings per face, furniture, ceiling-light drops. The garage slab runs out under each door to the wall's face (a concrete
+  sill whose top = the finish): no white wall top in the doorway. A real step (one riser) stays at the inner doors.
+- **Never pave under a house footprint.** Hidden while the floor sat high; the lowered garage met it and the paving showed through.
+- **A step that wipes its output folder also wipes the texture dictionary built from it** (`pave.py` -> `jy_pave.ytd`): rerun the
+  dictionary step after it, or the whole lot renders purple / sand in game.
+- **Moving a vanilla power pole:** rewrite its `position` in its own ymap (same entity, index, LOD parent, rotation), check the new
+  spot is inside the ymap's entitiesExtents, and carry every span end held at it by the move (re-string the span between its
+  ends, sag scaled with the length). Distance-model cut and camera solids read the new place (`site_plan.POLES_MOVED`).
+- **A drop down a pole (both ends on the same pole, one well below the other) hangs loose when its feeder is gone** (the old yard
+  lamp's feeder was cut, its 5 m drop stayed). It stays only if a kept span starts at its foot; the feeder can be in ANOTHER wire
+  model, so collect every model's kept span ends first, then judge (two passes: graveyard `tools/wires.py`, `wires_all.sh`).
+- **A yard light: reuse a lamp the site already has.** Probe its model in game (`StartShapeTestRay` at the post, `GetEntityModel`,
+  `GetModelDimensions`: the shop's car-park lamp, 12.7 m, two heads); its lights come on with the street lights (dark at 23:00,
+  not yet at 21:00 dusk). Give its base a hatched island at a row's end so no stall is lost.
