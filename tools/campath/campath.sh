@@ -4,7 +4,8 @@
 #           camera crossed or came within 0.3 m of collision (CAMPATH_PROBE_CLEAN when none)
 #   run   : records the FiveM window (gdigrab, 30 fps, full window) while the track plays, then campath_cut.py trims the black
 #           between shots to a short dip and writes out.mp4
-# env: CL (client server id), DOORS (comma list of door models to open on the way), WEATHER. Take the rig lock first.
+# env: CL (client server id), OPENS (doors to open on camera, comma list of model:swing|slide:amount:near, e.g.
+#      jy_house_frontdoor:swing:90:9 = swing 90 deg as the camera comes within 9 m), WEATHER. Take the rig lock first.
 set -e; HERE=$(cd "$(dirname "$0")" && pwd); T=/c/C9Test/t.sh
 TRACK=$1; MODE=${2:-probe}; OUT=$3; : "${CL:?set CL to the client id (t.sh players)}"
 PY=/c/Users/anton/AppData/Local/Programs/Python/Python313/python
@@ -20,8 +21,8 @@ EOF
 bash $T cl $CL "_G.__cpbuf='' return 'ok'" 5 >/dev/null
 for c in "$CH"/c*; do r=$(bash $T cl $CL "_G.__cpbuf=_G.__cpbuf..[==[$(cat "$c")]==] return #_G.__cpbuf" 5 | grep -o '"result":[0-9]*'); done
 echo "track sent ($r chars)"; rm -rf "$CH"
-DL=$(echo "${DOORS:-}" | $PY -c "import sys; print(','.join(repr(d) for d in sys.stdin.read().strip().split(',') if d))")
-bash $T cl $CL "_G.__cp=load('return '.._G.__cpbuf)() _G.__cpbuf=nil _G.__cpopt={probe=$([ "$MODE" = probe ] && echo true || echo false),probe_speed=${PROBE_SPEED:-2.0},doors={$DL},weather='${WEATHER:-EXTRASUNNY}'} return #_G.__cp.shots" 10 | grep -o '"result":[^,}]*'
+DL=$(echo "${OPENS:-}" | $PY -c "import sys; print(','.join('{model=%r,kind=%r,amount=%s,near=%s}' % tuple(d.split(':')) for d in sys.stdin.read().strip().split(',') if d))")
+bash $T cl $CL "_G.__cp=load('return '.._G.__cpbuf)() _G.__cpbuf=nil _G.__cpopt={probe=$([ "$MODE" = probe ] && echo true || echo false),probe_speed=${PROBE_SPEED:-2.0},opens={$DL},weather='${WEATHER:-EXTRASUNNY}'} return #_G.__cp.shots" 10 | grep -o '"result":[^,}]*'
 FF=$(ls -d /c/Users/anton/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg*/ffmpeg-*/bin | head -1)/ffmpeg.exe
 if [ "$MODE" = run ]; then
   RAW="${OUT%.mp4}.raw.mkv"

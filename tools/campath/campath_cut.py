@@ -8,11 +8,12 @@ ff, raw, out = sys.argv[1:4]
 probe = subprocess.run([ff, '-hide_banner', '-i', raw, '-vf', 'blackdetect=d=0.3:pix_th=0.05:pic_th=0.97', '-an', '-f', 'null', '-'],
                        capture_output=True, text=True).stderr
 blacks = [(float(a), float(b)) for a, b in re.findall(r'black_start:([\d.]+) black_end:([\d.]+)', probe)]
-m =re.search(r'Duration: (\d+):(\d+):([\d.]+)', probe); dur = int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3])
-keep, t = [], 0.0
-for a, b in blacks:                                     # keep the picture between black stretches, plus a short dip each side
-    if a - t > 0.5: keep.append((max(0.0, t - (PAD if t else 0)), min(dur, a + DIP / 2)))
-    t = b
+m = re.findall(r'time=(\d+):(\d+):([\d.]+)', probe)[-1]            # (the take is cut off by killing the recorder: its header has no
+dur = int(m[0]) * 3600 + int(m[1]) * 60 + float(m[2])               #  duration, so it's read off the decoding pass's last timestamp)
+keep, t = [], None
+for a, b in blacks:                                     # keep the picture between black stretches, plus a short dip each side;
+    if t is not None and a - t > 0.5: keep.append((max(0.0, t - PAD), min(dur, a + DIP / 2)))   # (what's before the first black is the
+    t = b                                                                                         #  game screen before the run: dropped)
 if dur - t > 0.5: keep.append((max(0.0, t - PAD), dur))
 assert keep, 'nothing but black in the recording'
 parts = ''.join(f'[0:v]trim={a:.3f}:{b:.3f},setpts=PTS-STARTPTS[v{i}];' for i, (a, b) in enumerate(keep))

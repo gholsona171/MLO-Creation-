@@ -6,8 +6,11 @@
 -- _G.__cphits. _G.__cprun = 'run' | 'done'.
 local D, O = _G.__cp, _G.__cpopt or {}
 local PROBE = O.probe
-local DOORS = {}
-for _, m in ipairs(O.doors or {}) do DOORS[joaat(m)] = m end
+-- doors opened on camera: O.opens = { {model, kind = 'swing' | 'slide', amount (deg / m along the leaf's own x), near (m)} }. The
+-- leaf is moved by hand (frozen, eased over 1.4 s) as the camera comes within `near`: the door system can't move a door another
+-- script (a door lock) already owns. Put back on teardown.
+local OPENS = {}
+for _, d in ipairs(O.opens or {}) do OPENS[joaat(d.model)] = d end
 _G.__cprun = 'run'; _G.__cphits = {}
 local function cr(A, f)
   local n = #A; if n == 1 then return A[1] end
@@ -22,21 +25,34 @@ local function quiet(on)
   TriggerEvent('dd_hud:client:setVisible', not on)
   DisplayRadar(not on); DisplayHud(not on)
 end
-local opened = {}
+local opened = {}                                                     -- entity -> {d, pos0, head0, t0}
 local function open_doors(p)
+  local now = GetGameTimer()
   for _, o in ipairs(GetGamePool('CObject')) do
-    local m = GetEntityModel(o)
-    if DOORS[m] and not opened[o] then
-      local c = GetEntityCoords(o)
-      if #(c - p) < 22.0 then
-        local h = joaat(('campath_%d_%d_%d'):format(math.floor(c.x * 10), math.floor(c.y * 10), math.floor(c.z * 10)))
-        if not IsDoorRegisteredWithSystem(h) then AddDoorToSystem(h, m, c.x, c.y, c.z, false, false, false) end
-        DoorSystemSetDoorState(h, 0, false, true); DoorSystemSetHoldOpen(h, true)
-        DoorSystemSetOpenRatio(h, (O.ratio and O.ratio[DOORS[m]]) or 1.0, false, true)
-        opened[o] = h
-      end
+    local d = OPENS[GetEntityModel(o)]
+    if d and not opened[o] and #(GetEntityCoords(o) - p) < (d.near or 8.0) then
+      FreezeEntityPosition(o, true)
+      opened[o] = { d = d, pos0 = GetEntityCoords(o), head0 = GetEntityHeading(o), t0 = now }
     end
   end
+  for o, s in pairs(opened) do
+    if DoesEntityExist(o) then
+      local u = math.min(1.0, (now - s.t0) / 1400.0); u = u * u * (3 - 2 * u)
+      if s.d.kind == 'slide' then
+        local h = math.rad(s.head0); local a = s.d.amount * u
+        SetEntityCoordsNoOffset(o, s.pos0.x + math.cos(h) * a, s.pos0.y + math.sin(h) * a, s.pos0.z, false, false, false)
+      else SetEntityHeading(o, s.head0 + s.d.amount * u) end
+    end
+  end
+end
+local function close_doors()
+  for o, s in pairs(opened) do
+    if DoesEntityExist(o) then
+      SetEntityCoordsNoOffset(o, s.pos0.x, s.pos0.y, s.pos0.z, false, false, false); SetEntityHeading(o, s.head0)
+      FreezeEntityPosition(o, false)
+    end
+  end
+  opened = {}
 end
 CreateThread(function()
   local ped = PlayerPedId()
@@ -98,7 +114,7 @@ CreateThread(function()
     end
     if not PROBE then while not IsScreenFadedOut() do Wait(0) end end
   end
-  for o, h in pairs(opened) do DoorSystemSetHoldOpen(h, false); DoorSystemSetOpenRatio(h, 0.0, false, true); RemoveDoorFromSystem(h) end
+  close_doors()
   StopCamShaking(cam, true); RenderScriptCams(false, false, 0, true, true); DestroyCam(cam, false); _G.__cpcam = nil
   ClearFocus(); SetEntityVisible(ped, true, false); SetEntityCollision(ped, true, true)
   quiet(false); DoScreenFadeIn(500)
