@@ -86,6 +86,13 @@
 
 ## Stairs
 - 0.20 m rise / 0.27 m going, ramp collision under the treads. Size the stair first, then build the shaft around it.
+- A stair in an open room (a house hall, a lobby) should not be a solid wedge: Antonio (Graveyard villa, 2026-11-24) asked for it
+  "hollowed out, like real stairs". Build an open-riser floating stair instead of `tc_kit.stair()`'s visuals: 6 cm hardwood treads
+  with open gaps, one steel spine down the middle (a block under each tread), frameless glass on each open side with a slim
+  black handrail, open underneath. Keep `stair_plan()` for the numbers and `colprism(..., stairs=True)` for the walking ramp on
+  the nosing line; the glass sides get collision (no falling off the top). Cap the side glass just under the upper floor where
+  the void rail takes over, and stop it 1 cm short of the slab edge (no shared plane). Source:
+  graveyard_towyard `tools/house.py`, "the stair".
 
 ## Windows
 - Each window bay = a real hole in the shell + a reveal + one glass pane in the face plane + a limbo portal. Two glass layers close
