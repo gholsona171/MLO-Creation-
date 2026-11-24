@@ -1241,3 +1241,4 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   nowhere and you get 9 screenshots of the spawn street. It now exits on CAM FAILED instead of saving junk.
 - `make_conflict_check.py --ours` takes several prefixes (`jy_,c9hp_`): a map that ships our own prop pack must not list those
   files as replaced Rockstar files.
+- **Never script the rig login** (`qbx_core:server:loadCharacter`), even when `tc_connect.sh`'s client-1 call happens to hit your id. It leaves the character-select overlay up ("Already loading a character"), and shots show the menu over the world. Restart the client and click PLAY with `clickwin.ps1 -X 231 -Y 1029`. (Graveyard, 2026-11-23)

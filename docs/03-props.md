@@ -126,3 +126,20 @@ couches broken, bare rooms. Every one came from placing vanilla props by guessed
   (seats / beds to 0.45 m, showers only their glass panel).
 - Rooms of 30-50 m2 need 8-12 pieces to stop reading as empty: bed + 2 nightstands + lamps + art + bench at the foot + wardrobe /
   dresser + chair + rug + plant + floor lamp. Bathrooms: shower AND tub, vanity + mirror, toilet, towel rack, mat, plant.
+
+## Player-placeable props inside an MLO: ship static copies (Graveyard villa, 2026-11-23)
+- **Symptom:** walked into, furniture "duplicates and bounces all over the place".
+- **Cause:** C9_HousingProps archetypes carry the **Dynamic** flag (bit 17, `1 << 17`; flags 549584896). The pack is made for players to spawn and move pieces, but as MLO entities Dynamic pieces become physics objects that you can knock about.
+- **Fix:** ship our own copies under our own names, `<prefix>_hp_<x>`, using `house_meta.ship_hp` (graveyard_towyard):
+  - `TequiBuild inspect` dumps the pack ytyp to XML. Names come out as `hash_XXXXXXXX`, so map them with joaat.
+  - Keep only the models that are used.
+  - Rename name, assetName and physicsDictionary, and point textureDictionary at `<prefix>_hp_<cat>`.
+  - Clear bit 17, then compile.
+  - Copy the ydr and ytd files under the new names.
+  - Our names never clash with the pack on a server that runs it. The conflict checker `--ours` then needs only our prefix.
+- **Proof in game:** `GetClosestObjectOfType(..., joaat('<prefix>_hp_chair'))` returns 0, because static MLO entities are buildings, not objects. A real walk into a chair (`keywin.ps1` W) stops the ped, and the chair stays put.
+- **Lighting rule (Antonio):** a room is lit only by fixtures you can see. Don't use `tc_kit.lamp` panels in a furnished house. Place the pack's ceiling fixtures by rule instead (`house_furnish.py`, "ceiling lights"); each one carries embedded lights of about 3 intensity at 6.5 to 7 m falloff.
+  - Grid of ~4 m cells: fan lights over bedrooms, flush domes in wet rooms, LED panels elsewhere.
+  - `check()` fails a room with no fixture, a fixture over the stair hole, and a pendant that hangs into furniture or below 2.05 m.
+- Room timecycles are no cure for a bright daylight room with big glass. `v_michael`, `V_Michael_lounge`, `mp_apart_mid` and `MP_Heist_Tuner_SmShop_Default` all blew the windows out white (live `SetTimecycleModifier` test, gameplay camera).
+- **Night shots on a server with weather sync:** `NetworkOverrideClockTime` is overridden. Use the console `time 22 0` instead.

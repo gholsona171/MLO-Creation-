@@ -219,6 +219,33 @@ free('c9hp_plant_fiddle', 'upperlounge', 13.6, 12.5, 0.0); wall('c9hp_table_side
 wall('c9hp_wallart_c', 'upperlounge', 'S', 13.25, z=1.3, kind='wall')
 free('c9hp_plant_snake', 'bath', 8.3, 5.6, 0.0); free('c9hp_stool_vanity_oak', 'masterbath', 20.9, 3.0, 0.0)
 
+# ================= ceiling lights (Antonio: "they should only use the lights that exist inside the room") =================
+# The house has no hidden light of its own: every room is lit by the C9 fixtures in it (each carries its own warm lights, ~3 at
+# 6.5-7 m). Bedrooms: a fan light over the room's centre; the entry: the chandelier; the games room: the 3-bulb pendant over the pool
+# table; baths, laundry, powder room, closet, garage: flush domes; every other room: round LED panels. Rooms on a grid of ~4 m
+# cells, one fixture per cell centre; a cell is skipped over the stair hole (ground ceiling) or near a fixture already placed.
+FIX_ROOM = {'entry': 'c9hp_chandelier_crystal', 'guest': 'c9hp_ceiling_fan_light', 'bed2': 'c9hp_ceiling_fan_light',
+            'bed3': 'c9hp_ceiling_fan_light', 'master': 'c9hp_ceiling_fan_light'}
+FIX_GRID = {**{r: 'c9hp_ceiling_flush_dome_white' for r in ('garage', 'laundry', 'powder', 'guestbath', 'bath', 'masterbath', 'closet')},
+            **{r: 'c9hp_ceiling_led_panel_round' for r in ('office', 'kitchen', 'hall', 'lounge', 'study', 'landing', 'upperlounge', 'master')}}
+ceiling('c9hp_ceiling_pendant_linear_3', 'games', 16.2, 3.05); FIX_GRID['games'] = 'c9hp_ceiling_led_panel_round'
+for room, m in FIX_ROOM.items():
+    _, (u0, u1, v0, v1) = room_of(room); ceiling(m, room, (u0 + u1) / 2, (v0 + v1) / 2)
+
+
+def _fixture_ok(room, u, v):
+    fl, _ = room_of(room); a, b, c, d = H.STAIR_HOLE
+    if fl == 0 and a - .4 <= u <= b + .4 and c - .4 <= v <= d + .4: return False
+    return all((u - it['u']) ** 2 + (v - it['v']) ** 2 >= 1.6 ** 2 for it in ITEMS if it['kind'] == 'ceiling' and it['floor'] == fl)
+
+
+for room, m in FIX_GRID.items():
+    _, (u0, u1, v0, v1) = room_of(room); nu, nv = max(1, round((u1 - u0) / 4)), max(1, round((v1 - v0) / 4))
+    for i in range(nu):
+        for j in range(nv):
+            u, v = u0 + (i + .5) * (u1 - u0) / nu, v0 + (j + .5) * (v1 - v0) / nv
+            if _fixture_ok(room, u, v): ceiling(m, room, u, v)
+
 # ---- built pieces (house.py) that furniture must keep clear of: (floor, u0, u1, v0, v1, top above the floor)
 WINE = (20.2, 22.2)                                     # the wine cabinet on the master's south wall (v 12)
 BUILT = [(1, WINE[0], WINE[1], 12 + PT / 2, 12 + PT / 2 + .45, 2.1)]
@@ -289,12 +316,29 @@ def check():
             base = [s for s in solid if s['model'] == it['on'] and s['floor'] == it['floor'] and inter(it['fp'], s['fp'])]
             if not base: errs.append(f"{it['model']} ({it['room']}) is not on a {it['on']}")
             elif abs(it['z'] - base[0]['top']) > .03: errs.append(f"{it['model']} floats / sinks: z {it['z']} on a top at {base[0]['top']:.3f}")
+    ceil = [it for it in ITEMS if it['kind'] == 'ceiling']
+    for fl, rooms in ((0, H.GROUND), (1, H.UPPER)):                           # every room lit by a fixture of its own
+        for name in rooms:
+            if not any(it['room'] == name and CAT.get(it['model'], {}).get('fn') == 'light' for it in ceil): errs.append(f"{name} has no ceiling light")
+    for a in ceil:
+        bottom = a['z'] - size(a['model'])[2]                                  # (the fixture hangs down from the ceiling plane)
+        if bottom < 2.05: errs.append(f"{a['model']} ({a['room']}) hangs down to {bottom:.2f} m")
+        for s in solid:
+            if a['floor'] == s['floor'] and inter(a['fp'], s['fp']) and bottom < s['top'] + .1: errs.append(f"{a['model']} hangs into {s['model']}")
+        u0, u1, v0, v1 = H.STAIR_HOLE
+        if a['floor'] == 0 and inter(a['fp'], (u0, u1, v0, v1)): errs.append(f"{a['model']} ({a['room']}) is over the stair hole")
     return errs
 
 
+def shipped_name(m):
+    """the name a piece ships under: C9 models go out as our own static copies jy_hp_* (house_meta.ship_hp; the pack's archetypes are
+    Dynamic, made for players to move, so in the MLO they got knocked about when walked into, Antonio 2026-11-23)."""
+    return 'jy_hp_' + m[5:] if m.startswith('c9hp_') else m
+
+
 def props():
-    """the MLO entities: (model, local position, heading, ytyp) for house.py."""
-    return [{'room': 1, 'model': it['model'], 'pos': (it['u'], it['v'], FL[it['floor']] + it['z']), 'heading': it['h']} for it in ITEMS]
+    """the MLO entities: (model, local position, heading) for house.py."""
+    return [{'room': 1, 'model': shipped_name(it['model']), 'pos': (it['u'], it['v'], FL[it['floor']] + it['z']), 'heading': it['h']} for it in ITEMS]
 
 
 def colliders():
