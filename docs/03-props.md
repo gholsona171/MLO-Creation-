@@ -108,3 +108,21 @@ matching archetypes). Reference interiors: Mission Row `v_policehub` (v_int_20),
   `.ydd`: `tools/justice/p3/vanilla_xml.ps1` looks in ydr files first, then in ydds.
 - His strip textures: `gz_dlc_bfloormrble2` is a strip atlas (travertine strips and a green marble band at rows 288-456). A
   border band samples only that band's v range (Tower City's sidewalk-strip lesson again).
+
+## Furnishing by rule, never by eye (Graveyard villa remake, 2026-11-23)
+Antonio walked the first furnished villa and found beds half in dressers, chairs facing corners, wardrobes facing the wall,
+couches broken, bare rooms. Every one came from placing vanilla props by guessed position + heading. The fix that worked:
+- **Use props whose size and front are KNOWN.** Our own pack `C9_HousingProps` (`cloud9/scripts/C9_HousingProps/stream`, about
+  390 models: kitchens, cabinets with counters, baths, showers with heads, beds, wardrobes, sofas, art, lamps, rugs, plants) has
+  origin = bottom centre of the footprint at floor level, front = -Y, sizes in `shared/catalog_<cat>.lua`.
+  `tools/furnish/c9hp_catalog.py` reads them to JSON. Ship the used categories whole (ytyp + ytd + every ydr of the category).
+- **Place by wall, not by coordinate:** `wall(model, room, side, s)` puts the BACK on that wall's inner face (outer wall lining
+  or partition face) and the front into the room; heading N wall 0, S 180, E 270, W 90 (a -Y front at heading h points
+  (sin h, -cos h)). Lamps on nightstands are `kind='on'`, art / mirrors `kind='wall'` with a height.
+- **Prove it before building:** `check()` in `tools/furnish/house_furnish.py` fails the build when a piece leaves its room,
+  overlaps another, stands in a door's 1 m swing zone (both sides), stands in front of a window lower than its own top, sits on
+  the stair / void, or blocks a slider's door bay; it also draws every footprint with its front arrow (review PNG).
+- **Backup collision:** the pack's embedded collision is unproven in game, so the MLO's own ybn gets a box per standing piece
+  (seats / beds to 0.45 m, showers only their glass panel).
+- Rooms of 30-50 m2 need 8-12 pieces to stop reading as empty: bed + 2 nightstands + lamps + art + bench at the foot + wardrobe /
+  dresser + chair + rug + plant + floor lamp. Bathrooms: shower AND tub, vanity + mirror, toilet, towel rack, mat, plant.

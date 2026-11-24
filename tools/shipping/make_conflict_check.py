@@ -5,7 +5,8 @@ list is always this build's own files - never a hand-kept list.
   py -3 make_conflict_check.py --stream <res>/stream --res <resource folder name> --name "<Map name>"
        --area "<where it sits, street names + x y>" [--family <regex>] [--refs a,b,c] [--skip other_res,...] [--out <path>]
 
-  --stream  the resource's stream folder; every file NOT starting with --ours (default: tc_) and not _manifest.ymf is listed
+  --stream  the resource's stream folder; every file NOT starting with --ours (default: tc_; several prefixes comma-separated,
+            e.g. jy_,c9hp_ for a map that also ships our own prop pack) and not _manifest.ymf is listed
             (those are the Rockstar files we replace; our own files never clash by name)
   --family  regex of Rockstar file-name families for the area, to also flag same-area files with other names
             (e.g. '^(hei_|hi@|ma@)?(dt1_11|dt1_12)'); empty = off
@@ -33,7 +34,7 @@ if not o.template: o.template = os.path.join(here, 'check_conflicts_props.ps1.in
 STREAMED = {'.ymap', '.ytyp', '.ybn', '.ydr', '.ydd', '.yft', '.ytd', '.ycd', '.ynd', '.ynv', '.ymt', '.ypt', '.awc'}
 names = sorted({f for _, _, fs in os.walk(o.stream) for f in fs
                 if os.path.splitext(f)[1].lower() in STREAMED and not f.lower().startswith('_manifest')
-                and (o.kind == 'props' or not f.lower().startswith(o.ours.lower()))})
+                and (o.kind == 'props' or not f.lower().startswith(tuple(x.strip().lower() for x in o.ours.split(',') if x.strip())))})
 skip = '|'.join(re.escape(r) for r in [o.res] + [s for s in o.skip.split(',') if s])
 refs = ','.join("'" + r.replace("'", "''") + "'" for r in o.refs.split(',') if r)
 s = open(o.template, encoding='utf-8').read()

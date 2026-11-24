@@ -1228,3 +1228,16 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   (`..._a_bigim_carparkmarkings01_a_big`; the sc1_06 `_a_big` alone is only the mask), yellow in sc1_06_carpark+hidr.ytd. Same
   layout: line strip u 852-954 of 1024 (full v), straight arrow u 52-215 v-tail y532 -> tip y1011 (points -v), wheelchair
   x 24-439 y 16-475. Worn alternative for old lots: cs3_07 newroadmarkings (round 6).
+
+## Villa remake lessons (Graveyard, 2026-11-23)
+- **Window flicker = a sill sharing a face with the wall.** A sill box whose top sat at the opening's bottom edge (where the wall
+  piece below ends) z-fought on every window. Use a frame bar INSIDE the opening instead; never two coplanar faces.
+- **Glass panes need their own collision.** A `glass_pane` is a single face with no collision: players walked through every
+  window and the shower glass. Add a thin colbox in the pane's plane (sliders: the fixed part only; the leaf carries its own).
+- **Interior door leaves in a flat noise colour read as marble.** Use a real wood texture (oak) on leaves.
+- **Removing a power pole:** take out the pole AND its insulators (radius), drop it from the pole list the wire and LOD steps
+  read, and make spans that ended on it go away: re-hanging them onto the house put a cable outside the balcony glass.
+- **Shot script and client id:** `tcshot.sh` takes `CL=<server id>` (`t.sh players`); with the wrong id the camera commands go
+  nowhere and you get 9 screenshots of the spawn street. It now exits on CAM FAILED instead of saving junk.
+- `make_conflict_check.py --ours` takes several prefixes (`jy_,c9hp_`): a map that ships our own prop pack must not list those
+  files as replaced Rockstar files.
