@@ -63,5 +63,5 @@ end)
   a player is in front of one. Other resources can add theirs with `exports.tc_tv:AddScreens({ { pos = vector3(x, y, z), title = '', sub = '' } })`.
 - **Drawing happens on each player's own game.** Keeping players in sync (which video, the time in it) is your TV script's job.
 - `exports.tc_tv:GetRenderTarget()` returns the model, target and texture names above.
-- Already running our Tower City map? It carries the same TV (same model, same render target). Both work side by side, and
-  the game uses one copy of the model.
+- Another map that carries this same TV (`tc_prop_tv`, `tc_tvscreen`) can run beside this one: the game uses one copy of the
+  model.

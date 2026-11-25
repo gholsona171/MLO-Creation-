@@ -70,3 +70,16 @@ Optional moving parts are off (escalators), every access check is off (all floor
 ## Package name
 Name the zip after the resource (`tower_city.zip`), never `_test`: what we hand over is the release (Antonio, 2026-10-24).
 - Zip with `tools/shipping/zip_package.py` (forward-slash paths), never `Compress-Archive`: it writes backslash paths that Linux unzip tools mishandle, and most FiveM hosts run Linux.
+
+## Clean-handover audit (before a paid delivery)
+Some buyers look for signs of AI. Before handing anything over, unpack the final zip and check:
+- Text files (README, lua, cfg, json, sql, ps1): no Claude / Anthropic / AI / "generated" wording, no local paths (`C:\Users\...`,
+  scratchpad, rig folders), no names of our other clients or their maps.
+- Game files: inflate each RSC7 file (raw deflate after the 16-byte header) and search inside. `sollumz` is fine: it is the
+  standard exporter every MLO carries.
+- DLLs: `strings` (ASCII and UTF-16) for `.pdb` paths and user folders.
+- The zip itself: no comment. `git archive --format=zip` writes the commit id as the zip comment, so repack with
+  `tools/shipping/zip_package.py`.
+- The buyer README matches the package: list every folder it ships (a dependency such as `tc_tv` included).
+- The repo the code came from: commit authors, `Co-Authored-By` lines and branch names (`claude/...`) only matter if the buyer
+  can see that repo.
