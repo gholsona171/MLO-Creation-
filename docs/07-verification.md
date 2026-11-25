@@ -204,3 +204,21 @@ checks now run on the built files (`tools/towercity/`), each proven first on the
   photos of seated clones (`ClonePed`) from the front and the side. That caught sitters between the chairs: v_ilev_ph_bench has
   five chairs, not four.
 - `jc3_fly.sh`: tc_fly.sh with the lot heading as a parameter (tc_fly.sh hard-codes Tower City's 69.5 deg).
+
+## Keeping or copying a structure out of an area collision file (Graveyard tow yard, 2026-11-25)
+Client: "a wall people run into, they climb it and walk on top of it", in front of the shop. Cause: the second pole barn was a copy of
+the kept barn, and its collision was "every non-ground piece of the area ybn inside the barn's rect". Rockstar's area files hold the
+junk that stood in and around a structure (a water tank, a crane, scrap piles, a 1 m kerb ridge) in the same file; the junk's models
+were removed, its collision was copied. The kept barn had the same leftovers in place.
+- Rule: a collision piece belongs to a kept structure only when it lies ON that structure's drawn faces. Build a BVH of the drawn model
+  (high LOD, at its entity) and keep a piece when >= 80 % of its points (a triangle's corners + centre; a box / capsule / cylinder's
+  mesh vertices) are within 0.4 m of a drawn face. A centre-only test let the tank's big cylinder through (a post was near its centre).
+  Graveyard: `graveyard_towyard/tools/barn_shape.py`, used by site_col.py (barn 1) and barn_copy.py (barn 2).
+- Check with every primitive type. A loader that reads only `<Triangle>` polygons (hole_grid_offline.tris_of) misses Box / Capsule /
+  Cylinder / Sphere, which is exactly what junk collision is made of. Sample them too.
+- Two gates that found it: (1) walked ground vs drawn ground per 0.25 m cell (highest up-facing collision face vs highest drawn face
+  under 1.2 m over the design ground): the ridge read +0.9 to +1.15 m; (2) collision 0.25 - 2.5 m over the ground with no drawn face
+  within 0.5 m (lattice samples of a box read up to ~1 m "far" from a drawn bench it really encloses: check those against the model).
+- Place an MLO's ybn with the MLO instance's rotation (the moved shop is turned 180 degrees): offset-only placement invents walls.
+- In game: walk the ped along lanes through the area (TaskGoStraightToCoord), log THROUGH / STOPPED and the highest z reached (a
+  climb shows as > 0.1 m). Every stop gets a photo: Graveyard's two stops were the barn's own concrete block and a post.
