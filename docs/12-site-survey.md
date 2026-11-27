@@ -75,3 +75,38 @@ No vanilla block to replace: a client bought a 120 x 100 m site and picked open 
 Result there: the client's strip between two roads is only 69-75 m deep, so 120 x 100 needed a road closure or a 16 m hill cut;
 the honest answer was "reshape the site" (longer, shallower). Check this before promising a site size. Also check for free / paid
 maps already on that shore (a "Sandy Shores Marina Drive Mansion" YMAP sits on that beach).
+
+## Preparing a site on open ground (Block Boyz truck club, 2026-11-27)
+The ground work after the fit: clear, re-route the power line, grade, cut the collision, draw the lot, assemble. Copies of the
+scripts: `tools/site_rebuild/open_ground/` (the project runs them from `blockboyz_truckclub/tools`, chain = `build.sh`; the Graveyard
+site_rebuild scripts are the parents). Whole chain offline in ~2 min (+ ~9 min when it re-reads the game).
+1. **One extractor, two passes** (`vanilla_extract.ps1`): `-Box` saves every ymap (all variants) whose entity / streaming extents
+   reach the box as XML, every ybn (hi@ / ma@ too) whose bounds reach it, and every distlodlights copy with a light in it; `-Ydr`
+   saves the models a list names (`vanilla_models.py` writes it from the maps: ground models by a block-prefixed regex, wire meshes).
+   Trap: filtering out "world-wide" maps by STREAMING extents dropped every LOD parent (cs4_03.ymap): SLOD maps stream from km
+   away. Filter by ENTITY extents.
+   Trap: a terrain regex with `trail` matched `prop_tanktrailer_01a`. Anchor it on the block prefix (`^cs\d_..._\w*(land|beach|trail...)`).
+2. **The outline from the road collision** (`ground_scan.py` + `site_outline.py`): a 0.25 m road mask (1 m cells gave a stair-step
+   outline), Euclidean distance to it, the 3 m contour, simplified and pulled in by the simplification tolerance. The polygon is
+   pasted into `site_plan.py` as DATA, and `site_plan.check()` re-measures it against the collision every build.
+3. **Where the strip ends**: scan past the survey box before promising "as far as it goes". Here a compound (hut, radio tower,
+   corrugated fences) at x 1000 closed it, and the roads converge west of x 820.
+4. **Grade = a membrane** (`grade.py`): least squared slope on a 1 m lattice (sparse solve), held to the collision's own heights on
+   every node outside the outline (no median there: a smoothed edge left 0.23 m steps), to the pad, and to the ground under poles
+   that stay; a weak pull to a 41 m median trend. The PAD (roof + deck outline + 2 m apron) is grown by one 2 m cell's diagonal
+   before it is fixed, so every collision / drawn cell that touches it is wholly flat. ~2 % on the open lot is real; next to a pad
+   that sits 1 m under the ground 10-15 m away, 7-9 % is physics: report it, don't promise 2 %.
+5. **Sculpture feet** (an arch landing outside the building): a height BAND on a small disc + a slope cone round it, iterated (hold the
+   nodes outside the cone, solve again). A hard clamp alone dug a 14 % bowl; a foot 4.6 m from the site edge needs a 15 % cone.
+6. **Collision faces across the outline**: grade every on-site VERTEX of any face, not only the vertices of faces whose centre is
+   on the site; otherwise a 1 m band inside the outline keeps the old height.
+7. **Wires**: judge a drop (both ends on one pole) only on poles on the site; a drop on a pole off the site lost its "feeder" because
+   the feeder ran through a model we never read. Join radius 1.0 m (a jumper's foot sat 0.74 m from its circuit's end).
+8. **The lot's own drawn ground** (`ground.py`): Rockstar's 4-layer ground shader on his Sandy textures, 1 m cells (2 m cells
+   parted from the collision by 5 cm round curved grade), vertex colour 0 = (1, 0, 1): his land has G (artificial night ambient) = 0.
+   Texture lookup by name over every gtxd / country ytd takes ~6 min (`tex_extract.ps1`); its index.tsv records the dictionary.
+9. **Gate** (`ground_gate.py`, offline on the assembled stream): holes (a second ray 4 cm off rules out Rockstar's file seams),
+   collision vs grade, the pad flat and under the floor, drawn vs collision, old ground showing through, steps at the outline. Its
+   first run caught 0.23 m edge steps and a 0.5 m cliff round an arch foot.
+10. **One assemble step** writes the resource's only `_manifest.ymf` and `fxmanifest.lua`; the building's meta step hands over its
+    interior entries as JSON (`mlo_interiors.json`) instead of writing its own manifest.

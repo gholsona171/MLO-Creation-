@@ -187,3 +187,4 @@ and `site/poles.tsv`. Copy them into the project's `tools/` and point them at it
 | `site_rebuild/ytd_build.ps1` | One texture dictionary from a folder of DDS files (for drawables that reference textures by name) |
 | `site_rebuild/rig_swap.sh` | Close the game, swap the map resource on the rig, so stopping a map never crashes a connected client |
 
+| `site_rebuild/open_ground/` | A site on open ground (Block Boyz, doc 12 "Preparing a site on open ground"): two-pass vanilla extractor, road-collision outline, membrane grade with a flat pad + sculpture-foot cones, collision cut + graded, vanilla ground lowered, wire spans on removed poles out (checked against the building / arch / sag), the lot's drawn ground, offline ground gate |
