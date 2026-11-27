@@ -1258,3 +1258,25 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   conservative number. The approved line cut the shell's lip by 2.7 m.
 - **Review renders of a built blend:** hide collision objects (they render opaque). Swap Sollumz materials by name for
   Principled stand-ins, and place copies of the door leaves from build.json.
+
+## Lot + fittings lessons (Block Boyz truck club, 2026-11-27, "Build all of it")
+- **tc_kit builds in a local frame and exports the exterior collision through `L2W`.** With `set_origin(0, 0, 0)` (a build
+  authored at the origin, placed later by its ymap) the static ext collision (`*_ext_col.ybn`: deck, the walls' outer faces,
+  the arch) came out at the WORLD origin, not at the building: its box read x -4..67, y -14..46. `set_origin` has no height,
+  so set `TK.L2W = Translation((x, y, z)) @ Rotation(heading)` from the site file before `export_all`. Check every static ybn's
+  BoxMin/BoxMax with `cw_xml.ps1` after a build: it must sit at the site's world coordinates.
+- **A lot plan is data with checks** (`tools/site_rebuild/lot_plan_example.py`, from the club): lanes, stalls, angled
+  pull-throughs (parallelograms whose feet and heads sit on the aisle and the lane), show pad, lamp posts, keep-clear hatching
+  clipped to the site, all checked (on the site, off the lanes, clear of the pad, >= 4 m in plan from every KEPT power line
+  span read from wires.py's reports) and drawn to a PNG for the client. The paving step paints `paint()` and the map step
+  places `lights()`: nothing is placed by hand.
+- **Lot lamps under a power line:** never put an 8-9 m lamp post along an edge the kept power line follows. The first plan
+  put one 1.6 m under a kept span at the NE corner; the wire check caught it.
+- **Rockstar textures from a named dictionary:** `tex_extract.ps1` takes `name@dict.ytd` (e.g. the city's fresh tarmac
+  `cs_rsl_ps_newtarmac_001@ch1+hi.ytd`, the car-park markings atlases) next to plain names searched by path.
+- **Never start a long build with `&` inside a tool call that also returns.** The `&` child kept running after the call
+  "finished", a second build started, and both wrote the same folders (a test then failed on half-written XML). Use the
+  harness's background run for the whole command, and kill stray `build.sh` / blender workers before a rerun.
+- **Shop props for a truck club:** two-post lift `tr_prop_tr_car_lift_01a` (3.95 x 2.3 m, posts on local x), bar stool
+  `bkr_prop_biker_barstool_01` (faces -y), double-arm lot lamp `prop_streetlight_04` (arms +-2.45 m on local y, 8.6 m),
+  one-arm `prop_streetlight_03` (arm on local -y, 2.5 m, 8.9 m).
