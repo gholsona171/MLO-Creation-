@@ -1242,3 +1242,19 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
 - `make_conflict_check.py --ours` takes several prefixes (`jy_,c9hp_`): a map that ships our own prop pack must not list those
   files as replaced Rockstar files.
 - **Never script the rig login** (`qbx_core:server:loadCharacter`), even when `tc_connect.sh`'s client-1 call happens to hit your id. It leaves the character-select overlay up ("Already loading a character"), and shots show the menu over the world. Restart the client and click PLAY with `clickwin.ps1 -X 231 -Y 1029`. (Graveyard, 2026-11-23)
+
+## Curved building lessons (Block Boyz truck club, 2026-11-27)
+- **Freeform plans:** use `tools/curved_walls/geom.py`. It builds one mitred outline in runs, forces straight chords wherever a
+  leaf sits, and groups portals over facets. A smooth superellipse club (60 m) came to 60 portals.
+- **The exterior soffit is drawn inside too.** Once you look out through any exit portal, the whole ext drawable renders
+  (portal visibility is per entity, not clipped). An interior ceiling 3 cm under the shell's underside therefore z-fights,
+  because the two interpolated grids touch. Hang the interior ceiling 15 cm under the shell.
+- **The `zfight.json` scan can report false clashes between two big ring grids.** Ray-probe the blend (`scene.ray_cast`
+  upward) before changing anything.
+- **A finish 1 cm over a slab is a clash.** Build a deck or mezzanine as ONE solid in its top material. Rail shoes sit 5 mm into
+  the floor. Floor decals need >= 1 cm steps.
+- **Glass roll-up leaves:** rails go BETWEEN the stiles. Full-width rails over the stiles share their faces and flicker.
+- **Arches and sculpture over a roof:** check the clearance against the roof's real thickness at its ring, not one
+  conservative number. The approved line cut the shell's lip by 2.7 m.
+- **Review renders of a built blend:** hide collision objects (they render opaque). Swap Sollumz materials by name for
+  Principled stand-ins, and place copies of the door leaves from build.json.
