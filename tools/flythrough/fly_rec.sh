@@ -5,6 +5,8 @@
 #   FOV    camera fov (default 60)                              PRE   seconds for the first spot to stream in before the ride (default 4)
 #   DOORS  "model x y z [t];model x y z [t]" doors to swing/roll OPEN on camera t s into the ride (default 0; take t from
 #          `fly_path.py times`). Filming aid only: our own door-system hashes, held shut until t, shut and removed after; never shipped.
+#   TCMOD  a room timecycle to apply while the camera is inside an interior (scripted cameras skip room timecycles, so a video
+#          would show the raw outdoor exposure indoors: give the MLO rooms' own timecycle name to see what a player sees)
 # The server HUD (c9_hud) is hidden for the ride and shown again after; GTA's own HUD and radar too. Needs the player healed first
 # (osp_ambulance blur / camera shake would be recorded): Block Boyz tools/bbheal.sh pattern.
 [ -f "$2" ] || { echo "FLY_FAIL path file not found: $2"; exit 2; }
@@ -33,6 +35,7 @@ CreateThread(function() Wait(${PRE:-4}*1000) local t0=GetGameTimer() local opene
   while _G.__tcfly do local el=(GetGameTimer()-t0)/1000.0 local x=el/DT if x>#S-1 then x=#S-1 end
     for i,dh in ipairs(_G.__flydoors) do if not opened[i] and el>=dh[2] then opened[i]=true DoorSystemSetDoorState(dh[1],0,false,true) DoorSystemSetOpenRatio(dh[1],1.0,false,true) end end
     local pos=at(S,x) local look=at(K,x)
+    if '${TCMOD:-}'~='' then local inside=GetInteriorFromEntity(p)~=0 if inside~=_G.__flyin then _G.__flyin=inside if inside then SetTimecycleModifier('${TCMOD:-}') else ClearTimecycleModifier() end end end
     SetCamCoord(c,pos.x,pos.y,pos.z) PointCamAtCoord(c,look.x,look.y,look.z) SetEntityCoords(p,pos.x,pos.y,pos.z-1.0,false,false,false,false) SetFocusPosAndVel(pos.x,pos.y,pos.z,0.0,0.0,0.0)
     if x>=#S-1 then break end Wait(0) end
   _G.__tcfly=false end)
@@ -45,7 +48,7 @@ h=$(powershell -NoProfile -Command "(Get-Process FiveM_b3258_GTAProcess | ? Main
 D=$("$(dirname "$FF")/ffprobe.exe" -v error -show_entries format=duration -of csv=p=0 "$OUT" 2>/dev/null)
 [ -n "$D" ] && [ "$("$PY" -c "print(1 if float('${D:-0}') >= $DUR - 3 else 0)")" = 1 ] && echo "FLY_OK $OUT (${D%.*} s of $DUR)" || echo "FLY_FAIL $OUT (duration '$D' of $DUR)"
 # release: doors shut and handed back to the map, camera off, ped back, HUD back
-./t.sh cl $CL "_G.__tcfly=false _G.__hold=false
+./t.sh cl $CL "_G.__tcfly=false _G.__hold=false if '${TCMOD:-}'~='' then ClearTimecycleModifier() _G.__flyin=nil end
 for _,dh in ipairs(_G.__flydoors or {}) do DoorSystemSetDoorState(dh[1],1,false,true) DoorSystemSetOpenRatio(dh[1],0.0,false,true) end
 CreateThread(function() Wait(6000) for _,dh in ipairs(_G.__flydoors or {}) do RemoveDoorFromSystem(dh[1]) end _G.__flydoors=nil end)
 if _G.__tccam then RenderScriptCams(false,false,0,true,true) DestroyCam(_G.__tccam,false) _G.__tccam=nil end ClearFocus()

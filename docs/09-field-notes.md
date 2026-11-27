@@ -1306,3 +1306,20 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
 - **The game client may ignore CloseMainWindow and the quit dialog** (it stayed in, the player still listed). Drop it with
   `taskkill //IM FiveM_b3258_GTAProcess.exe //F` + `FiveM.exe`, then wait for the server's player list to empty before
   restarting a stream resource.
+
+## Round 3 lessons (Block Boyz truck club, 2026-11-27): night haze, glass stair, native pool props, signs
+- **Night "fog-like glow" in an MLO = rooms with no timecycle.** The club's rooms had an empty timecycleName; at 22:00 the hall
+  read hazy and blown even in a still scripted shot. With `mp_heist_tuner_smshop_default` on both rooms the same scripted shot
+  at 22:00 is clean (the earlier note that scripted cams skip room timecycles did not hold here: check before emulating).
+  Verify in game: `GetInteriorRoomTimecycle(int, GetInteriorRoomIndexByHash(int, GetRoomKeyFromEntity(ped))) == GetHashKey(name)`.
+- **Floating glass stair recipe** (Block Boyz `build.py`, after the tow yard house): frosted glass treads on one steel spine with
+  a steel seat under each, glass on the open side with a black handrail, a stairs-flagged ramp collision. Seat every steel part
+  1 cm INTO the glass (level faces flickered: 35 overlap flags), and run glass standoffs right through the pane as bolts with a
+  2.5 cm cap (an end inside a 2 cm pane sits 1 cm from both faces: flagged).
+- **Native pool props stay script-findable inside an MLO:** `prop_pooltable_3b`, `prop_pool_rack_01` (wall cue rack, back at
+  local y 0, faces -y) and `sf_prop_sf_dj_desk_02a` placed as MLO entities all came back from `GetClosestObjectOfType`, so pool
+  scripts that look for the table / rack work without a spawner. (Our own static archetypes do not: those are buildings.)
+- **DJ desk `sf_prop_sf_dj_desk_02a`:** its working side (decks, mixer) is local +y; the DJ stands there. Heading so that +y
+  points AWAY from the audience (first placement faced the hall with its back: Antonio caught it). Needs game build 2545+.
+- **A flat sign quad is wound for the READER:** facing +y, the reader's right is +x (forward x up). Wound the other way the
+  picture faces the wall and you see only the backing (the chapter sign came out blank).
