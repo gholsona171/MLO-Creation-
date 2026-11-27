@@ -24,6 +24,8 @@ GTA V install and the CodeWalker folder — change them for another PC.
 | `merge_cols.py` | Blender: join an MLO's collision into one mesh per room before the composite (one BVH child per room: phInstGta pool) | `from merge_cols import merge_cols` in the build |
 | `tc_tviews.sh` | Rig: screenshots from a scripted camera in a lot frame | `OX=.. OY=.. bash tc_tviews.sh tag "name u v z tu tv tz"` |
 | `tc_fly.sh` | Rig: fly-through video along waypoints | `bash tc_fly.sh out.mp4 1.6 "u v z" "u v z" ...` |
+| `flythrough/fly_path.py` | Fly-through track (world coords) + offline check against built triangles | `python fly_path.py check route.txt --tris site/bb/tris_*.npy --doors openings.json` |
+| `flythrough/fly_rec.sh` | Rig: record that track on client CL at HOUR, HUD hidden, DOORS opened on cue | `CL=8 HOUR=22 DOORS="$(cat doors.txt)" bash fly_rec.sh out.mp4 route.txt` |
 
 The project-specific build (rooms, partitions, layout tables) lives in the Tower City workspace (`work/tower_crown.py`, `work/tc_kit.py`).
 

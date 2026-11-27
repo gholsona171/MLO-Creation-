@@ -1280,3 +1280,29 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
 - **Shop props for a truck club:** two-post lift `tr_prop_tr_car_lift_01a` (3.95 x 2.3 m, posts on local x), bar stool
   `bkr_prop_biker_barstool_01` (faces -y), double-arm lot lamp `prop_streetlight_04` (arms +-2.45 m on local y, 8.6 m),
   one-arm `prop_streetlight_03` (arm on local -y, 2.5 m, 8.9 m).
+
+## Lighting, letters, fly-through lessons (Block Boyz truck club, 2026-11-27, round 2)
+- **Fixture-only lighting reads right in game:** every light sits a few cm under a visible fixture (linear pendants on a 6 m grid
+  in the hall, flush downlights on a 2.6 m grid in rooms, lights every 2.5-6 m along each glowing LED strip). Give the lamp face a
+  3 cm gap to its housing: faces closer than that tripled the overlap-scan count.
+- **A dark ceiling must be matte.** The hall ceiling (rgb .10, spec .2) showed every pendant light as a bright glossy oval on it;
+  at spec .03 it is a plain dark ceiling. Keep spec low on any dark surface under many point lights.
+- **Two-faced 3D letters: mind which way "right" is.** Letters stood along a curve read correctly only when the logo's +x runs
+  to the READER's right: for a reader on the side of normal n (n = the along-vector a turned left), that is -a, not +a. Both sets
+  read mirrored in game until swapped (and the 13 small leftover overlap flags on the letters went with it). Check one photo
+  from each side before anything else.
+- **The rig's test player gets screen blur / camera shake from osp_ambulance** (blood-type symptoms `DRUNK_SHAKE`, knockout
+  `hud_def_blur`). Before photos or videos: the script's own full revive `TriggerClientEvent('hospital:client:Revive', id, true)`
+  (what txAdmin's heal fires), then clear timecycles, shakes and post fx and reset hunger / thirst (Block Boyz `tools/bbheal.sh`).
+- **c9_hud hides with `exports.c9_hud:SetVisible(false)`** (its NUI is captured by gdigrab; DisplayHud does not hide it).
+  `flythrough/fly_rec.sh` does it and gives it back after.
+- **Fly-through routes are checked offline FIRST, every time** (`flythrough/fly_path.py check`, world-coordinate port of the jail
+  tools). Five rounds on the club's route found: a pool-room waypoint inside the curved front wall (the room is a wedge, not
+  its plan rectangle), the climb onto a mezzanine cutting under it, pendants 1.2 m above the rail it had to cross, and the
+  mezzanine rail's cap under a descending camera. Map free space at eye height around a tight spot
+  (distance to the nearest triangle on a grid) before placing points. Register open doorways as door spots (`--doors` takes
+  doors.json + your openings) or every doorway reads as a wall. A 0.9 m door's own centre line is 0.44 m from its jambs:
+  pass `--door-clear 0.4` and say so in the route, never a blanket lower limit.
+- **The game client may ignore CloseMainWindow and the quit dialog** (it stayed in, the player still listed). Drop it with
+  `taskkill //IM FiveM_b3258_GTAProcess.exe //F` + `FiveM.exe`, then wait for the server's player list to empty before
+  restarting a stream resource.

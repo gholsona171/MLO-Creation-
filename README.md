@@ -51,6 +51,7 @@ See [tools/README.md](tools/README.md). The short list:
 | Collision as one BVH child per room (physics-pool crash) | `merge_cols.py` |
 | Survey a new lot: block files, live variant, occluders, lights, AI, collision height map, calibrated top-down (doc 12) | `survey/` |
 | Video → frame contact sheets for review | `video_review.py` |
+| Cinematic fly-through for ANY build: world-coordinate spline track, speed per point, offline face check (CLOSE / STATIC, planted-fault proofs), recorder that hides the server HUD and opens named doors on cue (field note 2026-11-27) | `flythrough/fly_path.py`, `flythrough/fly_rec.sh` |
 | Check incoming MLO packs vs a server and each other (same names, MLO positions, custom-ymap overlap) + rig photo lineup (ring + room corners) (field note 2026-11-19) | `mlo_check/`, `map_merge/mlo_scan.ps1` |
 | Merge two bought maps that replace the same vanilla occluder / collision / ymap file (3-way vs vanilla, field note 2026-11-05) | `map_merge/` |
 | Clear a whole vanilla block to one flat lot: outline from Rockstar's sidewalk edge, removals, LOD / SLOD cuts, collision, occluders, LOD lights, AI off, gates + rig probes (doc 02 / 07) | `justice/` (`build_p1.sh`) |
