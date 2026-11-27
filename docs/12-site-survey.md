@@ -57,3 +57,21 @@ Antonio wants the real top-down layout, not an approximation. The chain (`tools/
 4. One outline file (`v1_outlines.json`) feeds the plan, the section, the data sheet and the removal list: the drawings can't drift.
 5. Check whether the vanilla building you replace is a popular paid MLO site (Davis sheriff: Gabz Davis PD and others): a
    conflict risk for the shipped checker and the buyer README.
+
+## Fitting a site on open ground (Block Boyz truck club, west Sandy Shores, 2026-11-27)
+No vanilla block to replace: a client bought a 120 x 100 m site and picked open dirt by the Alamo Sea. Tools: `tools/survey/lot_fit/`.
+1. `site_scan.ps1` with the box as parameters, then `lot_fit/extra_scan.ps1` (path nodes with links, named scenario points, grass).
+2. One collision copy per file (`lr_` > `hei_` > base, ped + `hi@`), extract + XML, `lot_fit/heightmap.py`. Use the LOWEST walkable
+   surface as the ground: the highest one puts every roof and shed into the terrain.
+3. Measure the roads from their collision files (`cs4_roads_*`), not from path nodes: the node line says nothing about width
+   (Sandy's roads are about 11 m edge to edge).
+4. Water: the Alamo Sea quads are at z 30.0; water shows where the ground is under 30 inside a quad. The shoreline = the 30.0
+   contour. Single empty cells inside a quad are holes in the collision, not water: keep only the connected lake.
+   Rockstar's "beached" boats and wrecks on the Sandy shore sit at z 27.6-29.8, half in the shallows.
+5. `search.py` / `fit.py`: fit the site in the building's local frame (back edge = behind the arch leg, front toward the lot) over
+   every heading. Roads (+3 m), water (+5 m) and houses (+5 m) block; sheds, skips, poles do not - they become removals.
+6. `evaluate.py` + `plot.py` for each proposal. Merged wire meshes (`cs4_rd_props_xwireNN`) span many poles: a removed pole means
+   cutting the wire mesh, so list the bundles separately from the removals.
+Result there: the client's strip between two roads is only 69-75 m deep, so 120 x 100 needed a road closure or a 16 m hill cut;
+the honest answer was "reshape the site" (longer, shallower). Check this before promising a site size. Also check for free / paid
+maps already on that shore (a "Sandy Shores Marina Drive Mansion" YMAP sits on that beach).

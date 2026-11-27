@@ -111,6 +111,16 @@ Read the build outputs (`tris_*.npy` + `mats_*.npy` triangle kinds, layouts' por
 | `jc_probe.py`, `joint_proof.py`, `scen_pool.py`, `jc_pair.sh` | Rig probes (grid, walk, ai, drive), the multi-map scenario proof, the blocking pool count, before / after shots |
 | `near_ents.ps1`, `ymap_parents.ps1`, `scenarios_all.ps1`, `wire_spans.py`, `ybn_at.ps1` | Survey helpers: entities by bounds, child ymaps of LOD ymaps, every scenario region, wire spans to poles, files covering a point |
 
+### Fitting a site on open ground (Block Boyz, west Sandy Shores, 2026-11-27) - in `survey/lot_fit/` (doc 12; copies, run from the project's `survey/scripts/`, data lands one folder up)
+| Tool | What it does |
+|---|---|
+| `extra_scan.ps1` | Path nodes WITH their links (`NodeDictionary.Links[LinkID..]`; `YndNode.Links` is empty offline), scenario points with type names, grass instances (decoded positions) from the live ymap variant of each family |
+| `heightmap.py` | Collision height map with the box as arguments and TWO surfaces: top and lowest walkable (the ground proxy under roofs / piers) |
+| `search.py` | Masks (road collision files, lake water = connected ground-under-water-z inside a quad, house footprints) + the deepest clear W x D site over every heading / anchor |
+| `fit.py`, `refine.py` | The same fit for any local width / origin range; rank the full-depth sites by ground range |
+| `evaluate.py` | Per placement: ground stats, cut = fill pad z and volumes, roads / nodes crossing, nearest water, every entity within 10 m by kind, grass, scenarios, car gens -> placements.json |
+| `plot.py` | Top-down PNGs: heights, shoreline, water, roads, poles, wrecks, bushes, the building outline + arch legs + front arrow per placement |
+
 ### Merging bought maps that ship the same vanilla file (2026-11-05 / 06) - in `map_merge/` (field notes "Two bought maps...", "Bought maps, round 2", "A map's fix to one occluder variant...")
 | Tool | What it does |
 |---|---|
