@@ -1323,3 +1323,80 @@ room of the courts MLO). Neither was the cause here, both were removed while loo
   points AWAY from the audience (first placement faced the hall with its back: Antonio caught it). Needs game build 2545+.
 - **A flat sign quad is wound for the READER:** facing +y, the reader's right is +x (forward x up). Wound the other way the
   picture faces the wall and you see only the backing (the chapter sign came out blank).
+
+## Replacing a whole venue (Block Boyz moved onto the Vinewood Bowl, 2026-11-27)
+Antonio: "I want my MLO placed in place of the bowl ... clear it, flatten it, and then do it." The club, its 110-stall lot, loop,
+show pad and lamps were lifted from Sandy Shores and refitted where the Bowl stood (blockboyz_truckclub/tools: `site_outline.py`,
+`site_plan.py`, `grade.py`, `ground_col.py`, `ground.py`, `terrain.py`, `lod_cut.py`, `ground_gate.py`). What was different from
+clearing an open lot:
+- **Which map copy is live decides everything.** At the Bowl the Executives IPLs are on (`IsIplActive('apa_ch2_04') == true`, base
+  off), so the ground scan ranks copies `apa_ > lr_ > hei_ > base` (hi@ / ma@ never ground) and `site_clear.py`'s VARIANT regex
+  must include `apa_`, or the live copy keeps every seat. Ask the rig before scanning.
+- **Road detection by file name misses roads.** Marlowe Dr north of y 536 has no `*roads*` collision; check by material instead:
+  tarmac is collision material type 4 / 5 / 6 in CodeWalker XML (`<Materials><Item><Type value=..>`).
+- **A venue's seats are box primitives with no ground under them.** Cutting + regrading Rockstar's ground leaves holes where the
+  seats were. Instead cut EVERYTHING on the site and ship the site's own ground collision from the grade
+  (`tools/site_rebuild/ground_col.py`: 1 m cells, TARMAC on the paved lot, GRASS_SHORT off it, one BVH child per 64 m tile).
+  Faces that cross the outline are bisected along it first (bmesh `bisect_plane` per outline edge), so the kept half meets ours.
+- **One lattice for grade, drawn ground and collision.** The grade is read with triangle interpolation (split on the
+  (i,j)-(i+1,j+1) diagonal, not bilinear), and the drawn ground's 1 m cells and the collision's 1 m nodes both sit ON the grade's
+  lattice (offset = grade origin % 1, here 0.5 m) with the same diagonal. Any mismatch (2 m collision under 1 m drawn ground,
+  bilinear vs triangles, a 0.5 m shift) showed as 0.3-0.6 m float / sink on the banks.
+- **"Flatten it" = a plane, not a membrane.** A least-squares membrane over a bowl left the lot at p95 18 % slope. The paved lot is
+  one plane, level along the club's axis and behind it (pad, back apron, the arch's buried back foot all on one level), falling
+  ~2-3 % straight out from the club's front to the road's own height at the driveway (`grade.plane`, shared with the outline step).
+- **Banks: a ramp between the lot and the old ground, sized by the height to climb.** A fixed-width bank either ate the lot or
+  left 5-7 m cliffs; a membrane bank left a 2.9 m lip at the outline. What worked: grow the site 10 m round the hollow into the
+  hill (3 m off roads, clear of the kept mansion, stopping 2 m short of old slopes over 1.5), keep a cell paved only when its
+  distance to the outline >= |old ground just outside - plane| / 1.0 + 1 m, and grade the grass as
+  z = (1-t)·lot_edge + t·old_ground_at_outline with t = d_lot / (d_lot + d_outline) (both targets smoothed, or the ramp creases).
+- **Rockstar's drawn ground must be cut on a ring just inside the outline too** (`terrain.py`, `site_plan.json` site_ring, 0.5 m
+  in), not only on the outline + a 4 m grid: on a steep bank a 4 m triangle from the outline vertex (held at the old height) runs
+  straight and stands 0.26 m above the grass just inside.
+- **Far-view models: find their types in the right level folder, and cut the ground too.** `lod_extract.ps1` looked for the
+  archetypes' drawable dictionaries only in `country_04` ytyps (Sandy) and found 0 of 312 at the Bowl; the area is now a site
+  setting (`site.json map_area`: `cityhills_02` for Vinewood). And at a venue the "keep up-facing faces near the old ground" rule
+  keeps the whole venue (seat rows, stage floors, car-park tops ARE the old ground): on the site cut everything, keep ground only
+  in the margin outside, and draw the site's own ground as far as the land SLOD it replaces (ch2_lod3_s2a: 1750 m).
+- **Never force a re-exported Rockstar model's textures out of it.** `terrain.py` / `lod_cut.py` / `wires.py` set every texture
+  `embedded = False` (fine at Sandy). Vinewood's land models carry some textures inside the .ydr (ch2_04_land06:
+  cs_rsn_tf_forest3, rn_tf_mudbank_002 + _n); dropped, those faces drew untextured: a purple-grey smear over the hill behind the
+  club and grey shards across the hills, seen only in the in-game shots (every gate passed). Sollumz's import already marks which
+  ones were embedded: keep its flags. Compare a vanilla and a re-exported model's `<TextureDictionary>` in CodeWalker XML.
+- **Hold the bank's outer ring at the real old ground.** A smooth bank target met Rockstar's ground only at the outside nodes, so
+  the first nodes inside sat up to 1.4 m off the rock faces and a retaining wall beside them (the wall's gap cells have no
+  up-facing ground and were filled from its top). `grade.py` EDGE: grass nodes within 1 m of the outside are held at the raw ground.
+  A cell with no up-facing collision (a wall face, a rock-ledge gap) is ground at the FOOT of the wall: fill gaps from the lowest
+  neighbour, one ring at a time (`ground_scan.fill_gaps`), the same in the grade and in the gate.
+- **The outline gate must allow steps that were already there.** Where the outline runs along a rock face or a retaining wall the
+  old ground drops up to 2 m inside 0.5 m, which a grade sampled every 1 m cannot follow. `ground_gate.py` EDGE_STEP now fails a
+  step only if it differs from the plan AND is bigger than the old ground's own drop across the same two cells.
+- **Occlusion step speed:** test the site's bounding box before the point-in-polygon (PowerShell, 800-point outline, 13 occlusion
+  maps): 25 min -> seconds.
+- **Fit the big rectangle last.** The loop block (192.5 x 64.5 m) was re-searched (heading +-30, 2 m steps, full lot checks) after
+  every outline change. Keep the search coarse and time-boxed.
+- **Drawn ground off the lot comes from the venue's own land model's textures** (ch2_04_land07: cs_rsn_tf_bushgrass1a,
+  cs_tf_rsn_redgrass1, dh_ch02_ground_02 + _n), same 4-layer terrain shader as the blacktop.
+- Rig helpers: scripted-camera coords passed from bash into Lua natives must be floats (`$2+0.0`). The harness `/shot` came back
+  blank for world shots; `winshot.ps1 -Proc FiveM_b3258_GTAProcess` works. Start the FiveM client through
+  `explorer.exe <FiveM.lnk>`: `Start-Process` on the shortcut gets "should be launched directly from the shell". Files over 10 MB
+  for Google Drive go by copying into `G:\My Drive\...` (Drive for desktop), not the Drive MCP upload (10 MB cap).
+- **Edit Rockstar's maps from the SERVER'S game build, never from the Steam install.** Cleveland enforces b3258; the Steam
+  install is newer (update.rpf 2.0 GB with mp2024_02 .. mp2026_01). Its `update.rpf\dlc_patch\mpapartment` holds 2025 copies of
+  the Bowl's maps: `apa_ch2_04_long_4.ymap` 342 entities with the hill `ch2_04_land06` removed (for Rockstar's mansions, which
+  bob74_ipl loads only on b3717+), `apa_ch2_04.ymap` 554 vs 569. Our cleared copies were built from those, so on b3258 the hill's
+  HD model never loaded and its DISTANCE model (LOD) sat there up close, with sky showing through the faces lod_cut had removed.
+  Proof by A/B on the rig: same camera, resource OFF -> `HasModelLoaded(GetHashKey('ch2_04_land06'))` true and the hill crisp;
+  ON -> false and the blurry LOD. Rule: a streamed ymap replaces the game's copy by name, so its entity list and parent/LOD links
+  must be the build's own.
+  How: `tools/site_rebuild/game_files.ps1` (dot-source it in every step that reads the game). It leaves out the Steam
+  update.rpf / update2.rpf and reads the build's pair from FiveM's own store (`FiveM.app\data\game-storage\update+update.rpf_<hash>`,
+  `update+update2.rpf_<hash>`). CodeWalker fails on those ("Error in RPF7 file entry") because NG decryption picks its key from
+  the FILE NAME: hard-link them into a folder as `update.rpf` / `update2.rpf` (`mklink /H`, no copy) and open those. DLC packs
+  are read only if the build mounts them: the build's own `update.rpf\common\data\dlclist.xml` (b3258: 89 packs, last
+  mp2024_01 / patch2024_01); it has both forms, `dlcpacks:/mpheist/` and `platform:/dlcPacks/mpBeach/`. The client log is no
+  substitute (it misses packs without a content.xml). Check after the extract: every source path is a pack in the list, none of
+  mp2024_02 / mp2025* / patch2025*.
+- **Other things that make LODs stick up close (Cfx forum, fivem#2752), to check next if the build-match is not it:** a map file
+  that overrides newer map data; broken parent/child LOD links in an edited ymap; the archetype pool limit (65,535); distance
+  scaling settings.
