@@ -9,6 +9,7 @@
 #   * a DLC pack (any ...\dlcpacks\<pack>\...) is read only when the build mounts it: the build's own update.rpf
 #     common\data\dlclist.xml, both forms ("dlcpacks:/mpheist/", "platform:/dlcPacks/mpBeach/"; b3258: 89 packs, up to mp2024_01 /
 #     patch2024_01). The client's log is no substitute: it names only packs with a content.xml (it missed mpbeach, mpheist ...).
+# Its own working variables all start with $gf (PowerShell names ignore case: a loop $m here overwrote the caller's $M).
 # Defines: $gta, $cw (CodeWalker loaded, keys loaded), $GameRpfs (every archive of the build, nested ones too: each has .AllEntries
 # and .Path), and Rank($path) (patchday > dlc_patch > dlcpacks > base: the newest copy of a name within the build wins).
 $gta = 'C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V'
@@ -20,27 +21,27 @@ if (-not $site.game_build -or -not $site.game_build_update_dir) { throw 'site.js
 function Rank($p) { $m = [regex]::Match($p, 'patchday(\d+)'); if ($m.Success) { return 100 + [int]$m.Groups[1].Value }; if ($p -match 'dlc_patch') { return 60 }; if ($p -match 'dlcpacks') { return 50 }; return 0 }
 function Add-RpfTree($f) { $GameRpfs.Add($f); if ($f.Children) { foreach ($c in $f.Children) { Add-RpfTree $c } } }
 function Find-Entry($f, $name) { foreach ($e in $f.AllEntries) { if ($e.Path -like "*\$name") { return $e } }; if ($f.Children) { foreach ($c in $f.Children) { $r = Find-Entry $c $name; if ($r) { return $r } } }; return $null }
-$buildRpfs = @()
-foreach ($n in 'update.rpf', 'update2.rpf') {
-  $path = Join-Path $site.game_build_update_dir $n
-  if (-not (Test-Path -LiteralPath $path)) { throw "the build's $n is missing: $path (site.json game_build_update_dir)" }
-  $u = New-Object CodeWalker.GameFiles.RpfFile($path, "update\$n")
-  $u.ScanStructure([Action[string]]{ param($s) }, [Action[string]]{ param($s) })
-  if ($u.LastError) { throw "the build's $n did not open: $($u.LastError.Message)" }
-  $buildRpfs += , $u }
-$dl = Find-Entry $buildRpfs[0] 'common\data\dlclist.xml'
-if (-not $dl) { throw "the build's update.rpf has no common\data\dlclist.xml" }
-$buildDlcs = New-Object 'System.Collections.Generic.HashSet[string]'
-foreach ($m in [regex]::Matches([Text.Encoding]::UTF8.GetString($dl.File.ExtractFile($dl)), '(?i)dlcpacks:?[\\/]+([^\\/<]+)')) { [void]$buildDlcs.Add($m.Groups[1].Value.ToLower()) }
+$gfBuildRpfs = @()
+foreach ($gfN in 'update.rpf', 'update2.rpf') {
+  $gfPath = Join-Path $site.game_build_update_dir $gfN
+  if (-not (Test-Path -LiteralPath $gfPath)) { throw "the build's $gfN is missing: $gfPath (site.json game_build_update_dir)" }
+  $gfU = New-Object CodeWalker.GameFiles.RpfFile($gfPath, "update\$gfN")
+  $gfU.ScanStructure([Action[string]]{ param($s) }, [Action[string]]{ param($s) })
+  if ($gfU.LastError) { throw "the build's $gfN did not open: $($gfU.LastError.Message)" }
+  $gfBuildRpfs += , $gfU }
+$gfDl = Find-Entry $gfBuildRpfs[0] 'common\data\dlclist.xml'
+if (-not $gfDl) { throw "the build's update.rpf has no common\data\dlclist.xml" }
+$gfBuildDlcs = New-Object 'System.Collections.Generic.HashSet[string]'
+foreach ($gfM in [regex]::Matches([Text.Encoding]::UTF8.GetString($gfDl.File.ExtractFile($gfDl)), '(?i)dlcpacks:?[\\/]+([^\\/<]+)')) { [void]$gfBuildDlcs.Add($gfM.Groups[1].Value.ToLower()) }
 $GameRpfs = New-Object System.Collections.Generic.List[object]
-$rpfm = New-Object CodeWalker.GameFiles.RpfManager
-$rpfm.Init($gta, $false, [Action[string]]{ param($s) }, [Action[string]]{ param($s) }, $false, $true)
-$skipped = @{}
-foreach ($f in $rpfm.AllRpfs) {
-  $p = $f.Path.ToLower()
-  if ($p -match '^update\\update2?\.rpf') { continue }                                     # the Steam install's own (newer) update
-  $m = [regex]::Match($p, '\\dlcpacks\\([^\\]+)\\')
-  if ($m.Success -and -not $buildDlcs.Contains($m.Groups[1].Value)) { $skipped[$m.Groups[1].Value] = $true; continue }   # a pack the build does not mount
-  $GameRpfs.Add($f) }
-foreach ($u in $buildRpfs) { Add-RpfTree $u }
-[Console]::Error.WriteLine("GAME_FILES build $($site.game_build): $($buildDlcs.Count) packs in its dlclist, $($GameRpfs.Count) archives; packs left out: $(($skipped.Keys | Sort-Object) -join ' ')")
+$gfRpfm = New-Object CodeWalker.GameFiles.RpfManager
+$gfRpfm.Init($gta, $false, [Action[string]]{ param($s) }, [Action[string]]{ param($s) }, $false, $true)
+$gfSkipped = @{}
+foreach ($gfF in $gfRpfm.AllRpfs) {
+  $gfP = $gfF.Path.ToLower()
+  if ($gfP -match '^update\\update2?\.rpf') { continue }                                     # the Steam install's own (newer) update
+  $gfM = [regex]::Match($gfP, '\\dlcpacks\\([^\\]+)\\')
+  if ($gfM.Success -and -not $gfBuildDlcs.Contains($gfM.Groups[1].Value)) { $gfSkipped[$gfM.Groups[1].Value] = $true; continue }   # a pack the build does not mount
+  $GameRpfs.Add($gfF) }
+foreach ($gfU in $gfBuildRpfs) { Add-RpfTree $gfU }
+[Console]::Error.WriteLine("GAME_FILES build $($site.game_build): $($gfBuildDlcs.Count) packs in its dlclist, $($GameRpfs.Count) archives; packs left out: $(($gfSkipped.Keys | Sort-Object) -join ' ')")
